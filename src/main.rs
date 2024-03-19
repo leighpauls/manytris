@@ -15,7 +15,6 @@ fn main() {
     gs.drop();
     gs.new_active_tetromino(Tetromino::new());
     gs.print();
-    gs.down();
     gs.cw();
     gs.print();
 }

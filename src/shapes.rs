@@ -1,5 +1,6 @@
 use crate::game_state::{H, PREVIEW_H, W};
 
+#[derive(Clone)]
 pub enum Shape {
     S,
     Z,
@@ -10,6 +11,7 @@ pub enum Shape {
     T,
 }
 
+#[derive(Clone)]
 pub enum Orientation {
     Up,
     Right,
@@ -18,7 +20,7 @@ pub enum Orientation {
 }
 
 #[derive(Clone, PartialEq, Eq)]
-pub struct RelPos(i32, i32);
+pub struct RelPos(pub i32, pub i32);
 
 impl RelPos {
     /// Rotate around a given block, like for T and Z

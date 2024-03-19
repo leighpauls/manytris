@@ -1,3 +1,5 @@
+use crate::shapes::{Orientation, Shape, TetrominoLocation};
+
 pub const W: i32 = 10;
 pub const H: i32 = 10;
 
@@ -13,7 +15,9 @@ pub struct Pos {
 
 #[derive(Clone)]
 pub struct Tetromino {
-    blocks: [Pos; 4],
+    shape: Shape,
+    loc: TetrominoLocation,
+    orientation: Orientation,
 }
 
 pub enum Shift {
@@ -34,35 +38,64 @@ impl Pos {
     fn to_buffer_idx(&self) -> usize {
         (self.y * W + self.x) as usize
     }
+
+    fn out_of_bounds(&self) -> bool {
+        (self.x < 0 || self.x >= W || self.y < 0)
+    }
 }
 
 impl Tetromino {
     pub fn new() -> Tetromino {
-        let y = H - 1;
+        let shape = Shape::I;
         Tetromino {
-            blocks: [
-                Pos { x: 0, y },
-                Pos { x: 1, y },
-                Pos { x: 2, y },
-                Pos { x: 3, y },
-            ],
+            loc: shape.starting_tetromino_location(),
+            shape,
+            orientation: Orientation::Up,
         }
     }
 
+    fn get_blocks(&self) -> [Pos; 4] {
+        let rels = self.shape.relative_positions(&self.orientation);
+        rels.map(|rp| Pos {
+            x: self.loc.0 + rp.0,
+            y: self.loc.1 + rp.1,
+        })
+    }
+
     fn contains(&self, p: &Pos) -> bool {
-        self.blocks.contains(p)
+        self.get_blocks().contains(p)
     }
 
     /// Returns a new Tetromino, dropped 1 space, if valid.
     fn down(&self) -> Option<Tetromino> {
         let mut t = self.clone();
-        for p in &mut t.blocks {
-            if p.y == 0 {
+        t.loc.1 -= 1;
+        for p in &t.get_blocks() {
+            if p.out_of_bounds() {
                 return None;
             }
-            p.y -= 1;
         }
         Some(t)
+    }
+
+    fn cw(&self) -> Option<Tetromino> {
+        let mut new_t = self.clone();
+        new_t.orientation = new_t.orientation.cw();
+
+        if new_t.out_of_bounds() {
+            None
+        } else {
+            Some(new_t)
+        }
+    }
+
+    fn out_of_bounds(&self) -> bool {
+        for p in self.get_blocks() {
+            if p.out_of_bounds() {
+                return true;
+            }
+        }
+        false
     }
 }
 
@@ -70,17 +103,16 @@ impl Shift {
     /// Return a shifted clone of the Tetromino, if valid.
     fn apply(&self, t: &Tetromino) -> Option<Tetromino> {
         let mut new_t = t.clone();
-        for p in &mut new_t.blocks {
-            let new_x = match self {
-                Self::Left => p.x - 1,
-                Self::Right => p.x + 1,
-            };
-            if new_x < 0 || new_x >= W {
-                return None;
-            }
-            p.x = new_x;
+        match self {
+            Self::Left => new_t.loc.0 -= 1,
+            Self::Right => new_t.loc.0 += 1,
         }
-        Some(new_t)
+
+        if new_t.out_of_bounds() {
+            None
+        } else {
+            Some(new_t)
+        }
     }
 }
 
@@ -92,7 +124,7 @@ impl Field {
     }
 
     fn apply_tetrominio(&mut self, t: &Tetromino) {
-        for block_pos in &t.blocks {
+        for block_pos in &t.get_blocks() {
             self.occupied[block_pos.to_buffer_idx()] = true
         }
     }
@@ -102,8 +134,8 @@ impl Field {
     }
 
     fn is_valid(&self, t: &Tetromino) -> bool {
-        for p in &t.blocks {
-            if self.is_occupied(p) {
+        for p in t.get_blocks() {
+            if self.is_occupied(&p) {
                 return false;
             }
         }
@@ -166,6 +198,7 @@ impl GameState {
 
     pub fn cw(&mut self) -> Option<()> {
         let t = self.active.as_mut()?;
+        *t = t.cw()?;
 
         Some(())
     }
@@ -192,7 +225,7 @@ impl GameState {
         if self.field.is_occupied(p) {
             'X'
         } else {
-            ' '
+            '_'
         }
     }
 }
