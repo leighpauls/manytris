@@ -1,14 +1,14 @@
-const W: usize = 10;
-const H: usize = 10;
+pub const W: i32 = 10;
+pub const H: i32 = 10;
 
-const PREVIEW_H: usize = 2;
+pub const PREVIEW_H: i32 = 2;
 
-const TOTAL_BLOCKS: usize = W * H;
+const TOTAL_BLOCKS: usize = (W * H) as usize;
 
 #[derive(Clone, Eq, PartialEq)]
 pub struct Pos {
-    x: usize,
-    y: usize,
+    pub x: i32,
+    pub y: i32,
 }
 
 #[derive(Clone)]
@@ -32,7 +32,7 @@ pub struct GameState {
 
 impl Pos {
     fn to_buffer_idx(&self) -> usize {
-        self.y * W + self.x
+        (self.y * W + self.x) as usize
     }
 }
 
@@ -72,10 +72,10 @@ impl Shift {
         let mut new_t = t.clone();
         for p in &mut new_t.blocks {
             let new_x = match self {
-                Self::Left => p.x.checked_sub(1)?,
+                Self::Left => p.x - 1,
                 Self::Right => p.x + 1,
             };
-            if new_x >= W {
+            if new_x < 0 || new_x >= W {
                 return None;
             }
             p.x = new_x;
@@ -129,7 +129,7 @@ impl GameState {
         }
     }
 
-    pub fn lock_active_tetromino(&mut self) {
+    fn lock_active_tetromino(&mut self) {
         if let Some(t) = self.active.take() {
             self.field.apply_tetrominio(&t)
         }
@@ -148,6 +148,12 @@ impl GameState {
         Some(())
     }
 
+    pub fn drop(&mut self) {
+        while self.active.is_some() {
+            self.down();
+        }
+    }
+
     pub fn shift(&mut self, dir: Shift) -> Option<()> {
         let t = self.active.as_mut()?;
         let new_t = dir.apply(t)?;
@@ -156,6 +162,12 @@ impl GameState {
             return Some(());
         }
         None
+    }
+
+    pub fn cw(&mut self) -> Option<()> {
+        let t = self.active.as_mut()?;
+
+        Some(())
     }
 
     pub fn print(&self) {
@@ -167,7 +179,7 @@ impl GameState {
             let border = if y < H - PREVIEW_H { "|" } else { " " };
             println!("{}{}{}", border, line, border);
         }
-        let bottom: String = ['-'; W + 2].iter().collect();
+        let bottom: String = ['-'; (W + 2) as usize].iter().collect();
         println!("{}", bottom);
     }
 
