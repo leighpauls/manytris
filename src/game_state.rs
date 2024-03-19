@@ -16,6 +16,11 @@ pub struct Tetromino {
     blocks: [Pos; 4],
 }
 
+pub enum Shift {
+    Left,
+    Right,
+}
+
 struct Field {
     occupied: [bool; TOTAL_BLOCKS],
 }
@@ -58,6 +63,24 @@ impl Tetromino {
             p.y -= 1;
         }
         Some(t)
+    }
+}
+
+impl Shift {
+    /// Return a shifted clone of the Tetromino, if valid.
+    fn apply(&self, t: &Tetromino) -> Option<Tetromino> {
+        let mut new_t = t.clone();
+        for p in &mut new_t.blocks {
+            let new_x = match self {
+                Self::Left => p.x.checked_sub(1)?,
+                Self::Right => p.x + 1,
+            };
+            if new_x >= W {
+                return None;
+            }
+            p.x = new_x;
+        }
+        Some(new_t)
     }
 }
 
@@ -112,17 +135,27 @@ impl GameState {
         }
     }
 
-    pub fn down(&mut self) {
-        if let Some(ref mut t) = self.active {
-            match t.down() {
-                Some(new_t) if self.field.is_valid(&new_t) => {
-                    *t = new_t;
-                }
-                _ => {
-                    self.lock_active_tetromino();
-                }
+    pub fn down(&mut self) -> Option<()> {
+        let t = self.active.as_mut()?;
+        match t.down() {
+            Some(new_t) if self.field.is_valid(&new_t) => {
+                *t = new_t;
+            }
+            _ => {
+                self.lock_active_tetromino();
             }
         }
+        Some(())
+    }
+
+    pub fn shift(&mut self, dir: Shift) -> Option<()> {
+        let t = self.active.as_mut()?;
+        let new_t = dir.apply(t)?;
+        if self.field.is_valid(&new_t) {
+            *t = new_t;
+            return Some(());
+        }
+        None
     }
 
     pub fn print(&self) {
