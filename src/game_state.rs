@@ -34,6 +34,12 @@ pub struct GameState {
     active: Option<Tetromino>,
 }
 
+pub enum BlockState {
+    Empty,
+    Occupied,
+    Active,
+}
+
 impl Pos {
     fn to_buffer_idx(&self) -> usize {
         (self.y * W + self.x) as usize
@@ -214,6 +220,19 @@ impl GameState {
         }
         let bottom: String = ['-'; (W + 2) as usize].iter().collect();
         println!("{}", bottom);
+    }
+
+    pub fn check_block(&self, p: &Pos) -> BlockState {
+        if let Some(ref t) = self.active {
+            if t.contains(p) {
+                return BlockState::Active;
+            }
+        }
+        if self.field.is_occupied(p) {
+            BlockState::Occupied
+        } else {
+            BlockState::Empty
+        }
     }
 
     fn char_for_pos(&self, p: &Pos) -> char {
