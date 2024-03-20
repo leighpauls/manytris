@@ -1,7 +1,7 @@
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
 
-mod field_rendering;
+mod entities;
 mod game_state;
 mod shapes;
 
@@ -9,11 +9,13 @@ fn main() {
     let mut app = App::new();
 
     app.add_plugins(DefaultPlugins)
-        .add_systems(Startup, field_rendering::setup)
-        .add_systems(Update, field_rendering::update_field);
-
-    app.add_plugins(FrameTimeDiagnosticsPlugin::default());
-    app.add_plugins(LogDiagnosticsPlugin::default());
+        .add_plugins(FrameTimeDiagnosticsPlugin::default())
+        .add_plugins(LogDiagnosticsPlugin::default())
+        .add_systems(
+            Startup,
+            (entities::setup_assets, entities::setup_field).chain(),
+        )
+        .add_systems(Update, entities::update_block_colors);
 
     app.run();
 }
