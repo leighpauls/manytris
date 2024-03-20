@@ -7,14 +7,11 @@ const BLOCK_SIZE: f32 = 30.0;
 const BLOCK_BORDER: f32 = 3.0;
 
 pub fn setup_assets(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
-    let empty_material = materials.add(Color::hsl(0., 0., 0.2));
-    let occupied_material = materials.add(Color::hsl(0., 0.7, 0.7));
-    let active_material = materials.add(Color::hsl(180., 0.7, 0.7));
-
     commands.insert_resource(RenderAssets {
-        empty_material,
-        occupied_material,
-        active_material,
+        empty_material: materials.add(Color::hsl(0., 0., 0.2)),
+        occupied_material: materials.add(Color::hsl(0., 0.7, 0.7)),
+        active_material: materials.add(Color::hsl(180., 0.7, 0.7)),
+        invisible_material: materials.add(Color::hsla(0., 0., 0., 0.)),
     });
 }
 
@@ -62,7 +59,13 @@ pub fn update_block_colors(
         let new_material = match field.game.check_block(&block.pos) {
             BlockState::Active => ra.active_material.clone(),
             BlockState::Occupied => ra.occupied_material.clone(),
-            BlockState::Empty => ra.empty_material.clone(),
+            BlockState::Empty => {
+                if block.pos.y < game_state::H - game_state::PREVIEW_H {
+                    ra.empty_material.clone()
+                } else {
+                    ra.invisible_material.clone()
+                }
+            }
         };
 
         *material = new_material;
@@ -74,6 +77,7 @@ pub struct RenderAssets {
     empty_material: Handle<ColorMaterial>,
     occupied_material: Handle<ColorMaterial>,
     active_material: Handle<ColorMaterial>,
+    invisible_material: Handle<ColorMaterial>,
 }
 
 #[derive(Bundle)]

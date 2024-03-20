@@ -3,7 +3,7 @@ use crate::upcoming::UpcomingTetrominios;
 use std::collections::HashSet;
 
 pub const W: i32 = 10;
-pub const H: i32 = 10;
+pub const H: i32 = 22;
 
 pub const PREVIEW_H: i32 = 2;
 
