@@ -46,7 +46,7 @@ impl Pos {
     }
 
     fn out_of_bounds(&self) -> bool {
-        (self.x < 0 || self.x >= W || self.y < 0)
+        self.x < 0 || self.x >= W || self.y < 0
     }
 }
 

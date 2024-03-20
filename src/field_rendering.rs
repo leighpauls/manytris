@@ -1,9 +1,7 @@
 use crate::game_state;
 use crate::game_state::{BlockState, GameState, Pos, Shift, Tetromino};
-use crate::shapes::Shape;
 use bevy::prelude::*;
 use bevy::sprite::{MaterialMesh2dBundle, Mesh2dHandle};
-use bevy::utils::tracing::Span;
 
 const BLOCK_SIZE: f32 = 30.0;
 const BLOCK_BORDER: f32 = 3.0;

@@ -19,17 +19,17 @@ pub enum Orientation {
     Left,
 }
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub struct RelPos(pub i32, pub i32);
+
+#[derive(Clone)]
+pub struct TetrominoLocation(pub i32, pub i32);
 
 impl RelPos {
     /// Rotate around a given block, like for T and Z
-    /// ```
-    /// assert_eq!(RelPos(0, 1).rotate_cw_about_block(RelPos(1, 1)), RelPos(1, 2));
-    /// ```
     fn rotate_cw_about_block(&self, center: &RelPos) -> RelPos {
         let (old_x, old_y) = (self.0 - center.0, self.1 - center.1);
-        RelPos(self.1 + center.0, -self.0 + center.1)
+        RelPos(old_y + center.0, -old_x + center.1)
     }
 
     fn rotate_cw_about_corner(&self, center: &RelPos) -> RelPos {
@@ -50,9 +50,6 @@ impl RelPos {
         RelPos(new_x + center.0, new_y + center.1)
     }
 }
-
-#[derive(Clone)]
-pub struct TetrominoLocation(pub i32, pub i32);
 
 impl Shape {
     pub fn starting_tetromino_location(&self) -> TetrominoLocation {
@@ -105,5 +102,18 @@ impl Orientation {
             Self::Down => 2,
             Self::Left => 3,
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_cw_block() {
+        assert_eq!(
+            RelPos(0, 1).rotate_cw_about_block(&RelPos(1, 1)),
+            RelPos(1, 2)
+        );
     }
 }
