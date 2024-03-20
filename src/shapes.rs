@@ -1,6 +1,7 @@
 use crate::game_state::{H, PREVIEW_H, W};
+use enum_iterator::Sequence;
 
-#[derive(Clone)]
+#[derive(Clone, Sequence)]
 pub enum Shape {
     S,
     Z,

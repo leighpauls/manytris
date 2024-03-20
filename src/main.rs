@@ -4,6 +4,7 @@ use bevy::prelude::*;
 mod entities;
 mod game_state;
 mod shapes;
+mod upcoming;
 
 fn main() {
     let mut app = App::new();

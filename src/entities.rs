@@ -1,5 +1,5 @@
 use crate::game_state;
-use crate::game_state::{BlockState, GameState, Pos, Shift, Tetromino};
+use crate::game_state::{BlockState, GameState, Pos, Shift};
 use bevy::prelude::*;
 use bevy::sprite::{MaterialMesh2dBundle, Mesh2dHandle};
 
@@ -24,18 +24,13 @@ pub fn setup_field(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
     let rect = Rectangle::new(BLOCK_SIZE - BLOCK_BORDER, BLOCK_SIZE - BLOCK_BORDER);
     let block_mesh = Mesh2dHandle(meshes.add(rect));
 
-    let mut gs = GameState::new();
-    gs.new_active_tetromino(Tetromino::new());
-
-    commands
-        .spawn(FieldBundle::new(gs))
-        .with_children(|parent| {
-            for y in 0..game_state::H {
-                for x in 0..game_state::W {
-                    parent.spawn(BlockBundle::new(Pos { x, y }, block_mesh.clone()));
-                }
+    commands.spawn(FieldBundle::new()).with_children(|parent| {
+        for y in 0..game_state::H {
+            for x in 0..game_state::W {
+                parent.spawn(BlockBundle::new(Pos { x, y }, block_mesh.clone()));
             }
-        });
+        }
+    });
 }
 
 pub fn update_for_input(mut q_field: Query<&mut FieldComponent>, keys: Res<ButtonInput<KeyCode>>) {
@@ -104,14 +99,16 @@ pub struct BlockComponent {
 }
 
 impl FieldBundle {
-    pub fn new(game: GameState) -> Self {
+    pub fn new() -> Self {
         Self {
             transforms: SpatialBundle::from_transform(Transform::from_xyz(
                 -game_state::W as f32 * BLOCK_SIZE / 2.,
                 -game_state::H as f32 * BLOCK_SIZE / 2.,
                 0.,
             )),
-            field: FieldComponent { game },
+            field: FieldComponent {
+                game: GameState::new(),
+            },
         }
     }
 }

@@ -1,4 +1,5 @@
 use crate::shapes::{Orientation, Shape, TetrominoLocation};
+use crate::upcoming::UpcomingTetrominios;
 
 pub const W: i32 = 10;
 pub const H: i32 = 10;
@@ -6,6 +7,12 @@ pub const H: i32 = 10;
 pub const PREVIEW_H: i32 = 2;
 
 const TOTAL_BLOCKS: usize = (W * H) as usize;
+
+pub struct GameState {
+    field: Field,
+    active: Tetromino,
+    upcoming: UpcomingTetrominios,
+}
 
 #[derive(Clone, Eq, PartialEq)]
 pub struct Pos {
@@ -29,11 +36,6 @@ struct Field {
     occupied: [bool; TOTAL_BLOCKS],
 }
 
-pub struct GameState {
-    field: Field,
-    active: Option<Tetromino>,
-}
-
 pub enum BlockState {
     Empty,
     Occupied,
@@ -51,8 +53,7 @@ impl Pos {
 }
 
 impl Tetromino {
-    pub fn new() -> Tetromino {
-        let shape = Shape::I;
+    pub fn new(shape: Shape) -> Tetromino {
         Tetromino {
             loc: shape.starting_tetromino_location(),
             shape,
@@ -151,100 +152,61 @@ impl Field {
 
 impl GameState {
     pub fn new() -> GameState {
+        let mut upcoming = UpcomingTetrominios::new();
         return GameState {
             field: Field::new(),
-            active: None,
+            active: Tetromino::new(upcoming.take()),
+            upcoming,
         };
     }
 
-    /// Try to set a new tetromino, return True is successful.
-    pub fn new_active_tetromino(&mut self, t: Tetromino) -> bool {
-        if self.field.is_valid(&t) {
-            self.active = Some(t);
-            true
-        } else {
-            false
-        }
-    }
-
     fn lock_active_tetromino(&mut self) {
-        if let Some(t) = self.active.take() {
-            self.field.apply_tetrominio(&t)
-        }
+        self.field.apply_tetrominio(&self.active);
+        self.active = Tetromino::new(self.upcoming.take());
     }
 
-    pub fn down(&mut self) -> Option<()> {
-        let t = self.active.as_mut()?;
-        match t.down() {
+    /// Drop the active tetromino, return True if it locks.
+    pub fn down(&mut self) -> bool {
+        match self.active.down() {
             Some(new_t) if self.field.is_valid(&new_t) => {
-                *t = new_t;
+                self.active = new_t;
+                false
             }
             _ => {
                 self.lock_active_tetromino();
+                true
             }
         }
-        Some(())
     }
 
     pub fn drop(&mut self) {
-        while self.active.is_some() {
-            self.down();
-        }
+        while !zself.down() {}
     }
 
     pub fn shift(&mut self, dir: Shift) -> Option<()> {
-        let t = self.active.as_mut()?;
-        let new_t = dir.apply(t)?;
+        let new_t = dir.apply(&self.active)?;
         if self.field.is_valid(&new_t) {
-            *t = new_t;
+            self.active = new_t;
             return Some(());
         }
         None
     }
 
-    pub fn cw(&mut self) -> Option<()> {
-        let t = self.active.as_mut()?;
-        *t = t.cw()?;
-
-        Some(())
-    }
-
-    pub fn print(&self) {
-        for y in (0..H).rev() {
-            let mut line = String::from("");
-            for x in 0..W {
-                line.push(self.char_for_pos(&Pos { x, y }));
+    pub fn cw(&mut self) {
+        if let Some(t) = self.active.cw() {
+            if self.field.is_valid(&t) {
+                self.active = t;
             }
-            let border = if y < H - PREVIEW_H { "|" } else { " " };
-            println!("{}{}{}", border, line, border);
         }
-        let bottom: String = ['-'; (W + 2) as usize].iter().collect();
-        println!("{}", bottom);
     }
 
     pub fn check_block(&self, p: &Pos) -> BlockState {
-        if let Some(ref t) = self.active {
-            if t.contains(p) {
-                return BlockState::Active;
-            }
-        }
-        if self.field.is_occupied(p) {
+        if self.active.contains(p) {
+            BlockState::Active
+        } else if self.field.is_occupied(p) {
             BlockState::Occupied
         } else {
             BlockState::Empty
-        }
-    }
-
-    fn char_for_pos(&self, p: &Pos) -> char {
-        if let Some(ref t) = self.active {
-            if t.contains(p) {
-                return 'O';
-            }
-        }
-        if self.field.is_occupied(p) {
-            'X'
-        } else {
-            '_'
         }
     }
 }
