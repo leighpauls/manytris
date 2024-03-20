@@ -15,7 +15,7 @@ fn main() {
             Startup,
             (entities::setup_assets, entities::setup_field).chain(),
         )
-        .add_systems(Update, entities::update_block_colors);
+        .add_systems(Update, (entities::update_for_input, entities::update_block_colors));
 
     app.run();
 }

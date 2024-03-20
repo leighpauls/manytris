@@ -38,6 +38,22 @@ pub fn setup_field(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
         });
 }
 
+pub fn update_for_input(mut q_field: Query<&mut FieldComponent>, keys: Res<ButtonInput<KeyCode>>) {
+    let gs = &mut q_field.single_mut().game;
+    if keys.just_pressed(KeyCode::ArrowLeft) {
+        gs.shift(Shift::Left);
+    }
+    if keys.just_pressed(KeyCode::ArrowRight) {
+        gs.shift(Shift::Right);
+    }
+    if keys.just_pressed(KeyCode::ArrowDown) {
+        gs.down();
+    }
+    if keys.just_pressed(KeyCode::Space) {
+        gs.drop();
+    }
+}
+
 pub fn update_block_colors(
     q_field: Query<(&FieldComponent, &Children)>,
     mut q_blocks: Query<(&mut Handle<ColorMaterial>, &BlockComponent)>,
