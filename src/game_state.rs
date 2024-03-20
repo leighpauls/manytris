@@ -1,5 +1,6 @@
 use crate::shapes::{Orientation, Shape, TetrominoLocation};
 use crate::upcoming::UpcomingTetrominios;
+use std::collections::HashSet;
 
 pub const W: i32 = 10;
 pub const H: i32 = 10;
@@ -14,7 +15,7 @@ pub struct GameState {
     upcoming: UpcomingTetrominios,
 }
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq, Hash)]
 pub struct Pos {
     pub x: i32,
     pub y: i32,
@@ -33,7 +34,7 @@ pub enum Shift {
 }
 
 struct Field {
-    occupied: [bool; TOTAL_BLOCKS],
+    occupied: HashSet<Pos>,
 }
 
 pub enum BlockState {
@@ -126,18 +127,18 @@ impl Shift {
 impl Field {
     fn new() -> Field {
         Field {
-            occupied: [false; TOTAL_BLOCKS],
+            occupied: HashSet::new(),
         }
     }
 
     fn apply_tetrominio(&mut self, t: &Tetromino) {
         for block_pos in &t.get_blocks() {
-            self.occupied[block_pos.to_buffer_idx()] = true
+            self.occupied.insert(block_pos.clone());
         }
     }
 
     fn is_occupied(&self, pos: &Pos) -> bool {
-        self.occupied[pos.to_buffer_idx()]
+        self.occupied.contains(pos)
     }
 
     fn is_valid(&self, t: &Tetromino) -> bool {
@@ -163,6 +164,9 @@ impl GameState {
     fn lock_active_tetromino(&mut self) {
         self.field.apply_tetrominio(&self.active);
         self.active = Tetromino::new(self.upcoming.take());
+        if !self.field.is_valid(&self.active) {
+            panic!("Game over!");
+        }
     }
 
     /// Drop the active tetromino, return True if it locks.
@@ -180,7 +184,7 @@ impl GameState {
     }
 
     pub fn drop(&mut self) {
-        while !zself.down() {}
+        while !self.down() {}
     }
 
     pub fn shift(&mut self, dir: Shift) -> Option<()> {
