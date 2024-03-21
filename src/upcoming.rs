@@ -1,7 +1,7 @@
 use crate::shapes::Shape;
 use rand::prelude::*;
 
-const NUM_PREVIEWS: usize = 6;
+pub const NUM_PREVIEWS: usize = 6;
 
 pub struct UpcomingTetrominios {
     upcoming_blocks: Vec<Shape>,
@@ -19,8 +19,8 @@ impl UpcomingTetrominios {
         ut
     }
 
-    pub fn preview(&self) -> &[Shape] {
-        &self.upcoming_blocks
+    pub fn preview(&self) -> [Shape; NUM_PREVIEWS] {
+        self.upcoming_blocks.clone().try_into().unwrap()
     }
 
     pub fn take(&mut self) -> Shape {

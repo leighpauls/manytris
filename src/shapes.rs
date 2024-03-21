@@ -3,7 +3,7 @@ use enum_iterator::Sequence;
 
 pub const KICK_ATTEMPTS: usize = 5;
 
-#[derive(Copy, Clone, Sequence)]
+#[derive(Copy, Clone, Debug, Sequence)]
 pub enum Shape {
     S,
     Z,
@@ -56,6 +56,15 @@ impl Shape {
             _ => TetrominoLocation(W / 2 - 1, H - PREVIEW_H - 1),
         }
     }
+
+    pub fn preview_tetromino_location(&self) -> TetrominoLocation {
+        match self {
+            Self::O => TetrominoLocation(1, 1),
+            Self::I => TetrominoLocation(-1, -1),
+            _ => TetrominoLocation(0, 0),
+        }
+    }
+
     pub fn relative_positions(&self, o: &Orientation) -> [RelPos; 4] {
         let mut positions = self.up_positions();
         let rotate_fn = match self {

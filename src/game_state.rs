@@ -1,14 +1,12 @@
-use crate::shapes;
 use crate::shapes::{Orientation, Rot, Shape, Shift, TetrominoLocation};
 use crate::upcoming::UpcomingTetrominios;
+use crate::{shapes, upcoming};
 use std::collections::HashSet;
 
 pub const W: i32 = 10;
 pub const H: i32 = 22;
 
 pub const PREVIEW_H: i32 = 2;
-
-const TOTAL_BLOCKS: usize = (W * H) as usize;
 
 pub struct GameState {
     field: Field,
@@ -40,19 +38,23 @@ pub enum BlockState {
 }
 
 impl Pos {
-    fn to_buffer_idx(&self) -> usize {
-        (self.y * W + self.x) as usize
-    }
-
     fn out_of_bounds(&self) -> bool {
         self.x < 0 || self.x >= W || self.y < 0
     }
 }
 
 impl Tetromino {
-    pub fn new(shape: Shape) -> Tetromino {
-        Tetromino {
+    pub fn new(shape: Shape) -> Self {
+        Self {
             loc: shape.starting_tetromino_location(),
+            shape,
+            orientation: Orientation::Up,
+        }
+    }
+
+    pub fn for_preview(shape: Shape) -> Self {
+        Self {
+            loc: shape.preview_tetromino_location(),
             shape,
             orientation: Orientation::Up,
         }
@@ -66,7 +68,7 @@ impl Tetromino {
         })
     }
 
-    fn contains(&self, p: &Pos) -> bool {
+    pub fn contains(&self, p: &Pos) -> bool {
         self.get_blocks().contains(p)
     }
 
@@ -99,11 +101,7 @@ impl Tetromino {
     /// Return the list of possible tetromino kick attempts
     fn rotate(&self, dir: Rot) -> Vec<Tetromino> {
         let new_orientation = self.orientation.rotate(dir);
-        let kick_attempts = shapes::kick_offsets(
-            self.shape,
-            self.orientation,
-            new_orientation,
-        );
+        let kick_attempts = shapes::kick_offsets(self.shape, self.orientation, new_orientation);
 
         let mut result = vec![];
         for (dx, dy) in kick_attempts {
@@ -218,5 +216,9 @@ impl GameState {
         } else {
             BlockState::Empty
         }
+    }
+
+    pub fn previews(&self) -> [Tetromino; upcoming::NUM_PREVIEWS] {
+        self.upcoming.preview().map(|shape| Tetromino::for_preview(shape))
     }
 }
