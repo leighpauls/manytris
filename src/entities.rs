@@ -1,5 +1,6 @@
 use crate::game_state;
-use crate::game_state::{BlockState, GameState, Pos, Shift};
+use crate::game_state::{BlockState, GameState, Pos};
+use crate::shapes::{Rot, Shift};
 use bevy::prelude::*;
 use bevy::sprite::{MaterialMesh2dBundle, Mesh2dHandle};
 
@@ -43,6 +44,12 @@ pub fn update_for_input(mut q_field: Query<&mut FieldComponent>, keys: Res<Butto
     }
     if keys.just_pressed(KeyCode::Space) {
         gs.drop();
+    }
+    if keys.just_pressed(KeyCode::KeyZ) {
+        gs.rotate(Rot::Ccw);
+    }
+    if keys.just_pressed(KeyCode::KeyX) {
+        gs.rotate(Rot::Cw);
     }
 }
 

@@ -1,4 +1,5 @@
-use crate::shapes::{Orientation, Shape, TetrominoLocation};
+use crate::shapes;
+use crate::shapes::{Orientation, Rot, Shape, Shift, TetrominoLocation};
 use crate::upcoming::UpcomingTetrominios;
 use std::collections::HashSet;
 
@@ -26,11 +27,6 @@ pub struct Tetromino {
     shape: Shape,
     loc: TetrominoLocation,
     orientation: Orientation,
-}
-
-pub enum Shift {
-    Left,
-    Right,
 }
 
 struct Field {
@@ -86,15 +82,41 @@ impl Tetromino {
         Some(t)
     }
 
-    fn cw(&self) -> Option<Tetromino> {
+    fn shift(&self, dir: Shift) -> Option<Tetromino> {
         let mut new_t = self.clone();
-        new_t.orientation = new_t.orientation.cw();
+        new_t.loc.0 += match dir {
+            Shift::Left => -1,
+            Shift::Right => 1,
+        };
 
         if new_t.out_of_bounds() {
             None
         } else {
             Some(new_t)
         }
+    }
+
+    /// Return the list of possible tetromino kick attempts
+    fn rotate(&self, dir: Rot) -> Vec<Tetromino> {
+        let new_orientation = self.orientation.rotate(dir);
+        let kick_attempts = shapes::kick_offsets(
+            self.shape,
+            self.orientation,
+            new_orientation,
+        );
+
+        let mut result = vec![];
+        for (dx, dy) in kick_attempts {
+            let new_t = Tetromino {
+                shape: self.shape,
+                orientation: new_orientation,
+                loc: TetrominoLocation(self.loc.0 + dx, self.loc.1 + dy),
+            };
+            if !new_t.out_of_bounds() {
+                result.push(new_t);
+            }
+        }
+        result
     }
 
     fn out_of_bounds(&self) -> bool {
@@ -104,23 +126,6 @@ impl Tetromino {
             }
         }
         false
-    }
-}
-
-impl Shift {
-    /// Return a shifted clone of the Tetromino, if valid.
-    fn apply(&self, t: &Tetromino) -> Option<Tetromino> {
-        let mut new_t = t.clone();
-        match self {
-            Self::Left => new_t.loc.0 -= 1,
-            Self::Right => new_t.loc.0 += 1,
-        }
-
-        if new_t.out_of_bounds() {
-            None
-        } else {
-            Some(new_t)
-        }
     }
 }
 
@@ -188,7 +193,7 @@ impl GameState {
     }
 
     pub fn shift(&mut self, dir: Shift) -> Option<()> {
-        let new_t = dir.apply(&self.active)?;
+        let new_t = self.active.shift(dir)?;
         if self.field.is_valid(&new_t) {
             self.active = new_t;
             return Some(());
@@ -196,10 +201,11 @@ impl GameState {
         None
     }
 
-    pub fn cw(&mut self) {
-        if let Some(t) = self.active.cw() {
-            if self.field.is_valid(&t) {
-                self.active = t;
+    pub fn rotate(&mut self, dir: Rot) {
+        for new_t in self.active.rotate(dir) {
+            if self.field.is_valid(&new_t) {
+                self.active = new_t;
+                return;
             }
         }
     }

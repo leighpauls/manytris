@@ -1,7 +1,9 @@
 use crate::game_state::{H, PREVIEW_H, W};
 use enum_iterator::Sequence;
 
-#[derive(Clone, Sequence)]
+pub const KICK_ATTEMPTS: usize = 5;
+
+#[derive(Copy, Clone, Sequence)]
 pub enum Shape {
     S,
     Z,
@@ -12,12 +14,24 @@ pub enum Shape {
     T,
 }
 
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 pub enum Orientation {
     Up,
     Right,
     Down,
     Left,
+}
+
+#[derive(Copy, Clone)]
+pub enum Shift {
+    Left,
+    Right,
+}
+
+#[derive(Copy, Clone)]
+pub enum Rot {
+    Cw,
+    Ccw,
 }
 
 #[derive(Clone, PartialEq, Eq, Debug)]
@@ -31,24 +45,6 @@ impl RelPos {
     fn rotate_cw_about_block(&self, center: &RelPos) -> RelPos {
         let (old_x, old_y) = (self.0 - center.0, self.1 - center.1);
         RelPos(old_y + center.0, -old_x + center.1)
-    }
-
-    fn rotate_cw_about_corner(&self, center: &RelPos) -> RelPos {
-        let (mut old_x, mut old_y) = (self.0 - center.0, self.1 - center.1);
-        if old_x >= 0 {
-            old_x += 1;
-        }
-        if old_y >= 0 {
-            old_y += 1;
-        }
-        let (mut new_x, mut new_y) = (old_y, -old_x);
-        if new_x > 0 {
-            new_x -= 1;
-        }
-        if new_y > 0 {
-            new_y -= 1;
-        }
-        RelPos(new_x + center.0, new_y + center.1)
     }
 }
 
@@ -64,36 +60,47 @@ impl Shape {
         let mut positions = self.up_positions();
         let rotate_fn = match self {
             Self::O => return positions,
-            Self::I => |p: &RelPos| p.rotate_cw_about_corner(&RelPos(2, 2)),
+            Self::I => |p: &RelPos| p.rotate_cw_about_block(&RelPos(2, 2)),
             _ => |p: &RelPos| p.rotate_cw_about_block(&RelPos(1, 1)),
         };
 
         for p in &mut positions {
             for _ in 0..o.cw_rotations() {
-                *p = rotate_fn(p as &RelPos)
+                *p = rotate_fn(p)
             }
         }
         positions
     }
 
     fn up_positions(&self) -> [RelPos; 4] {
-        let y = 2;
-        [RelPos(0, y), RelPos(1, y), RelPos(2, y), RelPos(3, y)]
+        match self {
+            Self::I => {
+                let y = 2;
+                [(1, y), (2, y), (3, y), (4, y)]
+            }
+            Self::J => [(0, 2), (0, 1), (1, 1), (2, 1)],
+            Self::L => [(2, 2), (0, 1), (1, 1), (2, 1)],
+            Self::O => [(0, 0), (0, 1), (1, 0), (1, 1)],
+            Self::S => [(0, 1), (1, 1), (1, 2), (2, 2)],
+            Self::T => [(0, 1), (1, 1), (1, 2), (2, 1)],
+            Self::Z => [(0, 2), (1, 2), (1, 1), (2, 1)],
+        }
+        .map(|tup| RelPos(tup.0, tup.1))
     }
 }
 
 impl Orientation {
-    pub fn cw(&self) -> Orientation {
-        match self {
-            Self::Up => Self::Right,
-            Self::Right => Self::Down,
-            Self::Down => Self::Left,
-            Self::Left => Self::Up,
+    pub fn rotate(&self, dir: Rot) -> Orientation {
+        use Rot::{Ccw, Cw};
+        match dir {
+            Cw => match self {
+                Self::Up => Self::Right,
+                Self::Right => Self::Down,
+                Self::Down => Self::Left,
+                Self::Left => Self::Up,
+            },
+            Ccw => self.rotate(Cw).rotate(Cw).rotate(Cw),
         }
-    }
-
-    pub fn ccw(&self) -> Orientation {
-        self.cw().cw().cw()
     }
 
     fn cw_rotations(&self) -> i32 {
@@ -106,6 +113,33 @@ impl Orientation {
     }
 }
 
+pub fn kick_offsets(
+    shape: Shape,
+    orig_orientation: Orientation,
+    new_orientation: Orientation,
+) -> [(i32, i32); KICK_ATTEMPTS] {
+    let mut k_old = kick_consts(shape, orig_orientation);
+    let k_new = kick_consts(shape, new_orientation);
+    for i in 0..KICK_ATTEMPTS {
+        k_old[i].0 -= k_new[i].0;
+        k_old[i].1 -= k_new[i].1;
+    }
+    k_old
+}
+
+fn kick_consts(shape: Shape, orientation: Orientation) -> [(i32, i32); KICK_ATTEMPTS] {
+    use Orientation::*;
+    match (shape, orientation) {
+        (Shape::O, _) => [(0, 0); 5],
+        (Shape::I, Up) => [(0, 0), (-1, 0), (2, 0), (-1, 0), (2, 0)],
+        (Shape::I, Right) => [(-1, 0), (0, 0), (0, 0), (0, 1), (0, -2)],
+        (Shape::I, Down) => [(-1, 1), (1, 1), (-2, 1), (1, 0), (-2, 0)],
+        (Shape::I, Left) => [(0, 1), (0, 1), (0, 1), (0, -1), (0, 2)],
+        (_, Up | Down) => [(0, 0); 5],
+        (_, Right) => [(0, 0), (1, 0), (1, -1), (0, 2), (1, 2)],
+        (_, Left) => [(0, 0), (-1, 0), (-1, -1), (0, 2), (-1, 2)],
+    }
+}
 #[cfg(test)]
 mod test {
     use super::*;
