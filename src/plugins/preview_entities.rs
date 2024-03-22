@@ -1,11 +1,11 @@
 use crate::game_state::{Pos, Tetromino};
 use crate::plugins::assets;
 use crate::plugins::assets::RenderAssets;
-use crate::plugins::entities::{BlockBundle, BlockComponent, FieldComponent};
-use crate::plugins::root_entity::RootMarker;
+use crate::plugins::entities::{BlockBundle, BlockComponent};
+use crate::plugins::root_entity::GameRoot;
 use crate::plugins::system_sets::{StartupSystems, UpdateSystems};
-use bevy::prelude::*;
 use crate::{game_state, upcoming};
+use bevy::prelude::*;
 
 pub fn preview_plugin(app: &mut App) {
     app.add_systems(Startup, setup_windows.in_set(StartupSystems::AfterRoot))
@@ -38,7 +38,7 @@ struct HoldWindowComponent();
 fn setup_windows(
     mut commands: Commands,
     ra: Res<RenderAssets>,
-    q_root: Query<Entity, With<RootMarker>>,
+    q_root: Query<Entity, With<GameRoot>>,
 ) {
     let root = q_root.single();
     let spawn_blocks_fn = |parent: &mut ChildBuilder| {
@@ -62,13 +62,12 @@ type BlockQuery<'world, 'state, 'a> =
     Query<'world, 'state, (&'a mut Handle<ColorMaterial>, &'a BlockComponent)>;
 
 fn update_preview_window(
-    q_field: Query<&FieldComponent>,
+    q_root: Query<&GameRoot>,
     q_windows: Query<(&PreviewWindowComponent, &Children)>,
     mut q_blocks: BlockQuery,
     ra: Res<RenderAssets>,
 ) {
-    let field = q_field.single();
-    let previews = field.game.previews();
+    let previews = q_root.single().game.previews();
 
     for (window, children) in &q_windows {
         let preview = &previews[window.preview_idx];
@@ -77,12 +76,12 @@ fn update_preview_window(
 }
 
 fn update_hold_window(
-    q_field: Query<&FieldComponent>,
+    q_root: Query<&GameRoot>,
     q_window: Query<&Children, With<HoldWindowComponent>>,
     mut q_blocks: BlockQuery,
     ra: Res<RenderAssets>,
 ) {
-    let held = q_field.single().game.held_tetromino();
+    let held = q_root.single().game.held_tetromino();
     update_child_block_colors(held.as_ref(), q_window.single(), &mut q_blocks, &ra);
 }
 
