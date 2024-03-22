@@ -48,6 +48,9 @@ pub fn update_field_tick(
             DropEvent => {
                 gs.drop();
             }
+            HoldEvent => {
+                gs.hold();
+            }
         }
     }
 }

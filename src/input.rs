@@ -12,6 +12,7 @@ pub enum InputEvent {
     RotateEvent(Rot),
     DownEvent,
     DropEvent,
+    HoldEvent,
 }
 
 #[derive(Resource)]
@@ -87,5 +88,9 @@ pub fn update_for_input(
     // Non-repeating events
     if keys.just_pressed(KeyCode::Space) {
         input_event_writer.send(InputEvent::DropEvent);
+    }
+
+    if keys.just_pressed(KeyCode::KeyC) {
+        input_event_writer.send(InputEvent::HoldEvent);
     }
 }

@@ -16,28 +16,24 @@ fn main() {
     let mut app = App::new();
 
     app.add_plugins(DefaultPlugins)
-        .add_plugins(FrameTimeDiagnosticsPlugin::default())
-        .add_plugins(LogDiagnosticsPlugin::default())
+        .add_plugins((
+            FrameTimeDiagnosticsPlugin::default(),
+            LogDiagnosticsPlugin::default(),
+        ))
+        .add_plugins(preview_entities::preview_plugin)
         .init_resource::<RenderAssets>()
         .init_resource::<RepeatTimes>()
         .add_event::<InputEvent>()
         .add_systems(
             Startup,
-            (
-                root_entity::setup_root,
-                (entities::setup_field, preview_entities::setup_previews),
-            )
-                .chain(),
+            (root_entity::setup_root, entities::setup_field).chain(),
         )
         .add_systems(
             Update,
             (
                 input::update_for_input,
                 entities::update_field_tick,
-                (
-                    entities::update_block_colors,
-                    preview_entities::update_preview_window,
-                ),
+                entities::update_block_colors,
             )
                 .chain(),
         );

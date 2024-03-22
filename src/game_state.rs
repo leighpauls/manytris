@@ -12,6 +12,8 @@ pub struct GameState {
     field: Field,
     active: Tetromino,
     upcoming: UpcomingTetrominios,
+    held: Option<Shape>,
+    hold_used: bool,
 }
 
 #[derive(Clone, Eq, PartialEq, Hash)]
@@ -173,16 +175,10 @@ impl GameState {
         return GameState {
             field: Field::new(),
             active: Tetromino::new(upcoming.take()),
+            held: None,
+            hold_used: false,
             upcoming,
         };
-    }
-
-    fn lock_active_tetromino(&mut self) {
-        self.field.apply_tetrominio(&self.active);
-        self.active = Tetromino::new(self.upcoming.take());
-        if !self.field.is_valid(&self.active) {
-            panic!("Game over!");
-        }
     }
 
     /// Drop the active tetromino, return True if it locks.
@@ -237,5 +233,38 @@ impl GameState {
         self.upcoming
             .preview()
             .map(|shape| Tetromino::for_preview(shape))
+    }
+
+    pub fn held_tetromino(&self) -> Option<Tetromino> {
+        Some(Tetromino::for_preview(self.held?))
+    }
+
+    pub fn hold(&mut self) {
+        if self.hold_used {
+            return;
+        }
+        self.hold_used = true;
+
+        let new_shape = if let Some(ref mut held_shape) = self.held {
+            std::mem::replace(held_shape, self.active.shape)
+        } else {
+            self.held = Some(self.active.shape);
+            self.upcoming.take()
+        };
+        self.replace_active_tetromino(new_shape);
+    }
+
+    fn lock_active_tetromino(&mut self) {
+        self.hold_used = false;
+        self.field.apply_tetrominio(&self.active);
+        let next_shape = self.upcoming.take();
+        self.replace_active_tetromino(next_shape);
+    }
+
+    fn replace_active_tetromino(&mut self, shape: Shape) {
+        self.active = Tetromino::new(shape);
+        if !self.field.is_valid(&self.active) {
+            panic!("Game over!");
+        }
     }
 }
