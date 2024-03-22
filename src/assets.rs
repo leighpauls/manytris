@@ -1,5 +1,8 @@
+use crate::shapes::Shape;
 use bevy::prelude::*;
 use bevy::sprite::Mesh2dHandle;
+use enum_iterator::all;
+use std::collections::HashMap;
 
 pub const BLOCK_SIZE: f32 = 30.0;
 pub const BLOCK_BORDER: f32 = 3.0;
@@ -7,8 +10,7 @@ pub const BLOCK_BORDER: f32 = 3.0;
 #[derive(Resource)]
 pub struct RenderAssets {
     pub empty_material: Handle<ColorMaterial>,
-    pub occupied_material: Handle<ColorMaterial>,
-    pub active_material: Handle<ColorMaterial>,
+    pub occupied_materials: HashMap<Shape, Handle<ColorMaterial>>,
     pub invisible_material: Handle<ColorMaterial>,
     pub block_mesh: Mesh2dHandle,
 }
@@ -20,11 +22,19 @@ impl FromWorld for RenderAssets {
 
         let mut materials = world.resource_mut::<Assets<ColorMaterial>>();
 
+        let all_shapes: Vec<Shape> = all::<Shape>().collect();
+        let num_shapes = all_shapes.len() as f32;
+        let occupied_materials = all_shapes
+            .iter()
+            .enumerate()
+            .map(|(idx, shape)| (*shape, 360. * idx as f32 / num_shapes))
+            .map(|(shape, hue)| (shape, materials.add(Color::hsl(hue, 0.7, 0.7))))
+            .collect::<HashMap<Shape, Handle<ColorMaterial>>>();
+
         Self {
             empty_material: materials.add(Color::hsl(0., 0., 0.2)),
-            occupied_material: materials.add(Color::hsl(0., 0.7, 0.7)),
-            active_material: materials.add(Color::hsl(180., 0.7, 0.7)),
             invisible_material: materials.add(Color::hsla(0., 0., 0., 0.)),
+            occupied_materials,
             block_mesh,
         }
     }

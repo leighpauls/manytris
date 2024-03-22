@@ -50,7 +50,7 @@ pub fn update_preview_window(
         for child in children {
             if let Ok((mut material, block)) = q_blocks.get_mut(*child) {
                 *material = if preview.contains(&block.pos) {
-                    ra.occupied_material.clone()
+                    ra.occupied_materials[&preview.shape].clone()
                 } else {
                     ra.invisible_material.clone()
                 };

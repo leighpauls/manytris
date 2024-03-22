@@ -60,8 +60,7 @@ pub fn update_block_colors(
         let (mut material, block) = q_blocks.get_mut(child_id.clone()).unwrap();
 
         let new_material = match field.game.check_block(&block.pos) {
-            BlockState::Active => ra.active_material.clone(),
-            BlockState::Occupied => ra.occupied_material.clone(),
+            BlockState::Active(s) | BlockState::Occupied(s) => ra.occupied_materials[&s].clone(),
             BlockState::Empty => {
                 if block.pos.y < game_state::H - game_state::PREVIEW_H {
                     ra.empty_material.clone()

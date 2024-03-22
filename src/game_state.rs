@@ -1,7 +1,7 @@
 use crate::shapes::{Orientation, Rot, Shape, Shift, TetrominoLocation};
 use crate::upcoming::UpcomingTetrominios;
 use crate::{shapes, upcoming};
-use std::collections::HashSet;
+use std::collections::HashMap;
 
 pub const W: i32 = 10;
 pub const H: i32 = 22;
@@ -22,19 +22,19 @@ pub struct Pos {
 
 #[derive(Clone)]
 pub struct Tetromino {
-    shape: Shape,
+    pub shape: Shape,
     loc: TetrominoLocation,
     orientation: Orientation,
 }
 
 struct Field {
-    occupied: HashSet<Pos>,
+    occupied: HashMap<Pos, Shape>,
 }
 
 pub enum BlockState {
     Empty,
-    Occupied,
-    Active,
+    Occupied(Shape),
+    Active(Shape),
 }
 
 impl Pos {
@@ -130,23 +130,23 @@ impl Tetromino {
 impl Field {
     fn new() -> Field {
         Field {
-            occupied: HashSet::new(),
+            occupied: HashMap::new(),
         }
     }
 
     fn apply_tetrominio(&mut self, t: &Tetromino) {
         for block_pos in &t.get_blocks() {
-            self.occupied.insert(block_pos.clone());
+            self.occupied.insert(block_pos.clone(), t.shape);
         }
     }
 
-    fn is_occupied(&self, pos: &Pos) -> bool {
-        self.occupied.contains(pos)
+    fn is_occupied(&self, pos: &Pos) -> Option<Shape> {
+        Some(self.occupied.get(pos)?.clone())
     }
 
     fn is_valid(&self, t: &Tetromino) -> bool {
         for p in t.get_blocks() {
-            if self.is_occupied(&p) {
+            if self.is_occupied(&p).is_some() {
                 return false;
             }
         }
@@ -210,9 +210,9 @@ impl GameState {
 
     pub fn check_block(&self, p: &Pos) -> BlockState {
         if self.active.contains(p) {
-            BlockState::Active
-        } else if self.field.is_occupied(p) {
-            BlockState::Occupied
+            BlockState::Active(self.active.shape)
+        } else if let Some(shape) = self.field.is_occupied(p) {
+            BlockState::Occupied(shape)
         } else {
             BlockState::Empty
         }

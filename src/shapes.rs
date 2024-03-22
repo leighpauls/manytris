@@ -3,7 +3,7 @@ use enum_iterator::Sequence;
 
 pub const KICK_ATTEMPTS: usize = 5;
 
-#[derive(Copy, Clone, Debug, Sequence)]
+#[derive(Copy, Clone, Debug, Sequence, Eq, PartialEq, Hash)]
 pub enum Shape {
     S,
     Z,
