@@ -31,10 +31,11 @@ struct Field {
     occupied: HashMap<Pos, Shape>,
 }
 
-pub enum BlockState {
+pub enum BlockDisplayState {
     Empty,
     Occupied(Shape),
     Active(Shape),
+    Shadow(Shape),
 }
 
 impl Pos {
@@ -140,13 +141,24 @@ impl Field {
         }
     }
 
-    fn is_occupied(&self, pos: &Pos) -> Option<Shape> {
+    fn find_shadow(&self, active: &Tetromino) -> Tetromino {
+        let mut shadow = active.clone();
+        while let Some(new_shadow) = shadow.down() {
+            if !self.is_valid(&new_shadow) {
+                break;
+            }
+            shadow = new_shadow;
+        }
+        shadow
+    }
+
+    fn get_occupied_block(&self, pos: &Pos) -> Option<Shape> {
         Some(self.occupied.get(pos)?.clone())
     }
 
     fn is_valid(&self, t: &Tetromino) -> bool {
         for p in t.get_blocks() {
-            if self.is_occupied(&p).is_some() {
+            if self.get_occupied_block(&p).is_some() {
                 return false;
             }
         }
@@ -157,6 +169,7 @@ impl Field {
 impl GameState {
     pub fn new() -> GameState {
         let mut upcoming = UpcomingTetrominios::new();
+
         return GameState {
             field: Field::new(),
             active: Tetromino::new(upcoming.take()),
@@ -208,17 +221,21 @@ impl GameState {
         }
     }
 
-    pub fn check_block(&self, p: &Pos) -> BlockState {
+    pub fn get_display_state(&self, p: &Pos) -> BlockDisplayState {
         if self.active.contains(p) {
-            BlockState::Active(self.active.shape)
-        } else if let Some(shape) = self.field.is_occupied(p) {
-            BlockState::Occupied(shape)
+            BlockDisplayState::Active(self.active.shape)
+        } else if self.field.find_shadow(&self.active).contains(p) {
+            BlockDisplayState::Shadow(self.active.shape)
+        } else if let Some(shape) = self.field.get_occupied_block(p) {
+            BlockDisplayState::Occupied(shape)
         } else {
-            BlockState::Empty
+            BlockDisplayState::Empty
         }
     }
 
     pub fn previews(&self) -> [Tetromino; upcoming::NUM_PREVIEWS] {
-        self.upcoming.preview().map(|shape| Tetromino::for_preview(shape))
+        self.upcoming
+            .preview()
+            .map(|shape| Tetromino::for_preview(shape))
     }
 }

@@ -1,5 +1,5 @@
 use crate::assets::RenderAssets;
-use crate::game_state::{BlockState, GameState, Pos};
+use crate::game_state::{BlockDisplayState, GameState, Pos};
 use crate::root_entity::RootMarker;
 use crate::shapes::{Rot, Shift};
 use crate::{assets, game_state};
@@ -59,9 +59,11 @@ pub fn update_block_colors(
     for child_id in children {
         let (mut material, block) = q_blocks.get_mut(child_id.clone()).unwrap();
 
-        let new_material = match field.game.check_block(&block.pos) {
-            BlockState::Active(s) | BlockState::Occupied(s) => ra.occupied_materials[&s].clone(),
-            BlockState::Empty => {
+        use BlockDisplayState::*;
+        let new_material = match field.game.get_display_state(&block.pos) {
+            Active(s) | Occupied(s) => ra.occupied_materials[&s].clone(),
+            Shadow(s) => ra.shadow_materials[&s].clone(),
+            Empty => {
                 if block.pos.y < game_state::H - game_state::PREVIEW_H {
                     ra.empty_material.clone()
                 } else {
