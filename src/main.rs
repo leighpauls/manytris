@@ -1,10 +1,12 @@
 use crate::assets::RenderAssets;
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
+use crate::input::RepeatTimes;
 
 mod assets;
 mod entities;
 mod game_state;
+mod input;
 mod preview_entities;
 mod root_entity;
 mod shapes;
@@ -17,6 +19,7 @@ fn main() {
         .add_plugins(FrameTimeDiagnosticsPlugin::default())
         .add_plugins(LogDiagnosticsPlugin::default())
         .init_resource::<RenderAssets>()
+        .init_resource::<RepeatTimes>()
         .add_systems(
             Startup,
             (
@@ -28,10 +31,13 @@ fn main() {
         .add_systems(
             Update,
             (
-                entities::update_for_input,
-                entities::update_block_colors,
-                preview_entities::update_preview_window,
-            ),
+                input::update_for_input,
+                (
+                    entities::update_block_colors,
+                    preview_entities::update_preview_window,
+                ),
+            )
+                .chain(),
         );
 
     app.run();

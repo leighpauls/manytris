@@ -1,7 +1,6 @@
 use crate::assets::RenderAssets;
 use crate::game_state::{BlockDisplayState, GameState, Pos};
 use crate::root_entity::RootMarker;
-use crate::shapes::{Rot, Shift};
 use crate::{assets, game_state};
 use bevy::prelude::*;
 use bevy::sprite::MaterialMesh2dBundle;
@@ -25,28 +24,6 @@ pub fn setup_field(
                 }
             }
         });
-}
-
-pub fn update_for_input(mut q_field: Query<&mut FieldComponent>, keys: Res<ButtonInput<KeyCode>>) {
-    let gs = &mut q_field.single_mut().game;
-    if keys.just_pressed(KeyCode::ArrowLeft) {
-        gs.shift(Shift::Left);
-    }
-    if keys.just_pressed(KeyCode::ArrowRight) {
-        gs.shift(Shift::Right);
-    }
-    if keys.just_pressed(KeyCode::ArrowDown) {
-        gs.down();
-    }
-    if keys.just_pressed(KeyCode::Space) {
-        gs.drop();
-    }
-    if keys.just_pressed(KeyCode::KeyZ) {
-        gs.rotate(Rot::Ccw);
-    }
-    if keys.just_pressed(KeyCode::KeyX) {
-        gs.rotate(Rot::Cw);
-    }
 }
 
 pub fn update_block_colors(
