@@ -2,11 +2,21 @@ use crate::assets::RenderAssets;
 use crate::game_state::{BlockDisplayState, GameState, Pos};
 use crate::input::InputEvent;
 use crate::root_entity::RootMarker;
-use crate::{assets, game_state};
+use crate::{assets, game_state, input, root_entity};
 use bevy::prelude::*;
 use bevy::sprite::MaterialMesh2dBundle;
 
-pub fn setup_field(
+pub fn entities_plugin(app: &mut App) {
+    app.add_systems(Startup, setup_field.after(root_entity::setup_root))
+        .add_systems(
+            Update,
+            (update_field_tick, update_block_colors)
+                .chain()
+                .after(input::update_for_input),
+        );
+}
+
+fn setup_field(
     mut commands: Commands,
     ra: Res<RenderAssets>,
     q_root: Query<Entity, With<RootMarker>>,
@@ -55,7 +65,7 @@ pub fn update_field_tick(
     }
 }
 
-pub fn update_block_colors(
+fn update_block_colors(
     q_field: Query<(&FieldComponent, &Children)>,
     mut q_blocks: Query<(&mut Handle<ColorMaterial>, &BlockComponent)>,
     ra: Res<RenderAssets>,
