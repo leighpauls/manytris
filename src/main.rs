@@ -1,7 +1,7 @@
 use crate::assets::RenderAssets;
+use crate::input::{InputEvent, RepeatTimes};
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
-use crate::input::RepeatTimes;
 
 mod assets;
 mod entities;
@@ -20,6 +20,7 @@ fn main() {
         .add_plugins(LogDiagnosticsPlugin::default())
         .init_resource::<RenderAssets>()
         .init_resource::<RepeatTimes>()
+        .add_event::<InputEvent>()
         .add_systems(
             Startup,
             (
@@ -32,6 +33,7 @@ fn main() {
             Update,
             (
                 input::update_for_input,
+                entities::update_field_tick,
                 (
                     entities::update_block_colors,
                     preview_entities::update_preview_window,

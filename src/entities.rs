@@ -1,5 +1,6 @@
 use crate::assets::RenderAssets;
 use crate::game_state::{BlockDisplayState, GameState, Pos};
+use crate::input::InputEvent;
 use crate::root_entity::RootMarker;
 use crate::{assets, game_state};
 use bevy::prelude::*;
@@ -24,6 +25,31 @@ pub fn setup_field(
                 }
             }
         });
+}
+
+pub fn update_field_tick(
+    mut q_field: Query<&mut FieldComponent>,
+    mut input_events: EventReader<InputEvent>,
+) {
+    let gs = &mut q_field.single_mut().game;
+
+    for event in input_events.read() {
+        use InputEvent::*;
+        match event {
+            ShiftEvent(s) => {
+                gs.shift(*s);
+            }
+            RotateEvent(d) => {
+                gs.rotate(*d);
+            }
+            DownEvent => {
+                gs.down();
+            }
+            DropEvent => {
+                gs.drop();
+            }
+        }
+    }
 }
 
 pub fn update_block_colors(

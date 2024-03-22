@@ -1,4 +1,4 @@
-use crate::entities::FieldComponent;
+use crate::input::InputEvent::{DownEvent, RotateEvent, ShiftEvent};
 use crate::shapes::{Rot, Shift};
 use bevy::prelude::*;
 use bevy::utils::Duration;
@@ -6,40 +6,64 @@ use bevy::utils::Duration;
 const INITIAL_REPEAT: Duration = Duration::from_millis(200);
 const REPEAT: Duration = Duration::from_millis(100);
 
-#[derive(Resource, Default)]
-pub struct RepeatTimes {
-    left: RepeatingInput,
-    right: RepeatingInput,
-    down: RepeatingInput,
-    ccw: RepeatingInput,
-    cw: RepeatingInput,
+#[derive(Event, Copy, Clone)]
+pub enum InputEvent {
+    ShiftEvent(Shift),
+    RotateEvent(Rot),
+    DownEvent,
+    DropEvent,
 }
 
-#[derive(Default)]
+#[derive(Resource)]
+pub struct RepeatTimes {
+    repeating_inputs: Vec<RepeatingInput>,
+}
+
 struct RepeatingInput {
     next_time: Option<Duration>,
+    event: InputEvent,
+    key: KeyCode,
+}
+
+impl Default for RepeatTimes {
+    fn default() -> Self {
+        Self {
+            repeating_inputs: vec![
+                RepeatingInput::new(ShiftEvent(Shift::Left), KeyCode::ArrowLeft),
+                RepeatingInput::new(ShiftEvent(Shift::Right), KeyCode::ArrowRight),
+                RepeatingInput::new(RotateEvent(Rot::Ccw), KeyCode::KeyZ),
+                RepeatingInput::new(RotateEvent(Rot::Cw), KeyCode::KeyX),
+                RepeatingInput::new(DownEvent, KeyCode::ArrowDown),
+            ],
+        }
+    }
 }
 
 impl RepeatingInput {
-    fn apply<F: FnOnce()>(
-        &mut self,
-        now: Duration,
-        keys: &ButtonInput<KeyCode>,
-        key: KeyCode,
-        action: F,
-    ) {
-        match (keys.pressed(key), self.next_time) {
+    fn new(event: InputEvent, key: KeyCode) -> Self {
+        Self {
+            next_time: None,
+            event,
+            key,
+        }
+    }
+
+    fn get_event(&mut self, now: Duration, keys: &ButtonInput<KeyCode>) -> Option<InputEvent> {
+        match (keys.pressed(self.key), self.next_time) {
             (false, _) => {
                 self.next_time = None;
+                None
             }
             (true, None) => {
                 self.next_time = Some(now + INITIAL_REPEAT);
-                action();
+                Some(self.event)
             }
             (true, Some(ref mut target)) => {
                 if *target <= now {
                     *target += REPEAT;
-                    action();
+                    Some(self.event)
+                } else {
+                    None
                 }
             }
         }
@@ -47,33 +71,21 @@ impl RepeatingInput {
 }
 
 pub fn update_for_input(
-    mut q_field: Query<&mut FieldComponent>,
     keys: Res<ButtonInput<KeyCode>>,
     time: Res<Time<Fixed>>,
     mut repeat_times: ResMut<RepeatTimes>,
+    mut input_event_writer: EventWriter<InputEvent>,
 ) {
-    let gs = &mut q_field.single_mut().game;
     let now = time.elapsed();
 
-    repeat_times.left.apply(now, &keys, KeyCode::ArrowLeft, || {
-        gs.shift(Shift::Left);
-    });
-    repeat_times
-        .right
-        .apply(now, &keys, KeyCode::ArrowRight, || {
-            gs.shift(Shift::Right);
-        });
-    repeat_times.down.apply(now, &keys, KeyCode::ArrowDown, || {
-        gs.down();
-    });
-    repeat_times.ccw.apply(now, &keys, KeyCode::KeyZ, || {
-        gs.rotate(Rot::Ccw);
-    });
-    repeat_times.cw.apply(now, &keys, KeyCode::KeyX, || {
-        gs.rotate(Rot::Cw);
-    });
+    for repeating in &mut repeat_times.repeating_inputs {
+        if let Some(event) = repeating.get_event(now, &keys) {
+            input_event_writer.send(event);
+        }
+    }
 
+    // Non-repeating events
     if keys.just_pressed(KeyCode::Space) {
-        gs.drop();
+        input_event_writer.send(InputEvent::DropEvent);
     }
 }
