@@ -7,7 +7,7 @@ use std::collections::HashMap;
 pub const BLOCK_SIZE: f32 = 30.0;
 pub const BLOCK_BORDER: f32 = 3.0;
 
-pub fn assets_plugin(app: &mut App) {
+pub fn plugin(app: &mut App) {
     app.init_resource::<RenderAssets>();
 }
 

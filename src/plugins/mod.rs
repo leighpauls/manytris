@@ -2,11 +2,12 @@ use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
 
 mod assets;
-mod entities;
+mod field_blocks;
 mod input;
-mod preview_entities;
-mod root_entity;
+mod window_blocks;
+mod root;
 mod system_sets;
+mod block_render;
 
 pub fn run() {
     let mut app = App::new();
@@ -17,12 +18,13 @@ pub fn run() {
             LogDiagnosticsPlugin::default(),
         ))
         .add_plugins((
-            root_entity::root_plugin,
-            preview_entities::preview_plugin,
-            entities::entities_plugin,
-            input::input_plugin,
-            assets::assets_plugin,
-            system_sets::system_sets_plugin,
+            root::plugin,
+            window_blocks::plugin,
+            field_blocks::plugin,
+            input::plugin,
+            assets::plugin,
+            system_sets::plugin,
+            block_render::plugin
         ));
 
     app.run();

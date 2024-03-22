@@ -1,17 +1,18 @@
 use crate::game_state::{Pos, Tetromino};
 use crate::plugins::assets;
 use crate::plugins::assets::RenderAssets;
-use crate::plugins::entities::{BlockBundle, BlockComponent};
-use crate::plugins::root_entity::GameRoot;
+use crate::plugins::block_render::{BlockBundle, BlockColor, BlockComponent};
+use crate::plugins::root::GameRoot;
 use crate::plugins::system_sets::{StartupSystems, UpdateSystems};
 use crate::{game_state, upcoming};
 use bevy::prelude::*;
 
-pub fn preview_plugin(app: &mut App) {
+pub fn plugin(app: &mut App) {
     app.add_systems(Startup, setup_windows.in_set(StartupSystems::AfterRoot))
         .add_systems(
             Update,
-            (update_preview_window, update_hold_window).in_set(UpdateSystems::Render),
+            (update_preview_window_blocks, update_hold_window_blocks)
+                .in_set(UpdateSystems::PreRender),
         );
 }
 
@@ -58,31 +59,28 @@ fn setup_windows(
         .with_children(spawn_blocks_fn);
 }
 
-type BlockQuery<'world, 'state, 'a> =
-    Query<'world, 'state, (&'a mut Handle<ColorMaterial>, &'a BlockComponent)>;
+type BlockQuery<'world, 'state, 'a> = Query<'world, 'state, &'a mut BlockComponent>;
 
-fn update_preview_window(
+fn update_preview_window_blocks(
     q_root: Query<&GameRoot>,
     q_windows: Query<(&PreviewWindowComponent, &Children)>,
     mut q_blocks: BlockQuery,
-    ra: Res<RenderAssets>,
 ) {
     let previews = q_root.single().game.previews();
 
     for (window, children) in &q_windows {
         let preview = &previews[window.preview_idx];
-        update_child_block_colors(Some(preview), children, &mut q_blocks, &ra);
+        update_child_block_colors(Some(preview), children, &mut q_blocks);
     }
 }
 
-fn update_hold_window(
+fn update_hold_window_blocks(
     q_root: Query<&GameRoot>,
     q_window: Query<&Children, With<HoldWindowComponent>>,
     mut q_blocks: BlockQuery,
-    ra: Res<RenderAssets>,
 ) {
     let held = q_root.single().game.held_tetromino();
-    update_child_block_colors(held.as_ref(), q_window.single(), &mut q_blocks, &ra);
+    update_child_block_colors(held.as_ref(), q_window.single(), &mut q_blocks);
 }
 
 fn spawn_window_block_children(parent: &mut ChildBuilder, ra: &RenderAssets) {
@@ -97,13 +95,12 @@ fn update_child_block_colors(
     preview: Option<&Tetromino>,
     children: &Children,
     q_blocks: &mut BlockQuery,
-    ra: &RenderAssets,
 ) {
     for child in children {
-        if let Ok((mut material, block)) = q_blocks.get_mut(*child) {
-            *material = match preview {
-                Some(t) if t.contains(&block.pos) => ra.occupied_materials[&t.shape].clone(),
-                _ => ra.invisible_material.clone(),
+        if let Ok(mut block) = q_blocks.get_mut(*child) {
+            block.color = match preview {
+                Some(t) if t.contains(&block.pos) => BlockColor::Occupied(t.shape),
+                _ => BlockColor::Invisible,
             };
         }
     }

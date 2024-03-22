@@ -4,7 +4,7 @@ use crate::plugins::input::InputEvent;
 use crate::plugins::system_sets::{StartupSystems, UpdateSystems};
 use bevy::prelude::*;
 
-pub fn root_plugin(app: &mut App) {
+pub fn plugin(app: &mut App) {
     app.add_systems(Startup, setup_root.in_set(StartupSystems::Root))
         .add_systems(Update, update_root_tick.in_set(UpdateSystems::RootTick));
 }

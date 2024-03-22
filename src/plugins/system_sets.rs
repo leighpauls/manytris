@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 /// Configure the system sets' run ordering
-pub fn system_sets_plugin(app: &mut App) {
+pub fn plugin(app: &mut App) {
     app.configure_sets(
         Startup,
         (StartupSystems::Root, StartupSystems::AfterRoot).chain(),
@@ -11,6 +11,7 @@ pub fn system_sets_plugin(app: &mut App) {
         (
             UpdateSystems::Input,
             UpdateSystems::RootTick,
+            UpdateSystems::PreRender,
             UpdateSystems::Render,
         )
             .chain(),
@@ -27,5 +28,6 @@ pub enum StartupSystems {
 pub enum UpdateSystems {
     Input,
     RootTick,
+    PreRender,
     Render,
 }

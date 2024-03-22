@@ -7,7 +7,7 @@ use bevy::utils::Duration;
 const INITIAL_REPEAT: Duration = Duration::from_millis(200);
 const REPEAT: Duration = Duration::from_millis(100);
 
-pub fn input_plugin(app: &mut App) {
+pub fn plugin(app: &mut App) {
     app.add_event::<InputEvent>()
         .init_resource::<RepeatTimes>()
         .add_systems(Update, update_for_input.in_set(UpdateSystems::Input));
