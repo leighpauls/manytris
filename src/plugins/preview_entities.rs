@@ -1,10 +1,11 @@
-use crate::assets::RenderAssets;
-use crate::entities::{BlockBundle, BlockComponent, FieldComponent};
 use crate::game_state::{Pos, Tetromino};
-use crate::root_entity::RootMarker;
-use crate::system_sets::{StartupSystems, UpdateSystems};
-use crate::{assets, entities, game_state, root_entity, upcoming};
+use crate::plugins::assets;
+use crate::plugins::assets::RenderAssets;
+use crate::plugins::entities::{BlockBundle, BlockComponent, FieldComponent};
+use crate::plugins::root_entity::RootMarker;
+use crate::plugins::system_sets::{StartupSystems, UpdateSystems};
 use bevy::prelude::*;
+use crate::{game_state, upcoming};
 
 pub fn preview_plugin(app: &mut App) {
     app.add_systems(Startup, setup_windows.in_set(StartupSystems::AfterRoot))

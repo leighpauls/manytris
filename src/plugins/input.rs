@@ -1,6 +1,6 @@
-use crate::input::InputEvent::{DownEvent, RotateEvent, ShiftEvent};
+use crate::plugins::input::InputEvent::{DownEvent, RotateEvent, ShiftEvent};
+use crate::plugins::system_sets::UpdateSystems;
 use crate::shapes::{Rot, Shift};
-use crate::system_sets::UpdateSystems;
 use bevy::prelude::*;
 use bevy::utils::Duration;
 

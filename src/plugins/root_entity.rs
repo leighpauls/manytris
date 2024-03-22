@@ -1,5 +1,5 @@
-use crate::assets;
-use crate::system_sets::StartupSystems;
+use crate::plugins::assets;
+use crate::plugins::system_sets::StartupSystems;
 use bevy::prelude::*;
 
 pub fn root_plugin(app: &mut App) {

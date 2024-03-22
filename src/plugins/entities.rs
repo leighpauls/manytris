@@ -1,9 +1,10 @@
-use crate::assets::RenderAssets;
+use crate::game_state;
 use crate::game_state::{BlockDisplayState, GameState, Pos};
-use crate::input::InputEvent;
-use crate::root_entity::RootMarker;
-use crate::system_sets::{StartupSystems, UpdateSystems};
-use crate::{assets, game_state, input, root_entity};
+use crate::plugins::assets;
+use crate::plugins::assets::RenderAssets;
+use crate::plugins::input::InputEvent;
+use crate::plugins::root_entity::RootMarker;
+use crate::plugins::system_sets::{StartupSystems, UpdateSystems};
 use bevy::prelude::*;
 use bevy::sprite::MaterialMesh2dBundle;
 
