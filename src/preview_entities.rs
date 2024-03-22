@@ -1,6 +1,6 @@
 use crate::assets::RenderAssets;
 use crate::entities::{BlockBundle, BlockComponent, FieldComponent};
-use crate::game_state::{Pos, Tetromino};
+use crate::game_state::Pos;
 use crate::root_entity::RootMarker;
 use crate::{assets, game_state, upcoming};
 use bevy::prelude::*;

@@ -4,7 +4,7 @@ use crate::root_entity::RootMarker;
 use crate::shapes::{Rot, Shift};
 use crate::{assets, game_state};
 use bevy::prelude::*;
-use bevy::sprite::{MaterialMesh2dBundle, Mesh2dHandle};
+use bevy::sprite::MaterialMesh2dBundle;
 
 pub fn setup_field(
     mut commands: Commands,
