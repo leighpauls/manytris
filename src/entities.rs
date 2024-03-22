@@ -2,17 +2,19 @@ use crate::assets::RenderAssets;
 use crate::game_state::{BlockDisplayState, GameState, Pos};
 use crate::input::InputEvent;
 use crate::root_entity::RootMarker;
+use crate::system_sets::{StartupSystems, UpdateSystems};
 use crate::{assets, game_state, input, root_entity};
 use bevy::prelude::*;
 use bevy::sprite::MaterialMesh2dBundle;
 
 pub fn entities_plugin(app: &mut App) {
-    app.add_systems(Startup, setup_field.after(root_entity::setup_root))
+    app.add_systems(Startup, setup_field.in_set(StartupSystems::AfterRoot))
         .add_systems(
             Update,
-            (update_field_tick, update_block_colors)
-                .chain()
-                .after(input::update_for_input),
+            (
+                update_field_tick.in_set(UpdateSystems::RootTick),
+                update_block_colors.in_set(UpdateSystems::Render),
+            ),
         );
 }
 
@@ -37,7 +39,7 @@ fn setup_field(
         });
 }
 
-pub fn update_field_tick(
+fn update_field_tick(
     mut q_field: Query<&mut FieldComponent>,
     mut input_events: EventReader<InputEvent>,
 ) {

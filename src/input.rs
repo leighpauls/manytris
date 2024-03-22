@@ -1,5 +1,6 @@
 use crate::input::InputEvent::{DownEvent, RotateEvent, ShiftEvent};
 use crate::shapes::{Rot, Shift};
+use crate::system_sets::UpdateSystems;
 use bevy::prelude::*;
 use bevy::utils::Duration;
 
@@ -9,7 +10,7 @@ const REPEAT: Duration = Duration::from_millis(100);
 pub fn input_plugin(app: &mut App) {
     app.add_event::<InputEvent>()
         .init_resource::<RepeatTimes>()
-        .add_systems(Update, update_for_input);
+        .add_systems(Update, update_for_input.in_set(UpdateSystems::Input));
 }
 
 #[derive(Event, Copy, Clone)]
@@ -77,7 +78,7 @@ impl RepeatingInput {
     }
 }
 
-pub fn update_for_input(
+fn update_for_input(
     keys: Res<ButtonInput<KeyCode>>,
     time: Res<Time<Fixed>>,
     mut repeat_times: ResMut<RepeatTimes>,

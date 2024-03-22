@@ -26,6 +26,7 @@ fn main() {
             entities::entities_plugin,
             input::input_plugin,
             assets::assets_plugin,
+            system_sets::system_sets_plugin,
         ));
 
     app.run();

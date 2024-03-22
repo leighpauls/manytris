@@ -1,8 +1,9 @@
 use crate::assets;
+use crate::system_sets::StartupSystems;
 use bevy::prelude::*;
 
 pub fn root_plugin(app: &mut App) {
-    app.add_systems(Startup, setup_root);
+    app.add_systems(Startup, setup_root.in_set(StartupSystems::Root));
 }
 
 #[derive(Component)]
@@ -14,7 +15,7 @@ pub struct RootTransformBundle {
     marker: RootMarker,
 }
 
-pub fn setup_root(mut commands: Commands) {
+fn setup_root(mut commands: Commands) {
     commands.spawn(RootTransformBundle {
         transform: SpatialBundle::from_transform(Transform::from_xyz(
             -assets::BLOCK_SIZE * 8.,

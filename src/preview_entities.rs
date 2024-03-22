@@ -2,14 +2,15 @@ use crate::assets::RenderAssets;
 use crate::entities::{BlockBundle, BlockComponent, FieldComponent};
 use crate::game_state::{Pos, Tetromino};
 use crate::root_entity::RootMarker;
+use crate::system_sets::{StartupSystems, UpdateSystems};
 use crate::{assets, entities, game_state, root_entity, upcoming};
 use bevy::prelude::*;
 
 pub fn preview_plugin(app: &mut App) {
-    app.add_systems(Startup, setup_windows.after(root_entity::setup_root))
+    app.add_systems(Startup, setup_windows.in_set(StartupSystems::AfterRoot))
         .add_systems(
             Update,
-            (update_preview_window, update_hold_window).after(entities::update_field_tick),
+            (update_preview_window, update_hold_window).in_set(UpdateSystems::Render),
         );
 }
 
