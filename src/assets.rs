@@ -36,7 +36,7 @@ impl FromWorld for RenderAssets {
             .map(|(shape, hue)| (shape, materials.add(Color::hsl(hue, 0.7, 0.7))))
             .collect::<HashMap<Shape, Handle<ColorMaterial>>>();
         let shadow_materials = hues_iter
-            .map(|(shape, hue)| (shape, materials.add(Color::hsl(hue, 0.2, 0.7))))
+            .map(|(shape, hue)| (shape, materials.add(Color::hsl(hue, 0.15, 0.7))))
             .collect::<HashMap<Shape, Handle<ColorMaterial>>>();
 
         Self {

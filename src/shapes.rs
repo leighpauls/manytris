@@ -52,8 +52,8 @@ impl Shape {
     pub fn starting_tetromino_location(&self) -> TetrominoLocation {
         match self {
             Self::O => TetrominoLocation(W / 2 - 1, H - PREVIEW_H),
-            Self::I => TetrominoLocation(W / 2 - 2, H - PREVIEW_H - 2),
-            _ => TetrominoLocation(W / 2 - 1, H - PREVIEW_H - 1),
+            Self::I => TetrominoLocation(W / 2 - 3, H - PREVIEW_H - 2),
+            _ => TetrominoLocation(W / 2 - 3, H - PREVIEW_H - 1),
         }
     }
 
