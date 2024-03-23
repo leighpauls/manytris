@@ -33,21 +33,23 @@ impl GameState {
     }
 
     /// Drop the active tetromino, return True if it locks.
-    pub fn down(&mut self) -> bool {
-        match self.active.down() {
-            Some(new_t) if self.field.is_valid(&new_t) => {
+    pub fn down(&mut self, is_repeat: bool) -> bool {
+        match (self.active.down(), is_repeat) {
+            (Some(new_t), _) if self.field.is_valid(&new_t) => {
                 self.active = new_t;
                 false
             }
-            _ => {
+            (_, false) => {
                 self.lock_active_tetromino();
                 true
             }
+            // Don't lock when repeating the down input.
+            (_, true) => false,
         }
     }
 
     pub fn drop(&mut self) {
-        while !self.down() {}
+        while !self.down(false) {}
     }
 
     pub fn shift(&mut self, dir: Shift) -> Option<()> {

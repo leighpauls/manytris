@@ -1,6 +1,6 @@
 use crate::game_state::GameState;
 use crate::plugins::assets;
-use crate::plugins::input::InputEvent;
+use crate::plugins::input::{InputEvent, InputType};
 use crate::plugins::system_sets::{StartupSystems, UpdateSystems};
 use bevy::prelude::*;
 
@@ -37,16 +37,16 @@ fn update_root_tick(mut q_root: Query<&mut GameRoot>, mut input_events: EventRea
     let gs = &mut q_root.single_mut().game;
 
     for event in input_events.read() {
-        use InputEvent::*;
-        match event {
+        use InputType::*;
+        match event.input_type {
             ShiftEvent(s) => {
-                gs.shift(*s);
+                gs.shift(s);
             }
             RotateEvent(d) => {
-                gs.rotate(*d);
+                gs.rotate(d);
             }
             DownEvent => {
-                gs.down();
+                gs.down(event.is_repeat);
             }
             DropEvent => {
                 gs.drop();

@@ -1,4 +1,3 @@
-use crate::plugins::input::InputEvent::{DownEvent, RotateEvent, ShiftEvent};
 use crate::plugins::system_sets::UpdateSystems;
 use crate::shapes::{Rot, Shift};
 use bevy::prelude::*;
@@ -14,7 +13,13 @@ pub fn plugin(app: &mut App) {
 }
 
 #[derive(Event, Copy, Clone)]
-pub enum InputEvent {
+pub struct InputEvent {
+    pub input_type: InputType,
+    pub is_repeat: bool,
+}
+
+#[derive(Copy, Clone)]
+pub enum InputType {
     ShiftEvent(Shift),
     RotateEvent(Rot),
     DownEvent,
@@ -29,12 +34,13 @@ pub struct RepeatTimes {
 
 struct RepeatingInput {
     next_time: Option<Duration>,
-    event: InputEvent,
+    input_type: InputType,
     key: KeyCode,
 }
 
 impl Default for RepeatTimes {
     fn default() -> Self {
+        use InputType::*;
         Self {
             repeating_inputs: vec![
                 RepeatingInput::new(ShiftEvent(Shift::Left), KeyCode::ArrowLeft),
@@ -48,28 +54,37 @@ impl Default for RepeatTimes {
 }
 
 impl RepeatingInput {
-    fn new(event: InputEvent, key: KeyCode) -> Self {
+    fn new(input_type: InputType, key: KeyCode) -> Self {
         Self {
             next_time: None,
-            event,
+            input_type,
             key,
         }
     }
 
     fn get_event(&mut self, now: Duration, keys: &ButtonInput<KeyCode>) -> Option<InputEvent> {
         match (keys.pressed(self.key), self.next_time) {
+            // Not pressed, reset
             (false, _) => {
                 self.next_time = None;
                 None
             }
+            // Pressed for the first time
             (true, None) => {
                 self.next_time = Some(now + INITIAL_REPEAT);
-                Some(self.event)
+                Some(InputEvent {
+                    input_type: self.input_type,
+                    is_repeat: false,
+                })
             }
+            // Button is being Held
             (true, Some(ref mut target)) => {
                 if *target <= now {
                     *target += REPEAT;
-                    Some(self.event)
+                    Some(InputEvent {
+                        input_type: self.input_type,
+                        is_repeat: true,
+                    })
                 } else {
                     None
                 }
@@ -94,10 +109,16 @@ fn update_for_input(
 
     // Non-repeating events
     if keys.just_pressed(KeyCode::Space) {
-        input_event_writer.send(InputEvent::DropEvent);
+        input_event_writer.send(InputEvent {
+            input_type: InputType::DropEvent,
+            is_repeat: false,
+        });
     }
 
     if keys.just_pressed(KeyCode::KeyC) {
-        input_event_writer.send(InputEvent::HoldEvent);
+        input_event_writer.send(InputEvent {
+            input_type: InputType::HoldEvent,
+            is_repeat: false,
+        });
     }
 }
