@@ -30,17 +30,23 @@ impl FromWorld for RenderAssets {
         let all_shapes: Vec<Shape> = all::<Shape>().collect();
         let num_shapes = all_shapes.len() as f32;
 
-        let hues_iter = all_shapes
-            .iter()
-            .enumerate()
-            .map(|(idx, shape)| (*shape, 360. * idx as f32 / num_shapes));
+        let hue_pairs = [
+            (Shape::Z, 0.),
+            (Shape::L, 30.),
+            (Shape::O, 60.),
+            (Shape::S, 120.),
+            (Shape::I, 180.),
+            (Shape::J, 240.),
+            (Shape::T, 300.),
+        ];
 
-        let occupied_materials = hues_iter
-            .clone()
-            .map(|(shape, hue)| (shape, materials.add(Color::hsl(hue, 0.7, 0.7))))
+        let occupied_materials = hue_pairs
+            .iter()
+            .map(|(shape, hue)| (*shape, materials.add(Color::hsl(*hue, 0.7, 0.7))))
             .collect::<HashMap<Shape, Handle<ColorMaterial>>>();
-        let shadow_materials = hues_iter
-            .map(|(shape, hue)| (shape, materials.add(Color::hsl(hue, 0.15, 0.7))))
+        let shadow_materials = hue_pairs
+            .iter()
+            .map(|(shape, hue)| (*shape, materials.add(Color::hsl(*hue, 0.15, 0.7))))
             .collect::<HashMap<Shape, Handle<ColorMaterial>>>();
 
         Self {
