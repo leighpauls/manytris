@@ -27,7 +27,8 @@ impl Field {
         }
     }
 
-    pub fn apply_tetrominio(&mut self, t: &Tetromino) {
+    /// Apply the tetromino, return the number of lines cleared.
+    pub fn apply_tetrominio(&mut self, t: &Tetromino) -> i32 {
         for block_pos in &t.get_blocks() {
             self.occupied.insert(block_pos.clone(), t.shape);
         }
@@ -48,7 +49,7 @@ impl Field {
         }
 
         if lines_to_remove.is_empty() {
-            return;
+            return 0;
         }
 
         let mut drop_dist = 0;
@@ -70,6 +71,8 @@ impl Field {
                 }
             }
         }
+
+        return lines_to_remove.len() as i32;
     }
 
     pub fn find_shadow(&self, active: &Tetromino) -> Tetromino {

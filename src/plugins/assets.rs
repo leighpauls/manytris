@@ -1,7 +1,6 @@
 use crate::shapes::Shape;
 use bevy::prelude::*;
 use bevy::sprite::Mesh2dHandle;
-use enum_iterator::all;
 use std::collections::HashMap;
 
 pub const BLOCK_SIZE: f32 = 30.0;
@@ -26,9 +25,6 @@ impl FromWorld for RenderAssets {
         let block_mesh = Mesh2dHandle(world.resource_mut::<Assets<Mesh>>().add(rect));
 
         let mut materials = world.resource_mut::<Assets<ColorMaterial>>();
-
-        let all_shapes: Vec<Shape> = all::<Shape>().collect();
-        let num_shapes = all_shapes.len() as f32;
 
         let hue_pairs = [
             (Shape::Z, 0.),

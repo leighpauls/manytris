@@ -19,6 +19,18 @@ pub enum BlockDisplayState {
     Shadow(Shape),
 }
 
+#[must_use]
+pub enum DownResult {
+    StillActive,
+    Locked(LockResult),
+}
+
+#[must_use]
+pub enum LockResult {
+    GameOver,
+    Ok { lines_cleared: i32 },
+}
+
 impl GameState {
     pub fn new() -> GameState {
         let mut upcoming = UpcomingTetrominios::new();
@@ -33,23 +45,25 @@ impl GameState {
     }
 
     /// Drop the active tetromino, return True if it locks.
-    pub fn down(&mut self, is_repeat: bool) -> bool {
+    pub fn down(&mut self, is_repeat: bool) -> DownResult {
         match (self.active.down(), is_repeat) {
             (Some(new_t), _) if self.field.is_valid(&new_t) => {
                 self.active = new_t;
-                false
+                DownResult::StillActive
             }
-            (_, false) => {
-                self.lock_active_tetromino();
-                true
-            }
+            (_, false) => DownResult::Locked(self.lock_active_tetromino()),
             // Don't lock when repeating the down input.
-            (_, true) => false,
+            (_, true) => DownResult::StillActive,
         }
     }
 
-    pub fn drop(&mut self) {
-        while !self.down(false) {}
+    pub fn drop(&mut self) -> LockResult {
+        loop {
+            match self.down(false) {
+                DownResult::StillActive => (),
+                DownResult::Locked(res) => return res,
+            }
+        }
     }
 
     pub fn shift(&mut self, dir: Shift) -> Option<()> {
@@ -107,17 +121,20 @@ impl GameState {
         self.replace_active_tetromino(new_shape);
     }
 
-    fn lock_active_tetromino(&mut self) {
+    fn lock_active_tetromino(&mut self) -> LockResult {
         self.hold_used = false;
-        self.field.apply_tetrominio(&self.active);
+        let lines_cleared = self.field.apply_tetrominio(&self.active);
         let next_shape = self.upcoming.take();
-        self.replace_active_tetromino(next_shape);
+        if self.replace_active_tetromino(next_shape) {
+            LockResult::Ok { lines_cleared }
+        } else {
+            LockResult::GameOver
+        }
     }
 
-    fn replace_active_tetromino(&mut self, shape: Shape) {
+    /// Place the new tetromino, return true if it has a valid placement.
+    fn replace_active_tetromino(&mut self, shape: Shape) -> bool {
         self.active = Tetromino::new(shape);
-        if !self.field.is_valid(&self.active) {
-            panic!("Game over!");
-        }
+        self.field.is_valid(&self.active)
     }
 }
