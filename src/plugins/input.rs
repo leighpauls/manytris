@@ -3,8 +3,8 @@ use crate::shapes::{Rot, Shift};
 use bevy::prelude::*;
 use bevy::utils::Duration;
 
-const INITIAL_REPEAT: Duration = Duration::from_millis(200);
-const REPEAT: Duration = Duration::from_millis(100);
+const INITIAL_REPEAT: Duration = Duration::from_millis(160);
+const REPEAT: Duration = Duration::from_millis(30);
 
 pub fn plugin(app: &mut App) {
     app.add_event::<InputEvent>()
