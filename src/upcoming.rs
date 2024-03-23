@@ -1,7 +1,6 @@
+use crate::consts;
 use crate::shapes::Shape;
 use rand::prelude::*;
-
-pub const NUM_PREVIEWS: usize = 6;
 
 pub struct UpcomingTetrominios {
     upcoming_blocks: Vec<Shape>,
@@ -19,7 +18,7 @@ impl UpcomingTetrominios {
         ut
     }
 
-    pub fn preview(&self) -> [Shape; NUM_PREVIEWS] {
+    pub fn preview(&self) -> [Shape; consts::NUM_PREVIEWS] {
         self.upcoming_blocks.clone().try_into().unwrap()
     }
 
@@ -30,7 +29,7 @@ impl UpcomingTetrominios {
     }
 
     fn refill(&mut self) {
-        while self.upcoming_blocks.len() < NUM_PREVIEWS {
+        while self.upcoming_blocks.len() < consts::NUM_PREVIEWS {
             if self.bag_remaining.is_empty() {
                 self.bag_remaining = enum_iterator::all::<Shape>().collect();
             }
@@ -43,15 +42,14 @@ impl UpcomingTetrominios {
 
 #[cfg(test)]
 mod test {
-    use crate::upcoming::{UpcomingTetrominios, NUM_PREVIEWS};
+    use super::*;
 
     #[test]
     fn test() {
         let mut ut = UpcomingTetrominios::new();
-        assert_eq!(ut.upcoming_blocks.len(), NUM_PREVIEWS);
+        assert_eq!(ut.upcoming_blocks.len(), consts::NUM_PREVIEWS);
 
         let s = ut.take();
-        assert_eq!(ut.upcoming_blocks.len(), NUM_PREVIEWS);
-
+        assert_eq!(ut.upcoming_blocks.len(), consts::NUM_PREVIEWS);
     }
 }

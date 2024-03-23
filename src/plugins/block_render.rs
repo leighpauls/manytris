@@ -1,4 +1,4 @@
-use crate::game_state::Pos;
+use crate::field::Pos;
 use crate::plugins::assets;
 use crate::plugins::assets::RenderAssets;
 use crate::plugins::system_sets::UpdateSystems;

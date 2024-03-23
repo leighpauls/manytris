@@ -1,11 +1,12 @@
-use crate::game_state::{Pos, Tetromino};
+use crate::tetromino::Tetromino;
 use crate::plugins::assets;
 use crate::plugins::assets::RenderAssets;
 use crate::plugins::block_render::{BlockBundle, BlockColor, BlockComponent};
 use crate::plugins::root::GameRoot;
 use crate::plugins::system_sets::{StartupSystems, UpdateSystems};
-use crate::{game_state, upcoming};
+use crate::consts;
 use bevy::prelude::*;
+use crate::field::Pos;
 
 pub fn plugin(app: &mut App) {
     app.add_systems(Startup, setup_windows.in_set(StartupSystems::AfterRoot))
@@ -46,7 +47,7 @@ fn setup_windows(
         spawn_window_block_children(parent, &ra);
     };
 
-    for i in 0..upcoming::NUM_PREVIEWS {
+    for i in 0..consts::NUM_PREVIEWS {
         commands
             .spawn(PreviewWindowBundle::new(i))
             .set_parent(root)
@@ -110,8 +111,8 @@ impl PreviewWindowBundle {
     fn new(preview_idx: usize) -> Self {
         Self {
             transforms: SpatialBundle::from_transform(Transform::from_xyz(
-                assets::BLOCK_SIZE * (game_state::W + 1) as f32,
-                assets::BLOCK_SIZE * (game_state::H - 3 - 4 * preview_idx as i32) as f32,
+                assets::BLOCK_SIZE * (consts::W + 1) as f32,
+                assets::BLOCK_SIZE * (consts::H - 3 - 4 * preview_idx as i32) as f32,
                 0.,
             )),
             preview: PreviewWindowComponent { preview_idx },
@@ -124,7 +125,7 @@ impl HoldWindowBundle {
         Self {
             transforms: SpatialBundle::from_transform(Transform::from_xyz(
                 -assets::BLOCK_SIZE * 5.,
-                assets::BLOCK_SIZE * (game_state::H - 3) as f32,
+                assets::BLOCK_SIZE * (consts::H - 3) as f32,
                 0.,
             )),
             hold: HoldWindowComponent(),

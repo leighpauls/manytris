@@ -1,5 +1,5 @@
-use crate::game_state::{H, PREVIEW_H, W};
 use enum_iterator::Sequence;
+use crate::consts::{H, PREVIEW_H, W};
 
 pub const KICK_ATTEMPTS: usize = 5;
 

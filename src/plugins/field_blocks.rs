@@ -1,5 +1,6 @@
-use crate::game_state;
-use crate::game_state::{BlockDisplayState, Pos};
+use crate::consts;
+use crate::field::Pos;
+use crate::game_state::BlockDisplayState;
 use crate::plugins::assets::RenderAssets;
 use crate::plugins::block_render::{BlockBundle, BlockColor, BlockComponent};
 use crate::plugins::root::GameRoot;
@@ -42,8 +43,8 @@ fn setup_field(
         .spawn(FieldBundle::new())
         .set_parent(root)
         .with_children(|parent| {
-            for y in 0..game_state::H {
-                for x in 0..game_state::W {
+            for y in 0..consts::H {
+                for x in 0..consts::W {
                     parent.spawn(BlockBundle::new(Pos { x, y }, &ra));
                 }
             }
@@ -66,7 +67,7 @@ fn update_field_blocks(
             Active(s) | Occupied(s) => BlockColor::Occupied(s),
             Shadow(s) => BlockColor::Shadow(s),
             Empty => {
-                if block.pos.y < game_state::H - game_state::PREVIEW_H {
+                if block.pos.y < consts::H - consts::PREVIEW_H {
                     BlockColor::Empty
                 } else {
                     BlockColor::Invisible
