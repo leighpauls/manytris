@@ -63,7 +63,10 @@ impl RepeatingInput {
     }
 
     fn get_event(&mut self, now: Duration, keys: &ButtonInput<KeyCode>) -> Option<InputEvent> {
-        match (keys.pressed(self.key), self.next_time) {
+        match (
+            keys.pressed(self.key) || keys.just_pressed(self.key),
+            self.next_time,
+        ) {
             // Not pressed, reset
             (false, _) => {
                 self.next_time = None;

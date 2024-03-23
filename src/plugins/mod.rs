@@ -1,13 +1,14 @@
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
+use bevy::window::PresentMode;
 
 mod assets;
+mod block_render;
 mod field_blocks;
 mod input;
-mod window_blocks;
 mod root;
 mod system_sets;
-mod block_render;
+mod window_blocks;
 
 pub fn run() {
     let mut app = App::new();
@@ -24,7 +25,7 @@ pub fn run() {
             input::plugin,
             assets::plugin,
             system_sets::plugin,
-            block_render::plugin
+            block_render::plugin,
         ));
 
     app.run();

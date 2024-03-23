@@ -38,7 +38,7 @@ fn render_blocks(
             BlockColor::Empty => ra.empty_material.clone(),
             BlockColor::Invisible => ra.invisible_material.clone(),
             BlockColor::Occupied(s) => ra.occupied_materials[&s].clone(),
-            BlockColor::Shadow(s) => ra.occupied_materials[&s].clone(),
+            BlockColor::Shadow(s) => ra.shadow_materials[&s].clone(),
         };
     }
 }
