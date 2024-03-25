@@ -6,6 +6,7 @@ mod block_render;
 mod field_blocks;
 mod input;
 mod root;
+mod scoreboard;
 mod system_sets;
 mod window_blocks;
 
@@ -25,6 +26,7 @@ pub fn run() {
             assets::plugin,
             system_sets::plugin,
             block_render::plugin,
+            scoreboard::plugin,
         ));
 
     app.run();
