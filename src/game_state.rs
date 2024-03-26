@@ -3,13 +3,18 @@ use crate::field::{Field, Pos};
 use crate::shapes::{Rot, Shape, Shift};
 use crate::tetromino::Tetromino;
 use crate::upcoming::UpcomingTetrominios;
+use std::time::Duration;
 
 pub struct GameState {
     field: Field,
     active: Tetromino,
     upcoming: UpcomingTetrominios,
+
     held: Option<Shape>,
     hold_used: bool,
+
+    lock_timer_reset_requested: bool,
+    lock_timer_target: Option<Duration>,
 }
 
 pub enum BlockDisplayState {
@@ -31,6 +36,12 @@ pub enum LockResult {
     Ok { lines_cleared: i32 },
 }
 
+pub enum DownType {
+    FirstPress,
+    HoldRepeat,
+    Gravity,
+}
+
 impl GameState {
     pub fn new() -> GameState {
         let mut upcoming = UpcomingTetrominios::new();
@@ -41,25 +52,28 @@ impl GameState {
             held: None,
             hold_used: false,
             upcoming,
+            lock_timer_reset_requested: false,
+            lock_timer_target: None,
         };
     }
 
     /// Drop the active tetromino, return True if it locks.
-    pub fn down(&mut self, is_repeat: bool) -> DownResult {
-        match (self.active.down(), is_repeat) {
+    pub fn down(&mut self, down_type: DownType) -> DownResult {
+        match (self.active.down(), down_type) {
             (Some(new_t), _) if self.field.is_valid(&new_t) => {
                 self.active = new_t;
+                self.update_lock_timer_for_movement();
                 DownResult::StillActive
             }
-            (_, false) => DownResult::Locked(self.lock_active_tetromino()),
-            // Don't lock when repeating the down input.
-            (_, true) => DownResult::StillActive,
+            (_, DownType::FirstPress) => DownResult::Locked(self.lock_active_tetromino()),
+            // Don't from gravity or repeat.
+            (_, DownType::Gravity | DownType::HoldRepeat) => DownResult::StillActive,
         }
     }
 
     pub fn drop(&mut self) -> LockResult {
         loop {
-            match self.down(false) {
+            match self.down(DownType::FirstPress) {
                 DownResult::StillActive => (),
                 DownResult::Locked(res) => return res,
             }
@@ -70,6 +84,7 @@ impl GameState {
         let new_t = self.active.shift(dir)?;
         if self.field.is_valid(&new_t) {
             self.active = new_t;
+            self.update_lock_timer_for_movement();
             return Some(());
         }
         None
@@ -79,6 +94,7 @@ impl GameState {
         for new_t in self.active.rotate(dir) {
             if self.field.is_valid(&new_t) {
                 self.active = new_t;
+                self.update_lock_timer_for_movement();
                 return;
             }
         }
@@ -106,6 +122,21 @@ impl GameState {
         Some(Tetromino::for_preview(self.held?))
     }
 
+    pub fn tick(&mut self, cur_time: Duration) -> Option<LockResult> {
+        if self.lock_timer_reset_requested {
+            self.lock_timer_reset_requested = false;
+            self.lock_timer_target = Some(cur_time + consts::LOCK_TIMER_DURATION);
+        }
+
+        match self.lock_timer_target {
+            Some(target) if target <= cur_time => {
+                self.lock_timer_target = None;
+                Some(self.lock_active_tetromino())
+            },
+            _ => None,
+        }
+    }
+
     pub fn hold(&mut self) {
         if self.hold_used {
             return;
@@ -119,10 +150,25 @@ impl GameState {
             self.upcoming.take()
         };
         self.replace_active_tetromino(new_shape);
+        self.update_lock_timer_for_movement();
+    }
+
+    fn update_lock_timer_for_movement(&mut self) {
+        if self.field.is_lockable(&self.active) {
+            println!("Lockable, requesting lock timer");
+            self.lock_timer_reset_requested = true;
+        } else {
+            println!("Not lockable, removing lock timer");
+            self.lock_timer_reset_requested = false;
+            self.lock_timer_target = None;
+        }
     }
 
     fn lock_active_tetromino(&mut self) -> LockResult {
         self.hold_used = false;
+        self.lock_timer_reset_requested = false;
+        self.lock_timer_target = None;
+
         let lines_cleared = self.field.apply_tetrominio(&self.active);
         let next_shape = self.upcoming.take();
         if self.replace_active_tetromino(next_shape) {

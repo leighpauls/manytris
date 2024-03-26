@@ -98,4 +98,14 @@ impl Field {
         }
         true
     }
+
+    pub fn is_lockable(&self, t: &Tetromino) -> bool {
+        for p in t.get_blocks() {
+            let test_pos = Pos { x: p.x, y: p.y - 1 };
+            if test_pos.y < 0 || self.occupied.contains_key(&test_pos) {
+                return true;
+            }
+        }
+        false
+    }
 }

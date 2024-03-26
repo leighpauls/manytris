@@ -1,4 +1,4 @@
-use crate::game_state::{DownResult, GameState, LockResult};
+use crate::game_state::{DownResult, DownType, GameState, LockResult};
 use crate::plugins::assets;
 use crate::plugins::input::{InputEvent, InputType};
 use crate::plugins::system_sets::{StartupSystems, UpdateSystems};
@@ -57,10 +57,17 @@ fn update_root_tick(
                 gs.rotate(d);
                 None
             }
-            DownEvent => match gs.down(event.is_repeat) {
-                DownResult::Locked(lr) => Some(lr),
-                DownResult::StillActive => None,
-            },
+            DownEvent => {
+                let down_type = if event.is_repeat {
+                    DownType::HoldRepeat
+                } else {
+                    DownType::FirstPress
+                };
+                match gs.down(down_type) {
+                    DownResult::Locked(lr) => Some(lr),
+                    DownResult::StillActive => None,
+                }
+            }
             DropEvent => Some(gs.drop()),
             HoldEvent => {
                 gs.hold();
@@ -75,12 +82,16 @@ fn update_root_tick(
 
     let cur_time = time.elapsed();
     while cur_time > game_root.next_drop_time {
-        if let DownResult::Locked(lr) = game_root.game.down(false) {
+        if let DownResult::Locked(lr) = game_root.game.down(DownType::Gravity) {
             game_root.apply_lock_result(&lr);
         }
 
         let level = game_root.level;
         game_root.next_drop_time += time_to_drop(level);
+    }
+
+    if let Some(lr) = game_root.game.tick(cur_time) {
+        game_root.apply_lock_result(&lr);
     }
 }
 
