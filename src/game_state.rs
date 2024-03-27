@@ -132,7 +132,7 @@ impl GameState {
             Some(target) if target <= cur_time => {
                 self.lock_timer_target = None;
                 Some(self.lock_active_tetromino())
-            },
+            }
             _ => None,
         }
     }
@@ -155,10 +155,8 @@ impl GameState {
 
     fn update_lock_timer_for_movement(&mut self) {
         if self.field.is_lockable(&self.active) {
-            println!("Lockable, requesting lock timer");
             self.lock_timer_reset_requested = true;
         } else {
-            println!("Not lockable, removing lock timer");
             self.lock_timer_reset_requested = false;
             self.lock_timer_target = None;
         }

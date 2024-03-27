@@ -125,6 +125,6 @@ fn time_to_drop(mut level: i32) -> Duration {
     level = i32::min(level, 20);
     let l = level as f64;
     let seconds = (0.8 - ((l - 1.) * 0.007)).powf(l - 1.);
-    let millis = seconds * 1000.;
-    Duration::from_millis(millis as u64)
+    let micros = (seconds * 1_000_000.) as u64;
+    Duration::from_micros(micros)
 }
