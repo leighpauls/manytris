@@ -15,9 +15,9 @@ pub fn plugin(app: &mut App) {
 #[derive(Component)]
 pub struct GameRoot {
     pub game: GameState,
-    lines_cleared: i32,
+    pub lines_cleared: i32,
+    pub level: i32,
     lines_to_next_level: i32,
-    level: i32,
     next_drop_time: Duration,
 }
 
