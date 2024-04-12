@@ -3,7 +3,6 @@ use crate::field::{Field, Pos};
 use crate::shapes::{Rot, Shape, Shift};
 use crate::tetromino::Tetromino;
 use crate::upcoming::UpcomingTetrominios;
-use std::time::Duration;
 
 pub struct GameState {
     field: Field,
@@ -12,9 +11,6 @@ pub struct GameState {
 
     held: Option<Shape>,
     hold_used: bool,
-
-    lock_timer_reset_requested: bool,
-    lock_timer_target: Option<Duration>,
 }
 
 pub enum BlockDisplayState {
@@ -24,15 +20,8 @@ pub enum BlockDisplayState {
     Shadow(Shape),
 }
 
-#[must_use]
-pub enum DownResult {
-    StillActive,
-    Locked(LockResult),
-}
-
-#[must_use]
 pub enum LockResult {
-    GameOver,
+    GameOver, // TODO: GameOver can occur during hold too
     Ok { lines_cleared: i32 },
 }
 
@@ -40,6 +29,22 @@ pub enum DownType {
     FirstPress,
     HoldRepeat,
     Gravity,
+}
+
+pub enum TickMutation {
+    LockTimerExpired,
+    DownInput(DownType),
+    ShiftInput(Shift),
+    RotateInput(Rot),
+    DropInput,
+    HoldInput,
+}
+
+#[must_use]
+pub enum TickResult {
+    Lock(LockResult),
+    RestartLockTimer,
+    ClearLockTimer,
 }
 
 impl GameState {
@@ -52,52 +57,66 @@ impl GameState {
             held: None,
             hold_used: false,
             upcoming,
-            lock_timer_reset_requested: false,
-            lock_timer_target: None,
         };
     }
 
-    /// Drop the active tetromino, return True if it locks.
-    pub fn down(&mut self, down_type: DownType) -> DownResult {
+    pub fn tick_mutation(&mut self, mutations: Vec<TickMutation>) -> Vec<TickResult> {
+        use TickMutation::*;
+        let mut result = vec![];
+
+        for mutation in mutations {
+            result.extend(match mutation {
+                LockTimerExpired => self.lock_active_tetromino(),
+                DownInput(dt) => self.down(dt),
+                ShiftInput(shift) => self.shift(shift).into_iter().collect(),
+                RotateInput(rot) => self.rotate(rot).into_iter().collect(),
+                DropInput => self.drop(),
+                HoldInput => self.hold(),
+            });
+        }
+        result
+    }
+
+    /// Drop the active tetromino
+    fn down(&mut self, down_type: DownType) -> Vec<TickResult> {
         match (self.active.down(), down_type) {
             (Some(new_t), _) if self.field.is_valid(&new_t) => {
                 self.active = new_t;
-                self.update_lock_timer_for_movement();
-                DownResult::StillActive
+                vec![self.update_lock_timer_for_movement()]
             }
-            (_, DownType::FirstPress) => DownResult::Locked(self.lock_active_tetromino()),
-            // Don't from gravity or repeat.
-            (_, DownType::Gravity | DownType::HoldRepeat) => DownResult::StillActive,
+            // Can't drop any further on the first press, lock it.
+            (_, DownType::FirstPress) => self.lock_active_tetromino(),
+            // Don't lock from gravity or repeat.
+            (_, DownType::Gravity | DownType::HoldRepeat) => vec![],
         }
     }
 
-    pub fn drop(&mut self) -> LockResult {
+    fn drop(&mut self) -> Vec<TickResult> {
         loop {
-            match self.down(DownType::FirstPress) {
-                DownResult::StillActive => (),
-                DownResult::Locked(res) => return res,
-            }
+            match self.active.down() {
+                Some(new_t) if self.field.is_valid(&new_t) => self.active = new_t,
+                _ => break,
+            };
         }
+        self.lock_active_tetromino()
     }
 
-    pub fn shift(&mut self, dir: Shift) -> Option<()> {
-        let new_t = self.active.shift(dir)?;
-        if self.field.is_valid(&new_t) {
-            self.active = new_t;
-            self.update_lock_timer_for_movement();
-            return Some(());
-        }
-        None
+    fn shift(&mut self, dir: Shift) -> Option<TickResult> {
+        self.active = self
+            .active
+            .shift(dir)
+            .filter(|new_t| self.field.is_valid(&new_t))?;
+        Some(self.update_lock_timer_for_movement())
     }
 
-    pub fn rotate(&mut self, dir: Rot) {
-        for new_t in self.active.rotate(dir) {
-            if self.field.is_valid(&new_t) {
-                self.active = new_t;
-                self.update_lock_timer_for_movement();
-                return;
-            }
-        }
+    fn rotate(&mut self, dir: Rot) -> Option<TickResult> {
+        self.active = self
+            .active
+            .rotation_options(dir)
+            .into_iter()
+            .filter(|t| self.field.is_valid(t))
+            .next()?;
+        Some(self.update_lock_timer_for_movement())
     }
 
     pub fn get_display_state(&self, p: &Pos) -> BlockDisplayState {
@@ -122,24 +141,9 @@ impl GameState {
         Some(Tetromino::for_preview(self.held?))
     }
 
-    pub fn tick(&mut self, cur_time: Duration) -> Option<LockResult> {
-        if self.lock_timer_reset_requested {
-            self.lock_timer_reset_requested = false;
-            self.lock_timer_target = Some(cur_time + consts::LOCK_TIMER_DURATION);
-        }
-
-        match self.lock_timer_target {
-            Some(target) if target <= cur_time => {
-                self.lock_timer_target = None;
-                Some(self.lock_active_tetromino())
-            }
-            _ => None,
-        }
-    }
-
-    pub fn hold(&mut self) {
+    fn hold(&mut self) -> Vec<TickResult> {
         if self.hold_used {
-            return;
+            return vec![];
         }
         self.hold_used = true;
 
@@ -149,31 +153,38 @@ impl GameState {
             self.held = Some(self.active.shape);
             self.upcoming.take()
         };
-        self.replace_active_tetromino(new_shape);
-        self.update_lock_timer_for_movement();
+
+        let mut result = vec![];
+        if !self.replace_active_tetromino(new_shape) {
+            result.push(TickResult::Lock(LockResult::GameOver));
+        }
+        result.push(self.update_lock_timer_for_movement());
+        result
     }
 
-    fn update_lock_timer_for_movement(&mut self) {
+    fn update_lock_timer_for_movement(&mut self) -> TickResult {
         if self.field.is_lockable(&self.active) {
-            self.lock_timer_reset_requested = true;
+            TickResult::RestartLockTimer
         } else {
-            self.lock_timer_reset_requested = false;
-            self.lock_timer_target = None;
+            TickResult::ClearLockTimer
         }
     }
 
-    fn lock_active_tetromino(&mut self) -> LockResult {
+    fn lock_active_tetromino(&mut self) -> Vec<TickResult> {
         self.hold_used = false;
-        self.lock_timer_reset_requested = false;
-        self.lock_timer_target = None;
+        let mut result = vec![TickResult::ClearLockTimer];
 
         let lines_cleared = self.field.apply_tetrominio(&self.active);
         let next_shape = self.upcoming.take();
-        if self.replace_active_tetromino(next_shape) {
-            LockResult::Ok { lines_cleared }
-        } else {
-            LockResult::GameOver
-        }
+
+        result.push(TickResult::Lock(
+            if self.replace_active_tetromino(next_shape) {
+                LockResult::Ok { lines_cleared }
+            } else {
+                LockResult::GameOver
+            },
+        ));
+        result
     }
 
     /// Place the new tetromino, return true if it has a valid placement.

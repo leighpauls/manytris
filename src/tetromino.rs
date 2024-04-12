@@ -65,7 +65,7 @@ impl Tetromino {
     }
 
     /// Return the list of possible tetromino kick attempts
-    pub(crate) fn rotate(&self, dir: Rot) -> Vec<Tetromino> {
+    pub fn rotation_options(&self, dir: Rot) -> Vec<Tetromino> {
         let new_orientation = self.orientation.rotate(dir);
         let kick_attempts = shapes::kick_offsets(self.shape, self.orientation, new_orientation);
 

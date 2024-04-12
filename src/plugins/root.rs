@@ -1,4 +1,5 @@
-use crate::game_state::{DownResult, DownType, GameState, LockResult};
+use crate::consts;
+use crate::game_state::{DownType, GameState, LockResult, TickMutation, TickResult};
 use crate::plugins::assets;
 use crate::plugins::input::{InputEvent, InputType};
 use crate::plugins::system_sets::{StartupSystems, UpdateSystems};
@@ -19,6 +20,7 @@ pub struct GameRoot {
     pub level: i32,
     lines_to_next_level: i32,
     next_drop_time: Duration,
+    lock_timer_target: Option<Duration>,
 }
 
 #[derive(Bundle)]
@@ -45,53 +47,49 @@ fn update_root_tick(
 ) {
     let mut game_root = q_root.single_mut();
 
-    for event in input_events.read() {
-        use InputType::*;
-        let gs = &mut game_root.game;
-        let lock_result = match event.input_type {
-            ShiftEvent(s) => {
-                gs.shift(s);
-                None
-            }
-            RotateEvent(d) => {
-                gs.rotate(d);
-                None
-            }
-            DownEvent => {
-                let down_type = if event.is_repeat {
-                    DownType::HoldRepeat
-                } else {
-                    DownType::FirstPress
-                };
-                match gs.down(down_type) {
-                    DownResult::Locked(lr) => Some(lr),
-                    DownResult::StillActive => None,
-                }
-            }
-            DropEvent => Some(gs.drop()),
-            HoldEvent => {
-                gs.hold();
-                None
-            }
-        };
+    let mut tick_events = vec![];
 
-        if let Some(lr) = lock_result {
-            game_root.apply_lock_result(&lr);
-        }
-    }
+    use InputType::*;
+    use TickMutation::*;
+
+    tick_events.extend(input_events.read().map(|e| match e.input_type {
+        ShiftEvent(s) => ShiftInput(s),
+        RotateEvent(r) => RotateInput(r),
+        DownEvent => DownInput(if e.is_repeat {
+            DownType::HoldRepeat
+        } else {
+            DownType::FirstPress
+        }),
+        DropEvent => DropInput,
+        HoldEvent => HoldInput,
+    }));
 
     let cur_time = time.elapsed();
     while cur_time > game_root.next_drop_time {
-        if let DownResult::Locked(lr) = game_root.game.down(DownType::Gravity) {
-            game_root.apply_lock_result(&lr);
-        }
-
+        tick_events.push(DownInput(DownType::Gravity));
         let level = game_root.level;
         game_root.next_drop_time += time_to_drop(level);
     }
 
-    if let Some(lr) = game_root.game.tick(cur_time) {
-        game_root.apply_lock_result(&lr);
+    if game_root
+        .lock_timer_target
+        .filter(|t| t <= &cur_time)
+        .is_some()
+    {
+        tick_events.push(LockTimerExpired);
+    }
+
+    for tick_result in game_root.game.tick_mutation(tick_events) {
+        use TickResult::*;
+        match tick_result {
+            Lock(lr) => game_root.apply_lock_result(&lr),
+            RestartLockTimer => {
+                game_root.lock_timer_target = Some(cur_time + consts::LOCK_TIMER_DURATION);
+            }
+            ClearLockTimer => {
+                game_root.lock_timer_target = None;
+            }
+        }
     }
 }
 
@@ -103,6 +101,7 @@ impl GameRoot {
             lines_cleared: 0,
             lines_to_next_level: LINES_PER_LEVEL,
             next_drop_time: start_time + time_to_drop(1),
+            lock_timer_target: None,
         }
     }
 
