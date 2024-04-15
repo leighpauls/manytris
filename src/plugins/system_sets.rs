@@ -10,6 +10,8 @@ pub fn plugin(app: &mut App) {
         Update,
         (
             UpdateSystems::Input,
+            UpdateSystems::LocalEventProducers,
+            UpdateSystems::RemoteEventReceivers,
             UpdateSystems::RootTick,
             UpdateSystems::PreRender,
             UpdateSystems::Render,
@@ -27,6 +29,8 @@ pub enum StartupSystems {
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub enum UpdateSystems {
     Input,
+    LocalEventProducers,
+    RemoteEventReceivers,
     RootTick,
     PreRender,
     Render,

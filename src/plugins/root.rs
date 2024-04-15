@@ -10,7 +10,12 @@ const LINES_PER_LEVEL: i32 = 10;
 
 pub fn plugin(app: &mut App) {
     app.add_systems(Startup, setup_root.in_set(StartupSystems::Root))
-        .add_systems(Update, update_root_tick.in_set(UpdateSystems::RootTick));
+        .add_systems(
+            Update,
+            produce_tick_events.in_set(UpdateSystems::LocalEventProducers),
+        )
+        .add_systems(Update, update_root_tick.in_set(UpdateSystems::RootTick))
+        .add_event::<TickEvent>();
 }
 
 #[derive(Component)]
@@ -29,6 +34,9 @@ struct RootTransformBundle {
     marker: GameRoot,
 }
 
+#[derive(Event)]
+struct TickEvent(TickMutation);
+
 fn setup_root(mut commands: Commands, time: Res<Time<Fixed>>) {
     commands.spawn(RootTransformBundle {
         transform: SpatialBundle::from_transform(Transform::from_xyz(
@@ -40,10 +48,11 @@ fn setup_root(mut commands: Commands, time: Res<Time<Fixed>>) {
     });
 }
 
-fn update_root_tick(
-    mut q_root: Query<&mut GameRoot>,
+fn produce_tick_events(
     mut input_events: EventReader<InputEvent>,
     time: Res<Time<Fixed>>,
+    mut q_root: Query<&mut GameRoot>,
+    mut tick_event_writer: EventWriter<TickEvent>,
 ) {
     let mut game_root = q_root.single_mut();
 
@@ -78,8 +87,23 @@ fn update_root_tick(
     {
         tick_events.push(LockTimerExpired);
     }
+    tick_event_writer.send_batch(tick_events.into_iter().map(|e| TickEvent(e)));
+}
 
-    for tick_result in game_root.game.tick_mutation(tick_events) {
+fn update_root_tick(
+    mut q_root: Query<&mut GameRoot>,
+    mut event_reader: EventReader<TickEvent>,
+    time: Res<Time<Fixed>>,
+) {
+    let mut game_root = q_root.single_mut();
+    let cur_time = time.elapsed();
+    let events = event_reader
+        .read()
+        .into_iter()
+        .map(|e| e.0.clone())
+        .collect();
+
+    for tick_result in game_root.game.tick_mutation(events) {
         use TickResult::*;
         match tick_result {
             Lock(lr) => game_root.apply_lock_result(&lr),

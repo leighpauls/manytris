@@ -25,12 +25,14 @@ pub enum LockResult {
     Ok { lines_cleared: i32 },
 }
 
+#[derive(Clone)]
 pub enum DownType {
     FirstPress,
     HoldRepeat,
     Gravity,
 }
 
+#[derive(Clone)]
 pub enum TickMutation {
     LockTimerExpired,
     DownInput(DownType),
