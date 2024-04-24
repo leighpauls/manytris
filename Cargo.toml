@@ -8,4 +8,6 @@ edition = "2021"
 [dependencies]
 bevy = "0.13.1"
 enum-iterator = "2.0.0"
+ewebsock = "0.5.0"
 rand = "0.8.5"
+tungstenite = "0.21.0"
