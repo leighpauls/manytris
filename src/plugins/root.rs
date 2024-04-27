@@ -8,14 +8,17 @@ use std::time::Duration;
 
 const LINES_PER_LEVEL: i32 = 10;
 
-pub fn plugin(app: &mut App) {
+pub fn common_plugin(app: &mut App) {
     app.add_systems(Startup, setup_root.in_set(StartupSystems::Root))
-        .add_systems(
-            Update,
-            produce_tick_events.in_set(UpdateSystems::LocalEventProducers),
-        )
         .add_systems(Update, update_root_tick.in_set(UpdateSystems::RootTick))
         .add_event::<TickEvent>();
+}
+
+pub fn client_plugin(app: &mut App) {
+    app.add_systems(
+        Update,
+        produce_tick_events.in_set(UpdateSystems::LocalEventProducers),
+    );
 }
 
 #[derive(Component)]

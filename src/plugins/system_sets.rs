@@ -11,7 +11,7 @@ pub fn plugin(app: &mut App) {
         (
             UpdateSystems::Input,
             UpdateSystems::LocalEventProducers,
-            UpdateSystems::RemoteEventReceivers,
+            UpdateSystems::EventSenders,
             UpdateSystems::RootTick,
             UpdateSystems::PreRender,
             UpdateSystems::Render,
@@ -30,7 +30,7 @@ pub enum StartupSystems {
 pub enum UpdateSystems {
     Input,
     LocalEventProducers,
-    RemoteEventReceivers,
+    EventSenders,
     RootTick,
     PreRender,
     Render,
