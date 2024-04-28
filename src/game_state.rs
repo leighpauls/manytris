@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 use crate::consts;
 use crate::field::{Field, Pos};
 use crate::shapes::{Rot, Shape, Shift};
@@ -25,14 +26,14 @@ pub enum LockResult {
     Ok { lines_cleared: i32 },
 }
 
-#[derive(Clone)]
+#[derive(Clone, Deserialize, Serialize)]
 pub enum DownType {
     FirstPress,
     HoldRepeat,
     Gravity,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Deserialize, Serialize)]
 pub enum TickMutation {
     LockTimerExpired,
     DownInput(DownType),

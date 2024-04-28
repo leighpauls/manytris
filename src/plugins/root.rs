@@ -5,6 +5,7 @@ use crate::plugins::input::{InputEvent, InputType};
 use crate::plugins::system_sets::{StartupSystems, UpdateSystems};
 use bevy::prelude::*;
 use std::time::Duration;
+use serde::{Deserialize, Serialize};
 
 const LINES_PER_LEVEL: i32 = 10;
 
@@ -37,8 +38,8 @@ struct RootTransformBundle {
     marker: GameRoot,
 }
 
-#[derive(Event)]
-struct TickEvent(TickMutation);
+#[derive(Event, Deserialize, Serialize)]
+pub struct TickEvent(pub TickMutation);
 
 fn setup_root(mut commands: Commands, time: Res<Time<Fixed>>) {
     commands.spawn(RootTransformBundle {

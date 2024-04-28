@@ -1,4 +1,4 @@
-mod game_state;
+pub mod game_state;
 pub mod plugins;
 mod shapes;
 mod upcoming;

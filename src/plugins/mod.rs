@@ -1,4 +1,4 @@
-use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
+// use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
 
 mod assets;
@@ -6,7 +6,7 @@ mod block_render;
 mod field_blocks;
 mod input;
 mod net_listener;
-mod root;
+pub mod root;
 mod scoreboard;
 mod system_sets;
 mod window_blocks;

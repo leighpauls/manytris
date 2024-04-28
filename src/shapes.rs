@@ -1,4 +1,5 @@
 use enum_iterator::Sequence;
+use serde::{Deserialize, Serialize};
 use crate::consts::{H, PREVIEW_H, W};
 
 pub const KICK_ATTEMPTS: usize = 5;
@@ -22,13 +23,13 @@ pub enum Orientation {
     Left,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Deserialize, Serialize)]
 pub enum Shift {
     Left,
     Right,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Deserialize, Serialize)]
 pub enum Rot {
     Cw,
     Ccw,

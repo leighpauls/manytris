@@ -5,6 +5,7 @@ use std::net::{TcpListener, TcpStream};
 
 use crate::game_state::TickMutation;
 use crate::plugins::net_listener::ListenResult::{DropSocket, NewMessage};
+use crate::plugins::root::TickEvent;
 use bevy::prelude::*;
 use tungstenite::{Message, WebSocket};
 
@@ -35,7 +36,7 @@ fn init_listener(mut commands: Commands) {
     });
 }
 
-fn listener_system(mut listener_q: Query<&mut ServerListenerComponent>) {
+fn listener_system(mut listener_q: Query<&mut ServerListenerComponent>, mut event_writer: EventWriter<TickEvent>) {
     let listener = listener_q.single_mut().into_inner();
 
     if let Err(e) = accept_new_connections(&listener.listener, &mut listener.sockets) {
@@ -48,7 +49,8 @@ fn listener_system(mut listener_q: Query<&mut ServerListenerComponent>) {
             DropSocket => {
                 listener.sockets.remove(i);
             }
-            NewMessage(_) => {
+            NewMessage(msgs) => {
+                event_writer.send_batch(msgs);
                 i += 1;
             }
         }
@@ -76,7 +78,7 @@ fn accept_new_connections(
 
 enum ListenResult {
     DropSocket,
-    NewMessage(Vec<TickMutation>),
+    NewMessage(Vec<TickEvent>),
 }
 
 fn listen_to_socket(web_socket: &mut WebSocket<TcpStream>) -> ListenResult {
@@ -90,9 +92,10 @@ fn listen_to_socket(web_socket: &mut WebSocket<TcpStream>) -> ListenResult {
                 eprintln!("Error reading from websocket, dropping thread: {}", e);
                 return DropSocket;
             }
-            Ok(Message::Text(t)) => {
-                println!("Received text: {}", t);
-            }
+            Ok(Message::Binary(buf)) => match rmp_serde::from_slice(&buf) {
+                Ok(te) => result.push(te),
+                Err(e) => eprintln!("Unable to read message: {}", e),
+            },
             Ok(Message::Close(cf)) => {
                 println!("Connection closed, reason: {:?}", cf);
                 return DropSocket;
