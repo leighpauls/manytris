@@ -23,13 +23,13 @@ pub enum Orientation {
     Left,
 }
 
-#[derive(Copy, Clone, Deserialize, Serialize)]
+#[derive(Copy, Clone, Deserialize, Serialize, Debug)]
 pub enum Shift {
     Left,
     Right,
 }
 
-#[derive(Copy, Clone, Deserialize, Serialize)]
+#[derive(Copy, Clone, Deserialize, Serialize, Debug)]
 pub enum Rot {
     Cw,
     Ccw,

@@ -5,6 +5,7 @@ mod assets;
 mod block_render;
 mod field_blocks;
 mod input;
+mod net_client;
 mod net_listener;
 pub mod root;
 mod scoreboard;
@@ -36,7 +37,7 @@ pub fn run(cfg: GameConfig) {
 
     match cfg {
         GameConfig::Client => {
-            app.add_plugins((input::plugin, root::client_plugin));
+            app.add_plugins((input::plugin, root::client_plugin, net_client::plugin));
         }
         GameConfig::ReplicaServer => {
             app.add_plugins(net_listener::plugin);

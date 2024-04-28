@@ -11,7 +11,7 @@ use tungstenite::{Message, WebSocket};
 
 use crate::plugins::system_sets::UpdateSystems;
 
-const HOST: &'static str = "127.0.0.1:9988";
+pub const HOST: &'static str = "127.0.0.1:9988";
 
 #[derive(Component)]
 pub struct ServerListenerComponent {

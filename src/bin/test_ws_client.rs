@@ -3,9 +3,7 @@ use ewebsock::{Options, WsEvent, WsMessage};
 fn main() {
     println!("opening");
     let (mut sender, reciever) =
-        ewebsock::connect(
-            "ws://127.0.0.1:9988",
-            Options::default()).expect("Failed to connect.");
+        ewebsock::connect("ws://127.0.0.1:9988", Options::default()).expect("Failed to connect.");
 
     println!("sending");
     sender.send(WsMessage::Text("Hello".into()));
