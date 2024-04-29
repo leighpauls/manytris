@@ -1,6 +1,5 @@
 use std::error::Error;
 use std::io;
-use std::io::Read;
 use std::net::{TcpListener, TcpStream};
 
 use bevy::prelude::*;
@@ -54,7 +53,7 @@ fn listener_system(
             DropSocket => {
                 listener.sockets.remove(i);
             }
-            NewMessage(mut msgs) => {
+            NewMessage(msgs) => {
                 event_writer.send_batch(msgs.into_iter().map(|e| e.as_remote()));
                 i += 1;
             }

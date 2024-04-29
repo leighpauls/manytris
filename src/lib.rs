@@ -6,6 +6,6 @@ mod field;
 mod consts;
 mod tetromino;
 
-fn main() {
+pub fn main() {
     panic!("Expected to run Client bin!!!");
 }

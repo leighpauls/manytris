@@ -37,10 +37,10 @@ fn init(mut commands: Commands) {
 }
 
 fn update_client_net_receive(
-    mut net_q: Query<&mut ClientNetComponent>,
+    net_q: Query<&ClientNetComponent>,
     mut tick_events: EventWriter<TickEvent>,
 ) {
-    let mut net = net_q.single_mut();
+    let net = net_q.single();
     while let Some(event) = net.receiver.lock().unwrap().try_recv() {
         match event {
             WsEvent::Opened => {
