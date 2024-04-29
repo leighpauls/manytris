@@ -11,6 +11,7 @@ pub mod root;
 mod scoreboard;
 mod system_sets;
 mod window_blocks;
+mod shape_producer;
 
 pub enum GameConfig {
     Client,
@@ -33,6 +34,7 @@ pub fn run(cfg: GameConfig) {
             system_sets::plugin,
             block_render::plugin,
             scoreboard::plugin,
+            shape_producer::plugin,
         ));
 
     match cfg {

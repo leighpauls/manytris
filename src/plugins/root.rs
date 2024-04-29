@@ -3,6 +3,7 @@ use crate::game_state::{DownType, GameState, LockResult, TickMutation, TickResul
 use crate::plugins::assets;
 use crate::plugins::input::{InputEvent, InputType};
 use crate::plugins::system_sets::{StartupSystems, UpdateSystems};
+use crate::shapes::Shape;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
@@ -12,7 +13,8 @@ const LINES_PER_LEVEL: i32 = 10;
 pub fn common_plugin(app: &mut App) {
     app.add_systems(Startup, setup_root.in_set(StartupSystems::Root))
         .add_systems(Update, update_root_tick.in_set(UpdateSystems::RootTick))
-        .add_event::<TickEvent>();
+        .add_event::<TickEvent>()
+        .add_event::<LockEvent>();
 }
 
 pub fn client_plugin(app: &mut App) {
@@ -40,6 +42,9 @@ struct RootTransformBundle {
 
 #[derive(Event, Deserialize, Serialize, Debug)]
 pub struct TickEvent(pub TickMutation);
+
+#[derive(Event, Deserialize, Serialize)]
+pub struct LockEvent(pub LockResult);
 
 fn setup_root(mut commands: Commands, time: Res<Time<Fixed>>) {
     commands.spawn(RootTransformBundle {
@@ -96,12 +101,13 @@ fn produce_tick_events(
 
 fn update_root_tick(
     mut q_root: Query<&mut GameRoot>,
-    mut event_reader: EventReader<TickEvent>,
+    mut tick_event_reader: EventReader<TickEvent>,
+    mut lock_event_writer: EventWriter<LockEvent>,
     time: Res<Time<Fixed>>,
 ) {
     let mut game_root = q_root.single_mut();
     let cur_time = time.elapsed();
-    let events = event_reader
+    let events = tick_event_reader
         .read()
         .into_iter()
         .map(|e| e.0.clone())
@@ -110,7 +116,10 @@ fn update_root_tick(
     for tick_result in game_root.game.tick_mutation(events) {
         use TickResult::*;
         match tick_result {
-            Lock(lr) => game_root.apply_lock_result(&lr),
+            Lock(lr) => {
+                lock_event_writer.send(LockEvent(lr.clone()));
+                game_root.apply_lock_result(&lr);
+            }
             RestartLockTimer => {
                 game_root.lock_timer_target = Some(cur_time + consts::LOCK_TIMER_DURATION);
             }
@@ -123,8 +132,11 @@ fn update_root_tick(
 
 impl GameRoot {
     fn new(start_time: Duration) -> Self {
+        let initial_states = enum_iterator::all::<Shape>()
+            .chain(enum_iterator::all::<Shape>())
+            .collect();
         Self {
-            game: GameState::new(),
+            game: GameState::new(initial_states),
             level: 1,
             lines_cleared: 0,
             lines_to_next_level: LINES_PER_LEVEL,

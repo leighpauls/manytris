@@ -1,9 +1,9 @@
-use serde::{Deserialize, Serialize};
 use crate::consts;
 use crate::field::{Field, Pos};
 use crate::shapes::{Rot, Shape, Shift};
 use crate::tetromino::Tetromino;
 use crate::upcoming::UpcomingTetrominios;
+use serde::{Deserialize, Serialize};
 
 pub struct GameState {
     field: Field,
@@ -21,6 +21,7 @@ pub enum BlockDisplayState {
     Shadow(Shape),
 }
 
+#[derive(Clone, Deserialize, Serialize)]
 pub enum LockResult {
     GameOver, // TODO: GameOver can occur during hold too
     Ok { lines_cleared: i32 },
@@ -41,6 +42,7 @@ pub enum TickMutation {
     RotateInput(Rot),
     DropInput,
     HoldInput,
+    EnqueueTetromino(Shape),
 }
 
 #[must_use]
@@ -51,8 +53,8 @@ pub enum TickResult {
 }
 
 impl GameState {
-    pub fn new() -> GameState {
-        let mut upcoming = UpcomingTetrominios::new();
+    pub fn new(inital_shapes: Vec<Shape>) -> GameState {
+        let mut upcoming = UpcomingTetrominios::new(inital_shapes);
 
         return GameState {
             field: Field::new(),
@@ -75,6 +77,10 @@ impl GameState {
                 RotateInput(rot) => self.rotate(rot).into_iter().collect(),
                 DropInput => self.drop(),
                 HoldInput => self.hold(),
+                EnqueueTetromino(shape) => {
+                    self.upcoming.enqueue(shape);
+                    vec![]
+                }
             });
         }
         result
