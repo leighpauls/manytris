@@ -21,7 +21,7 @@ pub enum BlockDisplayState {
     Shadow(Shape),
 }
 
-#[derive(Clone, Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize, Debug)]
 pub enum LockResult {
     GameOver, // TODO: GameOver can occur during hold too
     Ok { lines_cleared: i32 },
@@ -78,6 +78,7 @@ impl GameState {
                 DropInput => self.drop(),
                 HoldInput => self.hold(),
                 EnqueueTetromino(shape) => {
+                    println!("Enqueue received");
                     self.upcoming.enqueue(shape);
                     vec![]
                 }

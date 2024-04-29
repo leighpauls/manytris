@@ -1,6 +1,5 @@
 use crate::consts;
 use crate::shapes::Shape;
-use rand::prelude::*;
 
 pub struct UpcomingTetrominios {
     upcoming_blocks: Vec<Shape>,

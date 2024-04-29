@@ -30,7 +30,10 @@ fn update(
 
     for event in reader.read() {
         if let LockEvent(LockResult::Ok { lines_cleared: _ }) = event {
-            writer.send(TickEvent(TickMutation::EnqueueTetromino(sp.take())));
+            println!("Producing new tetromino");
+            writer.send(TickEvent::new_local(TickMutation::EnqueueTetromino(
+                sp.take(),
+            )));
         }
     }
 }

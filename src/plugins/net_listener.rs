@@ -3,12 +3,11 @@ use std::io;
 use std::io::Read;
 use std::net::{TcpListener, TcpStream};
 
-use crate::game_state::TickMutation;
-use crate::plugins::net_listener::ListenResult::{DropSocket, NewMessage};
-use crate::plugins::root::TickEvent;
 use bevy::prelude::*;
 use tungstenite::{Message, WebSocket};
 
+use crate::plugins::net_listener::ListenResult::{DropSocket, NewMessage};
+use crate::plugins::root::TickEvent;
 use crate::plugins::system_sets::UpdateSystems;
 
 pub const HOST: &'static str = "127.0.0.1:9988";
@@ -22,7 +21,10 @@ pub struct ServerListenerComponent {
 pub fn plugin(app: &mut App) {
     app.add_systems(Startup, init_listener).add_systems(
         Update,
-        listener_system.in_set(UpdateSystems::LocalEventProducers),
+        (
+            listener_system.in_set(UpdateSystems::LocalEventProducers),
+            sender_system.in_set(UpdateSystems::EventSenders),
+        ),
     );
 }
 
@@ -36,7 +38,10 @@ fn init_listener(mut commands: Commands) {
     });
 }
 
-fn listener_system(mut listener_q: Query<&mut ServerListenerComponent>, mut event_writer: EventWriter<TickEvent>) {
+fn listener_system(
+    mut listener_q: Query<&mut ServerListenerComponent>,
+    mut event_writer: EventWriter<TickEvent>,
+) {
     let listener = listener_q.single_mut().into_inner();
 
     if let Err(e) = accept_new_connections(&listener.listener, &mut listener.sockets) {
@@ -49,10 +54,30 @@ fn listener_system(mut listener_q: Query<&mut ServerListenerComponent>, mut even
             DropSocket => {
                 listener.sockets.remove(i);
             }
-            NewMessage(msgs) => {
-                event_writer.send_batch(msgs);
+            NewMessage(mut msgs) => {
+                event_writer.send_batch(msgs.into_iter().map(|e| e.as_remote()));
                 i += 1;
             }
+        }
+    }
+}
+
+fn sender_system(
+    mut listener_q: Query<&mut ServerListenerComponent>,
+    mut event_reader: EventReader<TickEvent>,
+) {
+    let mut listener = listener_q.single_mut();
+
+    let payloads_to_send: Vec<Vec<u8>> = event_reader
+        .read()
+        .filter(|e| e.local)
+        .map(|e| rmp_serde::to_vec(e).unwrap())
+        .collect();
+
+    for socket in &mut listener.sockets {
+        for p in &payloads_to_send {
+            // TODO: drop socket on error?
+            socket.send(Message::Binary(p.clone())).unwrap();
         }
     }
 }

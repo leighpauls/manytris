@@ -1,9 +1,11 @@
+use std::sync::Mutex;
+
+use bevy::prelude::*;
+use ewebsock::{Options, WsEvent, WsMessage, WsReceiver, WsSender};
+
 use crate::plugins::net_listener;
 use crate::plugins::root::TickEvent;
 use crate::plugins::system_sets::{StartupSystems, UpdateSystems};
-use bevy::prelude::*;
-use ewebsock::{Options, WsEvent, WsMessage, WsReceiver, WsSender};
-use std::sync::{Arc, Mutex};
 
 #[derive(Component)]
 pub struct ClientNetComponent {
@@ -15,7 +17,10 @@ pub fn plugin(app: &mut App) {
     app.add_systems(Startup, init.in_set(StartupSystems::AfterRoot))
         .add_systems(
             Update,
-            update_client_net.in_set(UpdateSystems::LocalEventProducers),
+            (
+                update_client_net_receive.in_set(UpdateSystems::LocalEventProducers),
+                update_client_net_send.in_set(UpdateSystems::EventSenders),
+            ),
         );
 }
 
@@ -31,16 +36,11 @@ fn init(mut commands: Commands) {
     });
 }
 
-fn update_client_net(
+fn update_client_net_receive(
     mut net_q: Query<&mut ClientNetComponent>,
-    mut tick_events: EventReader<TickEvent>,
+    mut tick_events: EventWriter<TickEvent>,
 ) {
     let mut net = net_q.single_mut();
-
-    for event in tick_events.read() {
-        let payload = rmp_serde::to_vec(event).unwrap();
-        net.sender.send(WsMessage::Binary(payload));
-    }
     while let Some(event) = net.receiver.lock().unwrap().try_recv() {
         match event {
             WsEvent::Opened => {
@@ -49,7 +49,7 @@ fn update_client_net(
             WsEvent::Message(WsMessage::Binary(payload)) => {
                 let decoded = rmp_serde::from_slice::<TickEvent>(&payload);
                 if let Ok(event) = decoded {
-                    println!("Received {:?}", event);
+                    tick_events.send(event.as_remote());
                 }
             }
             WsEvent::Message(msg) => {
@@ -61,6 +61,20 @@ fn update_client_net(
             WsEvent::Closed => {
                 println!("Connection was closed");
             }
+        }
+    }
+}
+
+fn update_client_net_send(
+    mut net_q: Query<&mut ClientNetComponent>,
+    mut tick_events: EventReader<TickEvent>,
+) {
+    let mut net = net_q.single_mut();
+
+    for event in tick_events.read() {
+        if event.local {
+            let payload = rmp_serde::to_vec(event).unwrap();
+            net.sender.send(WsMessage::Binary(payload));
         }
     }
 }

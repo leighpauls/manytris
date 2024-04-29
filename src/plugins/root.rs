@@ -40,8 +40,27 @@ struct RootTransformBundle {
     marker: GameRoot,
 }
 
-#[derive(Event, Deserialize, Serialize, Debug)]
-pub struct TickEvent(pub TickMutation);
+#[derive(Clone, Event, Deserialize, Serialize, Debug)]
+pub struct TickEvent {
+    pub mutation: TickMutation,
+    pub local: bool,
+}
+
+impl TickEvent {
+    pub fn new_local(mutation: TickMutation) -> Self {
+        Self {
+            mutation,
+            local: true,
+        }
+    }
+
+    pub fn as_remote(&self) -> Self {
+        Self {
+            mutation: self.mutation.clone(),
+            local: false,
+        }
+    }
+}
 
 #[derive(Event, Deserialize, Serialize)]
 pub struct LockEvent(pub LockResult);
@@ -96,7 +115,11 @@ fn produce_tick_events(
     {
         tick_events.push(LockTimerExpired);
     }
-    tick_event_writer.send_batch(tick_events.into_iter().map(|e| TickEvent(e)));
+    tick_event_writer.send_batch(
+        tick_events
+            .into_iter()
+            .map(|mutation| TickEvent::new_local(mutation)),
+    );
 }
 
 fn update_root_tick(
@@ -110,13 +133,14 @@ fn update_root_tick(
     let events = tick_event_reader
         .read()
         .into_iter()
-        .map(|e| e.0.clone())
+        .map(|e| e.mutation.clone())
         .collect();
 
     for tick_result in game_root.game.tick_mutation(events) {
         use TickResult::*;
         match tick_result {
             Lock(lr) => {
+                println!("Lock result: {:?}", lr);
                 lock_event_writer.send(LockEvent(lr.clone()));
                 game_root.apply_lock_result(&lr);
             }

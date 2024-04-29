@@ -9,9 +9,9 @@ mod net_client;
 mod net_listener;
 pub mod root;
 mod scoreboard;
+mod shape_producer;
 mod system_sets;
 mod window_blocks;
-mod shape_producer;
 
 pub enum GameConfig {
     Client,
@@ -34,7 +34,6 @@ pub fn run(cfg: GameConfig) {
             system_sets::plugin,
             block_render::plugin,
             scoreboard::plugin,
-            shape_producer::plugin,
         ));
 
     match cfg {
@@ -42,7 +41,7 @@ pub fn run(cfg: GameConfig) {
             app.add_plugins((input::plugin, root::client_plugin, net_client::plugin));
         }
         GameConfig::ReplicaServer => {
-            app.add_plugins(net_listener::plugin);
+            app.add_plugins((net_listener::plugin, shape_producer::plugin));
         }
     }
 
