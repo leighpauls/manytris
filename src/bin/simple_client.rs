@@ -9,8 +9,11 @@ fn main() {
     let (mut sender, reciever) =
         ewebsock::connect("ws://127.0.0.1:9988", Options::default()).expect("Failed to connect.");
 
-    let payload =
-        rmp_serde::to_vec(&TickEvent(TickMutation::DownInput(DownType::Gravity))).unwrap();
+    let payload = rmp_serde::to_vec(&TickEvent {
+        mutation: TickMutation::DownInput(DownType::Gravity),
+        local: true,
+    })
+    .unwrap();
 
     println!("sending");
     sender.send(WsMessage::Binary(payload));

@@ -2414,6 +2414,7 @@ dependencies = [
  "rmp-serde",
  "serde",
  "tungstenite",
+ "url",
 ]
 
 [[package]]

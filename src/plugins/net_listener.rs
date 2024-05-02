@@ -9,7 +9,7 @@ use crate::plugins::net_listener::ListenResult::{DropSocket, NewMessage};
 use crate::plugins::root::TickEvent;
 use crate::plugins::system_sets::UpdateSystems;
 
-pub const HOST: &'static str = "127.0.0.1:9988";
+pub const HOST: &'static str = "127.0.0.1:9989";
 
 #[derive(Component)]
 pub struct ServerListenerComponent {

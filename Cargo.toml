@@ -13,3 +13,4 @@ rand = "0.8.5"
 tungstenite = "0.21.0"
 serde = { version = "1.0.197", features = ["derive"] }
 rmp-serde = "1.2.0"
+url = "2.5.0"
