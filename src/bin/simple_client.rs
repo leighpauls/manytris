@@ -27,7 +27,9 @@ fn main() {
 
                     return;
                 }
-                _ => {}
+                other => {
+                    eprintln!("Error: {:?}", other);
+                }
             }
         } else {
             thread::sleep(Duration::from_millis(100));
