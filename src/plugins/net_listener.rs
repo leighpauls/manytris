@@ -9,12 +9,16 @@ use crate::plugins::net_listener::ListenResult::{DropSocket, NewMessage};
 use crate::plugins::root::TickEvent;
 use crate::plugins::system_sets::UpdateSystems;
 
-pub const HOST: &'static str = "127.0.0.1:9989";
-
 #[derive(Component)]
 pub struct ServerListenerComponent {
     listener: TcpListener,
     sockets: Vec<WebSocket<TcpStream>>,
+}
+
+#[derive(Resource)]
+pub struct NetListenerConfig {
+    pub host: String,
+    pub port: u16
 }
 
 pub fn plugin(app: &mut App) {
@@ -27,8 +31,8 @@ pub fn plugin(app: &mut App) {
     );
 }
 
-fn init_listener(mut commands: Commands) {
-    let listener = TcpListener::bind(HOST).unwrap();
+fn init_listener(mut commands: Commands, config: Res<NetListenerConfig>) {
+    let listener = TcpListener::bind(format!("{}:{}", config.host, config.port)).unwrap();
     listener.set_nonblocking(true).unwrap();
 
     commands.spawn(ServerListenerComponent {

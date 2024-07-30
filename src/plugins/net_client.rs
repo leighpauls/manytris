@@ -14,6 +14,12 @@ pub enum ClientNetComponent {
     Connected(Arc<Mutex<(WsSender, WsReceiver)>>),
 }
 
+#[derive(Resource)]
+pub struct NetClientConfig {
+    pub host: String,
+    pub port: u16,
+}
+
 pub fn plugin(app: &mut App) {
     app.add_systems(Startup, init.in_set(StartupSystems::AfterRoot))
         .add_systems(
@@ -33,6 +39,7 @@ fn init(mut commands: Commands) {
 fn update_client_connect(
     mut net_q: Query<&mut ClientNetComponent>,
     mut virtual_time: ResMut<Time<Virtual>>,
+    config: Res<NetClientConfig>,
 ) {
     let net = net_q.single_mut().into_inner();
 
@@ -41,7 +48,7 @@ fn update_client_connect(
         ClientNetComponent::NotConnected => {
             virtual_time.pause();
 
-            let addr = format!("ws://{}", net_listener::HOST);
+            let addr = format!("ws://{}:{}", config.host, config.port);
 
             if let Ok((sender, receiver)) = ewebsock::connect(addr, Options::default()) {
                 println!("Opened connection...");

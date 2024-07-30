@@ -5,7 +5,5 @@ mod upcoming;
 mod field;
 mod consts;
 mod tetromino;
+pub mod cli_options;
 
-pub fn main() {
-    panic!("Expected to run Client bin!!!");
-}

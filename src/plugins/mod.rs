@@ -14,8 +14,13 @@ mod system_sets;
 mod window_blocks;
 
 pub enum GameConfig {
-    Client,
-    ReplicaServer,
+    Client(HostConfig),
+    ReplicaServer(HostConfig),
+}
+
+pub struct HostConfig {
+    pub host: String,
+    pub port: u16,
 }
 
 pub fn run(cfg: GameConfig) {
@@ -37,11 +42,19 @@ pub fn run(cfg: GameConfig) {
         ));
 
     match cfg {
-        GameConfig::Client => {
-            app.add_plugins((input::plugin, root::client_plugin, net_client::plugin));
+        GameConfig::Client(hc) => {
+            app.insert_resource(net_client::NetClientConfig {
+                host: hc.host,
+                port: hc.port,
+            })
+            .add_plugins((input::plugin, root::client_plugin, net_client::plugin));
         }
-        GameConfig::ReplicaServer => {
-            app.add_plugins((net_listener::plugin, shape_producer::plugin));
+        GameConfig::ReplicaServer(hc) => {
+            app.insert_resource(net_listener::NetListenerConfig {
+                host: hc.host,
+                port: hc.port,
+            })
+            .add_plugins((net_listener::plugin, shape_producer::plugin));
         }
     }
 
