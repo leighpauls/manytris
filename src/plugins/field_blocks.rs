@@ -56,14 +56,16 @@ fn update_field_blocks(
     q_field_children: Query<&Children, With<FieldComponent>>,
     mut q_blocks: Query<&mut BlockComponent>,
 ) {
-    let game = &q_root.single().game;
+    let Some(ag) = &q_root.single().active_game else {
+        return;
+    };
     let children = q_field_children.single();
 
     for child_id in children {
         let mut block = q_blocks.get_mut(child_id.clone()).unwrap();
 
         use BlockDisplayState::*;
-        block.color = match game.get_display_state(&block.pos) {
+        block.color = match ag.game.get_display_state(&block.pos) {
             Active(s) | Occupied(s) => BlockColor::Occupied(s),
             Shadow(s) => BlockColor::Shadow(s),
             Empty => {

@@ -26,6 +26,10 @@ pub fn client_plugin(app: &mut App) {
 
 #[derive(Component)]
 pub struct GameRoot {
+    pub active_game: Option<ActiveGame>,
+}
+
+pub struct ActiveGame {
     pub game: GameState,
     pub lines_cleared: i32,
     pub level: i32,
@@ -72,7 +76,9 @@ fn setup_root(mut commands: Commands, time: Res<Time<Fixed>>) {
             -assets::BLOCK_SIZE * 11.,
             0.,
         )),
-        marker: GameRoot::new(time.elapsed()),
+        marker: GameRoot {
+            active_game: Some(ActiveGame::new(time.elapsed())),
+        },
     });
 }
 
@@ -83,6 +89,10 @@ fn produce_tick_events(
     mut tick_event_writer: EventWriter<TickEvent>,
 ) {
     let mut game_root = q_root.single_mut();
+
+    let Some(game) = &mut game_root.active_game else {
+        return;
+    };
 
     let mut tick_events = vec![];
 
@@ -102,17 +112,13 @@ fn produce_tick_events(
     }));
 
     let cur_time = time.elapsed();
-    while cur_time > game_root.next_drop_time {
+    while cur_time > game.next_drop_time {
         tick_events.push(DownInput(DownType::Gravity));
-        let level = game_root.level;
-        game_root.next_drop_time += time_to_drop(level);
+        let level = game.level;
+        game.next_drop_time += time_to_drop(level);
     }
 
-    if game_root
-        .lock_timer_target
-        .filter(|t| t <= &cur_time)
-        .is_some()
-    {
+    if game.lock_timer_target.filter(|t| t <= &cur_time).is_some() {
         tick_events.push(LockTimerExpired);
     }
     tick_event_writer.send_batch(
@@ -129,6 +135,10 @@ fn update_root_tick(
     time: Res<Time<Fixed>>,
 ) {
     let mut game_root = q_root.single_mut();
+    let Some(active_game) = &mut game_root.active_game else {
+        return;
+    };
+
     let cur_time = time.elapsed();
     let events = tick_event_reader
         .read()
@@ -136,25 +146,25 @@ fn update_root_tick(
         .map(|e| e.mutation.clone())
         .collect();
 
-    for tick_result in game_root.game.tick_mutation(events) {
+    for tick_result in active_game.game.tick_mutation(events) {
         use TickResult::*;
         match tick_result {
             Lock(lr) => {
                 println!("Lock result: {:?}", lr);
                 lock_event_writer.send(LockEvent(lr.clone()));
-                game_root.apply_lock_result(&lr);
+                active_game.apply_lock_result(&lr);
             }
             RestartLockTimer => {
-                game_root.lock_timer_target = Some(cur_time + consts::LOCK_TIMER_DURATION);
+                active_game.lock_timer_target = Some(cur_time + consts::LOCK_TIMER_DURATION);
             }
             ClearLockTimer => {
-                game_root.lock_timer_target = None;
+                active_game.lock_timer_target = None;
             }
         }
     }
 }
 
-impl GameRoot {
+impl ActiveGame {
     fn new(start_time: Duration) -> Self {
         let initial_states = enum_iterator::all::<Shape>()
             .chain(enum_iterator::all::<Shape>())

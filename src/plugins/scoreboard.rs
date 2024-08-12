@@ -49,8 +49,11 @@ fn update_scoreboard(
     mut q_scoreboard: Query<&mut Text, With<ScoreboardComponent>>,
 ) {
     let game_root = q_root.single();
-    let level = game_root.level;
-    let lines_cleared = game_root.lines_cleared;
+    let (level, lines_cleared) = if let Some(active_game) = &game_root.active_game {
+        (active_game.level, active_game.lines_cleared)
+    } else {
+        (0, 0)
+    };
 
     let mut score_text = q_scoreboard.single_mut();
     score_text.sections[0].value = get_score_text(level, lines_cleared);

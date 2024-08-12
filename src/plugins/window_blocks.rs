@@ -1,12 +1,12 @@
-use crate::tetromino::Tetromino;
+use crate::consts;
+use crate::field::Pos;
 use crate::plugins::assets;
 use crate::plugins::assets::RenderAssets;
 use crate::plugins::block_render::{BlockBundle, BlockColor, BlockComponent};
 use crate::plugins::root::GameRoot;
 use crate::plugins::system_sets::{StartupSystems, UpdateSystems};
-use crate::consts;
+use crate::tetromino::Tetromino;
 use bevy::prelude::*;
-use crate::field::Pos;
 
 pub fn plugin(app: &mut App) {
     app.add_systems(Startup, setup_windows.in_set(StartupSystems::AfterRoot))
@@ -67,11 +67,16 @@ fn update_preview_window_blocks(
     q_windows: Query<(&PreviewWindowComponent, &Children)>,
     mut q_blocks: BlockQuery,
 ) {
-    let previews = q_root.single().game.previews();
+    const ARRAY_REPEAT_VALUE: std::option::Option<Tetromino> = None;
+    let previews = if let Some(active_game) = &q_root.single().active_game {
+        active_game.game.previews().map(Some)
+    } else {
+        [ARRAY_REPEAT_VALUE; 6]
+    };
 
     for (window, children) in &q_windows {
-        let preview = &previews[window.preview_idx];
-        update_child_block_colors(Some(preview), children, &mut q_blocks);
+        let preview = previews[window.preview_idx].clone();
+        update_child_block_colors(preview.as_ref(), children, &mut q_blocks);
     }
 }
 
@@ -80,7 +85,12 @@ fn update_hold_window_blocks(
     q_window: Query<&Children, With<HoldWindowComponent>>,
     mut q_blocks: BlockQuery,
 ) {
-    let held = q_root.single().game.held_tetromino();
+    let held = if let Some(active_game) = &q_root.single().active_game {
+        active_game.game.held_tetromino()
+    } else {
+        None
+    };
+
     update_child_block_colors(held.as_ref(), q_window.single(), &mut q_blocks);
 }
 

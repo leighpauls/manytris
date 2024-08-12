@@ -3,7 +3,6 @@ use std::sync::{Arc, Mutex};
 use bevy::prelude::*;
 use ewebsock::{Options, WsEvent, WsMessage, WsReceiver, WsSender};
 
-use crate::plugins::net_listener;
 use crate::plugins::root::TickEvent;
 use crate::plugins::system_sets::{StartupSystems, UpdateSystems};
 
