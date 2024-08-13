@@ -203,7 +203,7 @@ impl GameRoot {
 
     fn handle_snapshot_response(&mut self, game_state: GameState, cur_time: Duration) {
         if self.active_game.is_some() {
-            panic!("Received snapshot while game is already running!");
+            eprintln!("Overwriting current game with snapshot from server!");
         }
         self.active_game = Some(ActiveGame::from_snapshot(game_state, cur_time));
     }

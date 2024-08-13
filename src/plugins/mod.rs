@@ -1,5 +1,6 @@
 // use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
+use crate::cli_options::ExecCommand;
 
 mod assets;
 mod block_render;
@@ -14,17 +15,8 @@ mod system_sets;
 mod window_blocks;
 mod net_protocol;
 
-pub enum GameConfig {
-    Client(HostConfig),
-    ReplicaServer(HostConfig),
-}
 
-pub struct HostConfig {
-    pub host: String,
-    pub port: u16,
-}
-
-pub fn run(cfg: GameConfig) {
+pub fn run(cfg: ExecCommand) {
     let mut app = App::new();
 
     app.add_plugins(DefaultPlugins)
@@ -43,20 +35,21 @@ pub fn run(cfg: GameConfig) {
         ));
 
     match cfg {
-        GameConfig::Client(hc) => {
+        ExecCommand::Client(hc) => {
             app.insert_resource(net_client::NetClientConfig {
                 host: hc.host,
                 port: hc.port,
             })
             .add_plugins((input::plugin, root::client_plugin, net_client::plugin));
         }
-        GameConfig::ReplicaServer(hc) => {
+        ExecCommand::Server(hc) => {
             app.insert_resource(net_listener::NetListenerConfig {
                 host: hc.host,
                 port: hc.port,
             })
             .add_plugins((net_listener::plugin, shape_producer::plugin));
         }
+        ExecCommand::StandAlone => {panic!("Not implemented")}
     }
 
     app.run();

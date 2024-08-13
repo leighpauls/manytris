@@ -52,11 +52,10 @@ fn update_client_connect(
             let addr = format!("ws://{}:{}", config.host, config.port);
 
             if let Ok((sender, receiver)) = ewebsock::connect(addr, Options::default()) {
-                println!("Opened connection...");
+                println!("Opening connection...");
                 new_net = Some(ClientNetComponent::Connecting(Arc::new(Mutex::new((
                     sender, receiver,
                 )))));
-                control_events.send(SendControlEvent(ControlEvent::JoinRequest));
             }
         }
         ClientNetComponent::Connecting(sr_pair) => {
@@ -64,7 +63,9 @@ fn update_client_connect(
 
             match sr_pair.lock().unwrap().1.try_recv() {
                 Some(WsEvent::Opened) => {
+                    println!("Connected!");
                     new_net = Some(ClientNetComponent::Connected(sr_pair.clone()));
+                    control_events.send(SendControlEvent(ControlEvent::JoinRequest));
                 }
                 Some(e) => {
                     eprintln!("Unexpected connecting message: {:?}", e);
@@ -138,7 +139,7 @@ fn update_client_net_send(
 
     if let ClientNetComponent::Connected(sr_pair) = net.into_inner() {
         let send_func = |nm: NetMessage| {
-            println!("Sending message: {:?}", nm);
+            println!("Sending {:?}", nm);
             let payload = rmp_serde::to_vec(&nm).unwrap();
             sr_pair.lock().unwrap().0.send(WsMessage::Binary(payload));
         };
@@ -153,6 +154,5 @@ fn update_client_net_send(
             .filter(|te| te.local)
             .map(|e| NetMessage::Tick(e.mutation.clone()))
             .for_each(send_func);
-
     }
 }

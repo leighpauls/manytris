@@ -61,7 +61,6 @@ fn listener_system(
             }
             NewMessage(msgs) => {
                 for m in msgs {
-                    println!("Received message {:?}", m);
                     match m {
                         NetMessage::Tick(tm) => {
                             tick_writer.send(TickEvent::new_remote(tm));
