@@ -39,12 +39,18 @@ fn update(
 }
 
 impl ShapeProducer {
-    fn new() -> Self {
+    pub fn new() -> Self {
         let mut res = Self {
             upcoming_blocks: vec![],
             bag_remaining: vec![],
         };
         res.refill();
+        res
+    }
+
+    pub fn take(&mut self) -> Shape {
+        let res = self.upcoming_blocks.remove(0);
+        self.refill();
         res
     }
 
@@ -57,11 +63,5 @@ impl ShapeProducer {
             self.upcoming_blocks
                 .push(self.bag_remaining.remove(next_idx));
         }
-    }
-
-    fn take(&mut self) -> Shape {
-        let res = self.upcoming_blocks.remove(0);
-        self.refill();
-        res
     }
 }

@@ -6,4 +6,5 @@ mod field;
 mod consts;
 mod tetromino;
 pub mod cli_options;
+pub mod bot_player;
 

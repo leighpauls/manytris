@@ -11,7 +11,7 @@ mod net_listener;
 mod net_protocol;
 pub mod root;
 mod scoreboard;
-mod shape_producer;
+pub mod shape_producer;
 mod system_sets;
 mod window_blocks;
 

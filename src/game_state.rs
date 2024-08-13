@@ -1,9 +1,12 @@
+use std::fmt::{Display, Formatter};
+
+use serde::{Deserialize, Serialize};
+
 use crate::consts;
 use crate::field::{Field, Pos};
 use crate::shapes::{Rot, Shape, Shift};
 use crate::tetromino::Tetromino;
 use crate::upcoming::UpcomingTetrominios;
-use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Deserialize, Serialize, Debug)]
 pub struct GameState {
@@ -79,7 +82,6 @@ impl GameState {
                 DropInput => self.drop(),
                 HoldInput => self.hold(),
                 EnqueueTetromino(shape) => {
-                    println!("Enqueue received");
                     self.upcoming.enqueue(shape);
                     vec![]
                 }
@@ -202,5 +204,25 @@ impl GameState {
     fn replace_active_tetromino(&mut self, shape: Shape) -> bool {
         self.active = Tetromino::new(shape);
         self.field.is_valid(&self.active)
+    }
+}
+
+impl Display for GameState {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_str("----------\n")?;
+        for y in (0..consts::H).rev() {
+            for x in 0..consts::W {
+                let ch = match self.get_display_state(&Pos { x, y }) {
+                    BlockDisplayState::Empty => " ",
+                    BlockDisplayState::Occupied(_) => "X",
+                    BlockDisplayState::Active(_) => "O",
+                    BlockDisplayState::Shadow(_) => " ",
+                };
+                f.write_str(ch)?;
+            }
+            f.write_str("\n")?;
+        }
+        f.write_str("----------\n")?;
+        Ok(())
     }
 }
