@@ -1,5 +1,6 @@
 use std::sync::{Arc, Mutex};
 
+use crate::cli_options::HostConfig;
 use crate::plugins::net_protocol::NetMessage;
 use bevy::prelude::*;
 use ewebsock::{Options, WsEvent, WsMessage, WsReceiver, WsSender};
@@ -15,10 +16,7 @@ pub enum ClientNetComponent {
 }
 
 #[derive(Resource)]
-pub struct NetClientConfig {
-    pub host: String,
-    pub port: u16,
-}
+pub struct NetClientConfig(pub HostConfig);
 
 pub fn plugin(app: &mut App) {
     app.add_systems(Startup, init.in_set(StartupSystems::AfterRoot))
@@ -49,7 +47,7 @@ fn update_client_connect(
         ClientNetComponent::NotConnected => {
             virtual_time.pause();
 
-            let addr = format!("ws://{}:{}", config.host, config.port);
+            let addr = format!("ws://{}:{}", config.0.host, config.0.port);
 
             if let Ok((sender, receiver)) = ewebsock::connect(addr, Options::default()) {
                 println!("Opening connection...");

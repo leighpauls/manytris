@@ -1,4 +1,4 @@
-use clap::{Args, Parser, Subcommand, ValueEnum};
+use clap::{Args, Parser, Subcommand};
 use serde::Serialize;
 
 #[derive(Parser, Debug)]

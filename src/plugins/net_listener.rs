@@ -2,6 +2,7 @@ use std::error::Error;
 use std::io;
 use std::net::{TcpListener, TcpStream};
 
+use crate::cli_options::HostConfig;
 use bevy::prelude::*;
 use tungstenite::{Message, WebSocket};
 
@@ -17,10 +18,7 @@ pub struct ServerListenerComponent {
 }
 
 #[derive(Resource)]
-pub struct NetListenerConfig {
-    pub host: String,
-    pub port: u16,
-}
+pub struct NetListenerConfig(pub HostConfig);
 
 pub fn plugin(app: &mut App) {
     app.add_systems(Startup, init_listener).add_systems(
@@ -33,7 +31,7 @@ pub fn plugin(app: &mut App) {
 }
 
 fn init_listener(mut commands: Commands, config: Res<NetListenerConfig>) {
-    let listener = TcpListener::bind(format!("{}:{}", config.host, config.port)).unwrap();
+    let listener = TcpListener::bind(format!("{}:{}", config.0.host, config.0.port)).unwrap();
     listener.set_nonblocking(true).unwrap();
 
     commands.spawn(ServerListenerComponent {

@@ -26,6 +26,17 @@ pub fn client_plugin(app: &mut App) {
     );
 }
 
+pub fn stand_alone_plugin(app: &mut App) {
+    app.add_systems(
+        Startup,
+        setup_start_standalone_game.in_set(StartupSystems::AfterRoot),
+    )
+    .add_systems(
+        Update,
+        produce_tick_events.in_set(UpdateSystems::LocalEventProducers),
+    );
+}
+
 #[derive(Component)]
 pub struct GameRoot {
     pub active_game: Option<ActiveGame>,
@@ -83,7 +94,7 @@ impl TickEvent {
 #[derive(Event, Deserialize, Serialize)]
 pub struct LockEvent(pub LockResult);
 
-fn setup_root(mut commands: Commands, time: Res<Time<Fixed>>) {
+fn setup_root(mut commands: Commands) {
     commands.spawn(RootTransformBundle {
         transform: SpatialBundle::from_transform(Transform::from_xyz(
             -assets::BLOCK_SIZE * 8.,
@@ -92,6 +103,11 @@ fn setup_root(mut commands: Commands, time: Res<Time<Fixed>>) {
         )),
         marker: GameRoot { active_game: None },
     });
+}
+
+fn setup_start_standalone_game(mut q_root: Query<&mut GameRoot>, time: Res<Time<Fixed>>) {
+    let start_time = time.elapsed();
+    q_root.single_mut().active_game = Some(ActiveGame::new(start_time));
 }
 
 fn produce_tick_events(

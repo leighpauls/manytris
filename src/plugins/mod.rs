@@ -1,6 +1,6 @@
 // use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
-use bevy::prelude::*;
 use crate::cli_options::ExecCommand;
+use bevy::prelude::*;
 
 mod assets;
 mod block_render;
@@ -8,22 +8,17 @@ mod field_blocks;
 mod input;
 mod net_client;
 mod net_listener;
+mod net_protocol;
 pub mod root;
 mod scoreboard;
 mod shape_producer;
 mod system_sets;
 mod window_blocks;
-mod net_protocol;
-
 
 pub fn run(cfg: ExecCommand) {
     let mut app = App::new();
 
     app.add_plugins(DefaultPlugins)
-        /* .add_plugins((
-            FrameTimeDiagnosticsPlugin::default(),
-            LogDiagnosticsPlugin::default(),
-        )) */
         .add_plugins((
             root::common_plugin,
             window_blocks::plugin,
@@ -36,20 +31,16 @@ pub fn run(cfg: ExecCommand) {
 
     match cfg {
         ExecCommand::Client(hc) => {
-            app.insert_resource(net_client::NetClientConfig {
-                host: hc.host,
-                port: hc.port,
-            })
-            .add_plugins((input::plugin, root::client_plugin, net_client::plugin));
+            app.insert_resource(net_client::NetClientConfig(hc))
+                .add_plugins((input::plugin, root::client_plugin, net_client::plugin));
         }
         ExecCommand::Server(hc) => {
-            app.insert_resource(net_listener::NetListenerConfig {
-                host: hc.host,
-                port: hc.port,
-            })
-            .add_plugins((net_listener::plugin, shape_producer::plugin));
+            app.insert_resource(net_listener::NetListenerConfig(hc))
+                .add_plugins((net_listener::plugin, shape_producer::plugin));
         }
-        ExecCommand::StandAlone => {panic!("Not implemented")}
+        ExecCommand::StandAlone => {
+            app.add_plugins((input::plugin, root::stand_alone_plugin, shape_producer::plugin));
+        }
     }
 
     app.run();
