@@ -5,6 +5,7 @@ use crate::tetromino::Tetromino;
 use crate::upcoming::UpcomingTetrominios;
 use serde::{Deserialize, Serialize};
 
+#[derive(Clone, Deserialize, Serialize, Debug)]
 pub struct GameState {
     field: Field,
     active: Tetromino,

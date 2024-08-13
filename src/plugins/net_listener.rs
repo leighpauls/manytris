@@ -6,7 +6,8 @@ use bevy::prelude::*;
 use tungstenite::{Message, WebSocket};
 
 use crate::plugins::net_listener::ListenResult::{DropSocket, NewMessage};
-use crate::plugins::root::TickEvent;
+use crate::plugins::net_protocol::NetMessage;
+use crate::plugins::root::{ReceiveControlEvent, SendControlEvent, TickEvent};
 use crate::plugins::system_sets::UpdateSystems;
 
 #[derive(Component)]
@@ -18,7 +19,7 @@ pub struct ServerListenerComponent {
 #[derive(Resource)]
 pub struct NetListenerConfig {
     pub host: String,
-    pub port: u16
+    pub port: u16,
 }
 
 pub fn plugin(app: &mut App) {
@@ -43,12 +44,13 @@ fn init_listener(mut commands: Commands, config: Res<NetListenerConfig>) {
 
 fn listener_system(
     mut listener_q: Query<&mut ServerListenerComponent>,
-    mut event_writer: EventWriter<TickEvent>,
+    mut tick_writer: EventWriter<TickEvent>,
+    mut control_writer: EventWriter<ReceiveControlEvent>,
 ) {
     let listener = listener_q.single_mut().into_inner();
 
     if let Err(e) = accept_new_connections(&listener.listener, &mut listener.sockets) {
-        eprintln!("Error while accpeting new sockets: {}", e);
+        eprintln!("Error while accepting new sockets: {}", e);
     }
 
     let mut i = 0;
@@ -58,7 +60,17 @@ fn listener_system(
                 listener.sockets.remove(i);
             }
             NewMessage(msgs) => {
-                event_writer.send_batch(msgs.into_iter().map(|e| e.as_remote()));
+                for m in msgs {
+                    println!("Received message {:?}", m);
+                    match m {
+                        NetMessage::Tick(tm) => {
+                            tick_writer.send(TickEvent::new_remote(tm));
+                        }
+                        NetMessage::Control(ce) => {
+                            control_writer.send(ReceiveControlEvent(ce));
+                        }
+                    }
+                }
                 i += 1;
             }
         }
@@ -68,17 +80,24 @@ fn listener_system(
 fn sender_system(
     mut listener_q: Query<&mut ServerListenerComponent>,
     mut event_reader: EventReader<TickEvent>,
+    mut control_reader: EventReader<SendControlEvent>,
 ) {
     let mut listener = listener_q.single_mut();
 
-    let payloads_to_send: Vec<Vec<u8>> = event_reader
+    let payloads: Vec<Vec<u8>> = control_reader
         .read()
-        .filter(|e| e.local)
-        .map(|e| rmp_serde::to_vec(e).unwrap())
+        .map(|SendControlEvent(ce)| NetMessage::Control(ce.clone()))
+        .chain(
+            event_reader
+                .read()
+                .filter(|e| e.local)
+                .map(|e| NetMessage::Tick(e.mutation.clone())),
+        )
+        .map(|nm| rmp_serde::to_vec(&nm).unwrap())
         .collect();
 
     for socket in &mut listener.sockets {
-        for p in &payloads_to_send {
+        for p in &payloads {
             // TODO: drop socket on error?
             socket.send(Message::Binary(p.clone())).unwrap();
         }
@@ -106,7 +125,7 @@ fn accept_new_connections(
 
 enum ListenResult {
     DropSocket,
-    NewMessage(Vec<TickEvent>),
+    NewMessage(Vec<NetMessage>),
 }
 
 fn listen_to_socket(web_socket: &mut WebSocket<TcpStream>) -> ListenResult {
@@ -121,7 +140,7 @@ fn listen_to_socket(web_socket: &mut WebSocket<TcpStream>) -> ListenResult {
                 return DropSocket;
             }
             Ok(Message::Binary(buf)) => match rmp_serde::from_slice(&buf) {
-                Ok(te) => result.push(te),
+                Ok(nm) => result.push(nm),
                 Err(e) => eprintln!("Unable to read message: {}", e),
             },
             Ok(Message::Close(cf)) => {

@@ -3,13 +3,15 @@ use crate::shapes::Shape;
 use crate::tetromino::Tetromino;
 use std::cmp::max;
 use std::collections::HashMap;
+use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Eq, PartialEq, Hash)]
+#[derive(Clone, Eq, PartialEq, Hash, Debug, Deserialize, Serialize)]
 pub struct Pos {
     pub x: i32,
     pub y: i32,
 }
 
+#[derive(Clone, Deserialize, Serialize, Debug)]
 pub struct Field {
     occupied: HashMap<Pos, Shape>,
 }

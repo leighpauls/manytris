@@ -12,6 +12,7 @@ mod scoreboard;
 mod shape_producer;
 mod system_sets;
 mod window_blocks;
+mod net_protocol;
 
 pub enum GameConfig {
     Client(HostConfig),

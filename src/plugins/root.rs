@@ -14,7 +14,9 @@ pub fn common_plugin(app: &mut App) {
     app.add_systems(Startup, setup_root.in_set(StartupSystems::Root))
         .add_systems(Update, update_root_tick.in_set(UpdateSystems::RootTick))
         .add_event::<TickEvent>()
-        .add_event::<LockEvent>();
+        .add_event::<LockEvent>()
+        .add_event::<SendControlEvent>()
+        .add_event::<ReceiveControlEvent>();
 }
 
 pub fn client_plugin(app: &mut App) {
@@ -50,6 +52,18 @@ pub struct TickEvent {
     pub local: bool,
 }
 
+#[derive(Clone, Deserialize, Serialize, Debug)]
+pub enum ControlEvent {
+    JoinRequest,
+    SnapshotResponse(GameState),
+}
+
+#[derive(Event)]
+pub struct SendControlEvent(pub ControlEvent);
+
+#[derive(Event)]
+pub struct ReceiveControlEvent(pub ControlEvent);
+
 impl TickEvent {
     pub fn new_local(mutation: TickMutation) -> Self {
         Self {
@@ -58,9 +72,9 @@ impl TickEvent {
         }
     }
 
-    pub fn as_remote(&self) -> Self {
+    pub fn new_remote(mutation: TickMutation) -> Self {
         Self {
-            mutation: self.mutation.clone(),
+            mutation,
             local: false,
         }
     }
@@ -76,9 +90,7 @@ fn setup_root(mut commands: Commands, time: Res<Time<Fixed>>) {
             -assets::BLOCK_SIZE * 11.,
             0.,
         )),
-        marker: GameRoot {
-            active_game: Some(ActiveGame::new(time.elapsed())),
-        },
+        marker: GameRoot { active_game: None },
     });
 }
 
@@ -130,16 +142,31 @@ fn produce_tick_events(
 
 fn update_root_tick(
     mut q_root: Query<&mut GameRoot>,
+    mut control_event_reader: EventReader<ReceiveControlEvent>,
+    mut control_event_writer: EventWriter<SendControlEvent>,
     mut tick_event_reader: EventReader<TickEvent>,
     mut lock_event_writer: EventWriter<LockEvent>,
     time: Res<Time<Fixed>>,
 ) {
     let mut game_root = q_root.single_mut();
+    let cur_time = time.elapsed();
+
+    for rce in control_event_reader.read() {
+        let ReceiveControlEvent(ce) = rce;
+        match ce {
+            ControlEvent::JoinRequest => {
+                control_event_writer.send(game_root.handle_join_request(cur_time));
+            }
+            ControlEvent::SnapshotResponse(gs) => {
+                game_root.handle_snapshot_response(gs.clone(), cur_time);
+            }
+        }
+    }
+
     let Some(active_game) = &mut game_root.active_game else {
         return;
     };
 
-    let cur_time = time.elapsed();
     let events = tick_event_reader
         .read()
         .into_iter()
@@ -164,13 +191,35 @@ fn update_root_tick(
     }
 }
 
+impl GameRoot {
+    fn handle_join_request(&mut self, cur_time: Duration) -> SendControlEvent {
+        if let None = self.active_game {
+            self.active_game = Some(ActiveGame::new(cur_time));
+        }
+        SendControlEvent(ControlEvent::SnapshotResponse(
+            self.active_game.as_ref().unwrap().game.clone(),
+        ))
+    }
+
+    fn handle_snapshot_response(&mut self, game_state: GameState, cur_time: Duration) {
+        if self.active_game.is_some() {
+            panic!("Received snapshot while game is already running!");
+        }
+        self.active_game = Some(ActiveGame::from_snapshot(game_state, cur_time));
+    }
+}
+
 impl ActiveGame {
     fn new(start_time: Duration) -> Self {
         let initial_states = enum_iterator::all::<Shape>()
             .chain(enum_iterator::all::<Shape>())
             .collect();
+        Self::from_snapshot(GameState::new(initial_states), start_time)
+    }
+
+    fn from_snapshot(gs: GameState, start_time: Duration) -> Self {
         Self {
-            game: GameState::new(initial_states),
+            game: gs,
             level: 1,
             lines_cleared: 0,
             lines_to_next_level: LINES_PER_LEVEL,

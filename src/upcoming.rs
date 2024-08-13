@@ -1,6 +1,8 @@
+use serde::{Deserialize, Serialize};
 use crate::consts;
 use crate::shapes::Shape;
 
+#[derive(Clone, Deserialize, Serialize, Debug)]
 pub struct UpcomingTetrominios {
     upcoming_blocks: Vec<Shape>,
 }

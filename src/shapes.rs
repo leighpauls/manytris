@@ -15,7 +15,7 @@ pub enum Shape {
     T,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Deserialize, Serialize, Debug)]
 pub enum Orientation {
     Up,
     Right,
@@ -38,7 +38,7 @@ pub enum Rot {
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct RelPos(pub i32, pub i32);
 
-#[derive(Clone)]
+#[derive(Clone, Deserialize, Serialize, Debug)]
 pub struct TetrominoLocation(pub i32, pub i32);
 
 impl RelPos {

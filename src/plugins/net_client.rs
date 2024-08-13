@@ -1,9 +1,10 @@
 use std::sync::{Arc, Mutex};
 
+use crate::plugins::net_protocol::NetMessage;
 use bevy::prelude::*;
 use ewebsock::{Options, WsEvent, WsMessage, WsReceiver, WsSender};
 
-use crate::plugins::root::TickEvent;
+use crate::plugins::root::{ControlEvent, ReceiveControlEvent, SendControlEvent, TickEvent};
 use crate::plugins::system_sets::{StartupSystems, UpdateSystems};
 
 #[derive(Component)]
@@ -38,6 +39,7 @@ fn init(mut commands: Commands) {
 fn update_client_connect(
     mut net_q: Query<&mut ClientNetComponent>,
     mut virtual_time: ResMut<Time<Virtual>>,
+    mut control_events: EventWriter<SendControlEvent>,
     config: Res<NetClientConfig>,
 ) {
     let net = net_q.single_mut().into_inner();
@@ -54,6 +56,7 @@ fn update_client_connect(
                 new_net = Some(ClientNetComponent::Connecting(Arc::new(Mutex::new((
                     sender, receiver,
                 )))));
+                control_events.send(SendControlEvent(ControlEvent::JoinRequest));
             }
         }
         ClientNetComponent::Connecting(sr_pair) => {
@@ -83,6 +86,7 @@ fn update_client_connect(
 fn update_client_net_receive(
     mut net_q: Query<&mut ClientNetComponent>,
     mut tick_events: EventWriter<TickEvent>,
+    mut control_events: EventWriter<ReceiveControlEvent>,
 ) {
     let net = net_q.single_mut().into_inner();
 
@@ -95,9 +99,14 @@ fn update_client_net_receive(
                     println!("Connection Opened");
                 }
                 WsEvent::Message(WsMessage::Binary(payload)) => {
-                    let decoded = rmp_serde::from_slice::<TickEvent>(&payload);
-                    if let Ok(event) = decoded {
-                        tick_events.send(event.as_remote());
+                    let decoded = rmp_serde::from_slice::<NetMessage>(&payload);
+                    match decoded.unwrap() {
+                        NetMessage::Tick(tm) => {
+                            tick_events.send(TickEvent::new_remote(tm));
+                        }
+                        NetMessage::Control(ce) => {
+                            control_events.send(ReceiveControlEvent(ce));
+                        }
                     }
                 }
                 WsEvent::Message(msg) => {
@@ -123,15 +132,27 @@ fn update_client_net_receive(
 fn update_client_net_send(
     mut net_q: Query<&mut ClientNetComponent>,
     mut tick_events: EventReader<TickEvent>,
+    mut control_events: EventReader<SendControlEvent>,
 ) {
     let net = net_q.single_mut();
 
     if let ClientNetComponent::Connected(sr_pair) = net.into_inner() {
-        for event in tick_events.read() {
-            if event.local {
-                let payload = rmp_serde::to_vec(event).unwrap();
-                sr_pair.lock().unwrap().0.send(WsMessage::Binary(payload));
-            }
-        }
+        let send_func = |nm: NetMessage| {
+            println!("Sending message: {:?}", nm);
+            let payload = rmp_serde::to_vec(&nm).unwrap();
+            sr_pair.lock().unwrap().0.send(WsMessage::Binary(payload));
+        };
+
+        control_events
+            .read()
+            .map(|SendControlEvent(ce)| NetMessage::Control(ce.clone()))
+            .for_each(send_func);
+
+        tick_events
+            .read()
+            .filter(|te| te.local)
+            .map(|e| NetMessage::Tick(e.mutation.clone()))
+            .for_each(send_func);
+
     }
 }
