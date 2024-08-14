@@ -93,12 +93,23 @@ fn find_height(cf: &CompactField) -> i32 {
 
 fn find_covered(cf: &CompactField, height: i32) -> i32 {
     let mut count = 0;
-    for y in 1..height {
-        for x in 0..consts::W {
-            // See if the top is occupied and the bottom isn't
-            if cf.occupied(&Pos { x, y }) && !cf.occupied(&Pos { x, y: y - 1 }) {
+    for x in 0..consts::W {
+        let mut y = height;
+        // Find the top of this column
+        while y > 0 {
+            if cf.occupied(&Pos { x, y }) {
+                break;
+            }
+            y -= 1;
+        }
+
+        // Count the holes
+        y -= 1;
+        while y >= 0 {
+            if !cf.occupied(&Pos { x, y }) {
                 count += 1;
             }
+            y -= 1;
         }
     }
     count
