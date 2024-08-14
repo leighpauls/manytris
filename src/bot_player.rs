@@ -1,5 +1,5 @@
 use crate::consts;
-use crate::field::Pos;
+use crate::field::{CompactField, Pos};
 use crate::game_state::{BlockDisplayState, GameState, LockResult, TickMutation, TickResult};
 use crate::shapes::{Rot, Shift};
 use std::cmp::Ordering;
@@ -61,8 +61,10 @@ pub fn enumerate_moves(src_state: &GameState) -> impl Iterator<Item = MoveResult
                 _ => {}
             }
         }
-        let height = find_height(&gs);
-        let covered = find_covered(&gs, height);
+
+        let cf = gs.make_compact_field();
+        let height = find_height(&cf);
+        let covered = find_covered(&cf, height);
         let score = MoveResultScore {
             game_over,
             lines_cleared,
@@ -73,11 +75,11 @@ pub fn enumerate_moves(src_state: &GameState) -> impl Iterator<Item = MoveResult
     })
 }
 
-fn find_height(gs: &GameState) -> i32 {
+fn find_height(cf: &CompactField) -> i32 {
     for y in 0..consts::H {
         let mut empty_row = true;
         for x in 0..consts::W {
-            if let BlockDisplayState::Occupied(_) = gs.get_display_state(&Pos { x, y }) {
+            if cf.occupied(&Pos { x, y }) {
                 empty_row = false;
                 break;
             }
@@ -89,21 +91,13 @@ fn find_height(gs: &GameState) -> i32 {
     consts::H
 }
 
-fn find_covered(gs: &GameState, height: i32) -> i32 {
+fn find_covered(cf: &CompactField, height: i32) -> i32 {
     let mut count = 0;
     for y in 1..height {
         for x in 0..consts::W {
-            let top = gs.get_display_state(&Pos { x, y });
-
             // See if the top is occupied and the bottom isn't
-            if let BlockDisplayState::Occupied(_) = top {
-                let bot = gs.get_display_state(&Pos { x, y: y - 1 });
-                match bot {
-                    BlockDisplayState::Occupied(_) => {}
-                    _ => {
-                        count += 1;
-                    }
-                }
+            if cf.occupied(&Pos { x, y }) && !cf.occupied(&Pos { x, y: y - 1 }) {
+                count += 1;
             }
         }
     }

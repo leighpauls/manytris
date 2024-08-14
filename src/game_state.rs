@@ -3,7 +3,7 @@ use std::fmt::{Display, Formatter};
 use serde::{Deserialize, Serialize};
 
 use crate::consts;
-use crate::field::{Field, Pos};
+use crate::field::{CompactField, Field, Pos};
 use crate::shapes::{Rot, Shape, Shift};
 use crate::tetromino::Tetromino;
 use crate::upcoming::UpcomingTetrominios;
@@ -152,6 +152,10 @@ impl GameState {
 
     pub fn held_tetromino(&self) -> Option<Tetromino> {
         Some(Tetromino::for_preview(self.held?))
+    }
+
+    pub fn make_compact_field(&self) -> CompactField {
+        self.field.make_compact_field()
     }
 
     fn hold(&mut self) -> Vec<TickResult> {

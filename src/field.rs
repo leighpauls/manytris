@@ -1,9 +1,9 @@
 use crate::consts;
 use crate::shapes::Shape;
 use crate::tetromino::Tetromino;
+use serde::{Deserialize, Serialize};
 use std::cmp::max;
 use std::collections::HashMap;
-use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Eq, PartialEq, Hash, Debug, Deserialize, Serialize)]
 pub struct Pos {
@@ -14,6 +14,16 @@ pub struct Pos {
 #[derive(Clone, Deserialize, Serialize, Debug)]
 pub struct Field {
     occupied: HashMap<Pos, Shape>,
+}
+
+const BIT_ARRAY_BYTES: usize = consts::NUM_POSITIONS / 8 + 1;
+type FieldBitArray = [u8; BIT_ARRAY_BYTES];
+
+/**
+A bit-array representation of the occupied positions in the field. Useful for AI computations.
+ */
+pub struct CompactField {
+    bits: FieldBitArray,
 }
 
 impl Pos {
@@ -109,5 +119,53 @@ impl Field {
             }
         }
         false
+    }
+
+    pub fn make_compact_field(&self) -> CompactField {
+        CompactField::new(self)
+    }
+}
+
+impl CompactField {
+    fn new(field: &Field) -> Self {
+        let mut cf = Self {
+            bits: [0; BIT_ARRAY_BYTES],
+        };
+        for (pos, _) in &field.occupied {
+            let (byte, mask) = Self::byte_and_mask(pos);
+            cf.bits[byte] |= mask;
+        }
+        cf
+    }
+
+    pub fn occupied(&self, pos: &Pos) -> bool {
+        let (byte, mask) = Self::byte_and_mask(pos);
+        (self.bits[byte] & mask) != 0
+    }
+
+    fn byte_and_mask(pos: &Pos) -> (usize, u8) {
+        let bit_index = (pos.x * consts::W + pos.y) as usize;
+        let byte = bit_index / 8;
+        let mask_shift = bit_index - (byte * 8);
+        (byte, 1 << mask_shift)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn compact_field_creation() {
+        let mut f = Field::new();
+        let t = Tetromino::new(Shape::I);
+        f.apply_tetrominio(&t);
+
+        let cf = f.make_compact_field();
+
+        for p in &t.get_blocks() {
+            assert_eq!(cf.occupied(p), true)
+        }
+        assert_eq!(cf.occupied(&Pos { x: 0, y: 0 }), false);
     }
 }
