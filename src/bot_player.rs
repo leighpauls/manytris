@@ -2,6 +2,7 @@ use crate::consts;
 use crate::field::{CompactField, Pos};
 use crate::game_state::{BlockDisplayState, GameState, LockResult, TickMutation, TickResult};
 use crate::shapes::{Rot, Shift};
+use rand::{random, thread_rng, Rng, RngCore};
 use std::cmp::Ordering;
 use std::fmt::{Display, Formatter};
 use std::iter;
@@ -18,6 +19,16 @@ pub struct MoveResultScore {
     pub lines_cleared: i32,
     pub height: i32,
     pub covered: i32,
+}
+
+pub type ScoringKs = [f32; 4];
+
+pub fn weighted_result_score(mrs: &MoveResultScore, ks: &ScoringKs) -> f32 {
+    let game_over_f32 = if mrs.game_over { 1.0 } else { -1.0 };
+    game_over_f32 * ks[0]
+        + mrs.lines_cleared as f32 * ks[1]
+        + mrs.height as f32 * ks[2]
+        + mrs.covered as f32 * ks[3]
 }
 
 pub fn enumerate_moves(src_state: &GameState) -> impl Iterator<Item = MoveResult> + '_ {
