@@ -1,4 +1,5 @@
 use genetic_algorithm::strategy::evolve::prelude::*;
+
 use manytris::bot_player;
 use manytris::bot_player::ScoringKs;
 use manytris::game_state::{GameState, TickMutation};
@@ -9,8 +10,8 @@ use ordered_float::OrderedFloat;
 
 pub fn main() {
 
-    // let ks = [752.49023, 227.62732, -676.7156, -992.5747];
-    // println!("Game length {}", run_game(&ks));
+    let best_ks =  [-863.55994, 24.596436, -651.4709, -825.0811];
+    println!("Game length {}", run_game(&best_ks));
 
     let genotype = ContinuousGenotype::builder()
         .with_genes_size(4)
@@ -29,7 +30,7 @@ pub fn main() {
         .with_crossover(CrossoverUniform::new(true))
         .with_mutate(MutateSingleGeneRandom::new(0.02))
         .with_compete(CompeteElite::new())
-        .with_reporter(EvolveReporterSimple::new(10))
+        .with_reporter(PrintBestReporter)
         .call(&mut rng)
         .unwrap();
 
@@ -42,6 +43,23 @@ pub fn main() {
     let ks: ScoringKs = [-100.0, 10.0, -5.0, -10.0];
     println!("Game length {}", run_game(&ks));
      */
+}
+
+#[derive(Clone, Debug)]
+pub struct PrintBestReporter;
+
+impl EvolveReporter for PrintBestReporter {
+    type Genotype = ContinuousGenotype;
+
+    fn on_new_best_chromosome(&mut self, state: &EvolveState<Self::Genotype>, _config: &EvolveConfig) {
+        if let Some(c) = &state.best_chromosome {
+            println!("New best chromosome: {:?}", c);
+        }
+    }
+
+    fn on_new_generation(&mut self, state: &EvolveState<Self::Genotype>, _config: &EvolveConfig) {
+        println!("Generation: {}", state.current_generation);
+    }
 }
 
 #[derive(Clone, Debug)]
