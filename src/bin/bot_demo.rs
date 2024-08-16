@@ -9,13 +9,17 @@ use std::iter;
 use ordered_float::OrderedFloat;
 
 pub fn main() {
+    let mut best_ks = [-863.55994, 24.596436, -651.4709, -825.0811];
+    best_ks = [-9562.464, 4374.6016, -1771.5244, -3123.4766];
+    best_ks = [-2822.5542, -12.076172, -6199.834, -7082.8584];
 
-    let best_ks =  [-863.55994, 24.596436, -651.4709, -825.0811];
-    println!("Game length {}", run_game(&best_ks));
+    for _ in 0..5 {
+        println!("Game length {}", run_game(&best_ks, 600));
+    }
 
     let genotype = ContinuousGenotype::builder()
         .with_genes_size(4)
-        .with_allele_range(-1000.0..1000.0)
+        .with_allele_range(-10000.0..10000.0)
         .build()
         .unwrap();
 
@@ -28,7 +32,7 @@ pub fn main() {
         .with_fitness_ordering(FitnessOrdering::Maximize)
         .with_multithreading(true)
         .with_crossover(CrossoverUniform::new(true))
-        .with_mutate(MutateSingleGeneRandom::new(0.02))
+        .with_mutate(MutateSingleGeneRandom::new(0.1))
         .with_compete(CompeteElite::new())
         .with_reporter(PrintBestReporter)
         .call(&mut rng)
@@ -38,11 +42,6 @@ pub fn main() {
     println!("Best chromosome: {:?}", bc);
 
     println!("Best chromosome genes: {:?}", bc.genes as Vec<f32>);
-
-    /*
-    let ks: ScoringKs = [-100.0, 10.0, -5.0, -10.0];
-    println!("Game length {}", run_game(&ks));
-     */
 }
 
 #[derive(Clone, Debug)]
@@ -51,14 +50,23 @@ pub struct PrintBestReporter;
 impl EvolveReporter for PrintBestReporter {
     type Genotype = ContinuousGenotype;
 
-    fn on_new_best_chromosome(&mut self, state: &EvolveState<Self::Genotype>, _config: &EvolveConfig) {
+    fn on_new_best_chromosome(
+        &mut self,
+        state: &EvolveState<Self::Genotype>,
+        _config: &EvolveConfig,
+    ) {
         if let Some(c) = &state.best_chromosome {
             println!("New best chromosome: {:?}", c);
         }
     }
 
     fn on_new_generation(&mut self, state: &EvolveState<Self::Genotype>, _config: &EvolveConfig) {
-        println!("Generation: {}", state.current_generation);
+        println!(
+            "Generation: {}, Score Cardinality: {}, Score Median: {:?}",
+            state.current_generation,
+            state.population.fitness_score_cardinality(),
+            state.population.fitness_score_median(),
+        );
     }
 }
 
@@ -78,23 +86,27 @@ impl Fitness for GameFitness {
 }
 
 fn evaluate_ks(ks: &ScoringKs) -> i32 {
-    let num_games = 4;
-    let mut score = 0;
+    let num_games = 10;
+    let mut worst_score = 600;
     for _ in 0..num_games {
-        score += run_game(ks);
+        let score = run_game(ks, worst_score);
+        if score < worst_score {
+            worst_score = score;
+        }
     }
-    score / num_games
+    worst_score
 }
 
-fn run_game(ks: &ScoringKs) -> i32 {
-    let max_game_length = 500;
-
+fn run_game(ks: &ScoringKs, max_game_length: i32) -> i32 {
     let mut sp = ShapeProducer::new();
     let inital_shapes = iter::repeat_with(|| sp.take()).take(7).collect();
     let mut gs = GameState::new(inital_shapes);
 
     for i in 0..max_game_length {
-        let mr = bot_player::enumerate_moves(&gs)
+
+        let all_moves = bot_player::enumerate_moves(&gs, 1);
+        let mr = all_moves
+            .into_iter()
             .max_by_key(|mr| OrderedFloat(bot_player::weighted_result_score(&mr.score, &ks)))
             .unwrap();
         if mr.score.game_over {
