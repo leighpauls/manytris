@@ -7,4 +7,5 @@ mod consts;
 mod tetromino;
 pub mod cli_options;
 pub mod bot_player;
+pub mod bot_shader;
 
