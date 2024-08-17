@@ -2,8 +2,6 @@ use std::cmp::Ordering;
 use std::fmt::{Display, Formatter};
 use std::iter;
 
-use rand::{Rng, RngCore};
-
 use crate::consts;
 use crate::field::{CompactField, Pos};
 use crate::game_state::{GameState, LockResult, TickMutation, TickResult};
@@ -59,47 +57,53 @@ pub fn enumerate_moves(src_state: &GameState, depth: usize) -> Vec<MoveResult> {
     }
 
     // Run each mutation list
-    mutations.into_iter().map(|moves| {
-        let mut gs = src_state.clone();
-        let results = gs.tick_mutation(moves.clone());
-        let mut game_over = false;
-        let mut lines_cleared = 0;
-        for tr in results {
-            match tr {
-                TickResult::Lock(LockResult::GameOver) => {
-                    game_over = true;
+    mutations
+        .into_iter()
+        .map(|moves| {
+            let mut gs = src_state.clone();
+            let results = gs.tick_mutation(moves.clone());
+            let mut game_over = false;
+            let mut lines_cleared = 0;
+            for tr in results {
+                match tr {
+                    TickResult::Lock(LockResult::GameOver) => {
+                        game_over = true;
+                    }
+                    TickResult::Lock(LockResult::Ok { lines_cleared: lc }) => {
+                        lines_cleared += lc;
+                    }
+                    _ => {}
                 }
-                TickResult::Lock(LockResult::Ok { lines_cleared: lc }) => {
-                    lines_cleared += lc;
-                }
-                _ => {}
             }
-        }
 
-
-        let result_list: Vec<MoveResult> = if game_over || depth == 0 {
-            let cf = gs.make_compact_field();
-            let height = find_height(&cf);
-            let covered = find_covered(&cf, height);
-            let score = MoveResultScore {
-                game_over,
-                lines_cleared,
-                height,
-                covered,
+            let result_list: Vec<MoveResult> = if game_over || depth == 0 {
+                let cf = gs.make_compact_field();
+                let height = find_height(&cf);
+                let covered = find_covered(&cf, height);
+                let score = MoveResultScore {
+                    game_over,
+                    lines_cleared,
+                    height,
+                    covered,
+                };
+                vec![MoveResult { gs, moves, score }]
+            } else {
+                let next_turns = enumerate_moves(&gs, depth - 1);
+                next_turns
+                    .into_iter()
+                    .map(|mut mr| {
+                        // Use the gamestate and move list of only the first move in the tree.
+                        mr.gs = gs.clone();
+                        mr.moves = moves.clone();
+                        mr.score.lines_cleared += lines_cleared;
+                        mr
+                    })
+                    .collect()
             };
-            vec![MoveResult { gs, moves, score }]
-        } else {
-            let next_turns = enumerate_moves(&gs, depth-1);
-            next_turns.into_iter().map(|mut mr| {
-                // Use the gamestate and move list of only the first move in the tree.
-                mr.gs = gs.clone();
-                mr.moves = moves.clone();
-                mr.score.lines_cleared += lines_cleared;
-                mr
-            }).collect()
-        };
-        result_list
-    }).flatten().collect()
+            result_list
+        })
+        .flatten()
+        .collect()
 }
 
 fn find_height(cf: &CompactField) -> i32 {
