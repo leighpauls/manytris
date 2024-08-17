@@ -1,19 +1,79 @@
-use metal::objc::rc::autoreleasepool;
-use metal::{ComputePipelineDescriptor, Device, MTLResourceOptions, MTLSize};
 use std::cmp::min;
+use std::ffi::c_void;
+use std::mem::{size_of, size_of_val};
 use std::slice;
 
-pub fn call_shader() {
-    let library_data = include_bytes!("bot_shader.metallib");
+use metal::objc::rc::autoreleasepool;
+use metal::{
+    Buffer, CommandBufferRef, CommandQueue, ComputeCommandEncoderRef, ComputePipelineDescriptor,
+    ComputePipelineState, Device, Function, Library, MTLResourceOptions, MTLSize, NSUInteger,
+};
+
+const W: usize = 10;
+const H: usize = 22;
+const NUM_BLOCKS: usize = W * H;
+const FIELD_BYTES: usize = NUM_BLOCKS / 8 + if (NUM_BLOCKS % 8) == 0 { 0 } else { 1 };
+
+pub fn call_drop_tetromino() -> Result<(), String> {
+    let kc = prepare_shader_method("drop_tetromino")?;
 
     autoreleasepool(|| -> Result<(), String> {
+        let (command_buffer, encoder, pipeline_state, device) = kc.prep_command();
+
+        let positions_buffer = create_mtl_buffer(
+            device,
+            &[TetrominoPositions {
+                pos: [[0, 0], [1, 0], [0, 1], [1, 1]],
+            }],
+        );
+
+        let fields_buffer =
+            create_mtl_buffer(&device, &[ShaderField::default(), ShaderField::default()]);
+
+        let configs_buffer = create_mtl_buffer(
+            device,
+            &[DropConfig {
+                tetromino_idx: 0,
+                initial_field_idx: 0,
+                dest_field_idx: 1,
+            }],
+        );
+
+        encoder.set_buffer(0, Some(&positions_buffer), 0);
+        encoder.set_buffer(1, Some(&fields_buffer), 0);
+        encoder.set_buffer(2, Some(&configs_buffer), 0);
+        encoder.dispatch_threads(MTLSize::new(1, 1, 1), MTLSize::new(1, 1, 1));
+        encoder.end_encoding();
+
+        println!("Committing...");
+        command_buffer.commit();
+        command_buffer.wait_until_completed();
+
+        println!("Done!");
+
+        let fields = slice_from_buffer::<ShaderField>(&fields_buffer);
+        println!("Positions array: {:?}", fields);
+
+        Ok(())
+    })
+}
+
+struct KernalConfig {
+    pipeline_state: ComputePipelineState,
+    pipeline_state_descriptor: ComputePipelineDescriptor,
+    command_queue: CommandQueue,
+    kernel: Function,
+    library: Library,
+    device: Device,
+}
+
+fn prepare_shader_method(shader_name: &str) -> Result<KernalConfig, String> {
+    let library_data = include_bytes!("bot_shader.metallib");
+    autoreleasepool(|| -> Result<KernalConfig, String> {
         let device = Device::system_default().expect("No metal device available.");
         let library = device.new_library_with_data(&library_data[..])?;
-        let kernel = library.get_function("test_func", None)?;
-
+        let kernel = library.get_function(shader_name, None)?;
         let command_queue = device.new_command_queue();
-        let command_buffer = command_queue.new_command_buffer();
-        let encoder = command_buffer.new_compute_command_encoder();
 
         // TODO: not sure if/why pipeline_state_descriptor exists instead of paassing kernel directly to pipeline state.
         let pipeline_state_descriptor = ComputePipelineDescriptor::new();
@@ -25,66 +85,64 @@ pub fn call_shader() {
                 .ok_or("No compute function found.")?,
         )?;
 
-        encoder.set_compute_pipeline_state(&pipeline_state);
-
-        let items = 100000000;
-        let threads = 100;
-        let items_per_thread = (items / threads) as u32;
-        let num_threads_per_group = min(threads, pipeline_state.thread_execution_width());
-        let threads_size = MTLSize {
-            width: threads,
-            height: 1,
-            depth: 1,
-        };
-        let group_size = MTLSize {
-            width: num_threads_per_group,
-            height: 1,
-            depth: 1,
-        };
-
-        let input_buffer = device.new_buffer(
-            (std::mem::size_of::<u32>() * items as usize) as u64,
-            MTLResourceOptions::StorageModeShared,
-        );
-        let input_ptr = input_buffer.contents() as *mut u32;
-        for i in 0..(items as u32) {
-            unsafe {
-                *input_ptr.offset(i as isize) = i;
-            }
-        }
-
-        let items_per_thread_buffer = device.new_buffer(
-            std::mem::size_of::<u32>() as u64,
-            MTLResourceOptions::StorageModeShared,
-        );
-        let items_per_thread_ptr = items_per_thread_buffer.contents() as *mut u32;
-        unsafe {
-            *items_per_thread_ptr = items_per_thread;
-        }
-
-        let output_buffer = device.new_buffer(
-            (std::mem::size_of::<u32>() * threads as usize) as u64,
-            MTLResourceOptions::StorageModeShared,
-        );
-
-        encoder.set_buffer(0, Some(&input_buffer), 0);
-        encoder.set_buffer(1, Some(&items_per_thread_buffer), 0);
-        encoder.set_buffer(2, Some(&output_buffer), 0);
-
-        encoder.dispatch_threads(threads_size, group_size);
-        encoder.end_encoding();
-
-        println!("Committing...");
-        command_buffer.commit();
-        command_buffer.wait_until_completed();
-        println!("Done!");
-
-        let output_ptr = output_buffer.contents() as *const u32;
-        unsafe {
-            let output_slice = slice::from_raw_parts(output_ptr, threads as usize);
-            println!("Result: {:?}", output_slice);
-        }
-        Ok(())
+        Ok(KernalConfig {
+            pipeline_state,
+            pipeline_state_descriptor,
+            command_queue,
+            kernel,
+            library,
+            device,
+        })
     })
-    .unwrap();
+}
+
+impl KernalConfig {
+    fn prep_command(
+        &self,
+    ) -> (
+        &CommandBufferRef,
+        &ComputeCommandEncoderRef,
+        &ComputePipelineState,
+        &Device,
+    ) {
+        let command_buffer = self.command_queue.new_command_buffer();
+        let encoder = command_buffer.new_compute_command_encoder();
+
+        encoder.set_compute_pipeline_state(&self.pipeline_state);
+
+        (command_buffer, encoder, &self.pipeline_state, &self.device)
+    }
+}
+
+fn create_mtl_buffer<T>(device: &Device, source_data: &[T]) -> Buffer {
+    println!("Size of buffer: {}", size_of_val(source_data));
+    device.new_buffer_with_data(
+        source_data.as_ptr() as *const c_void,
+        size_of_val(source_data) as NSUInteger,
+        MTLResourceOptions::StorageModeShared,
+    )
+}
+
+fn slice_from_buffer<T>(buffer: &Buffer) -> &[T] {
+    let items = buffer.length() as usize / size_of::<T>();
+    unsafe { slice::from_raw_parts(buffer.contents() as *const T, items) }
+}
+
+#[repr(C)]
+#[derive(Debug)]
+struct TetrominoPositions {
+    pos: [[u8; 2]; 4],
+}
+
+#[repr(C)]
+#[derive(Debug, Default)]
+struct ShaderField {
+    bytes: [u8; FIELD_BYTES],
+}
+
+#[repr(C)]
+struct DropConfig {
+    tetromino_idx: u32,
+    initial_field_idx: u32,
+    dest_field_idx: u32,
 }
