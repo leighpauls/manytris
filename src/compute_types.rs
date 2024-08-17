@@ -20,6 +20,8 @@ pub struct DropConfig {
     pub tetromino_idx: u32,
     pub initial_field_idx: u32,
     pub dest_field_idx: u32,
+    pub left_shifts: u8,
+    pub right_shifts: u8,
 }
 
 impl From<Tetromino> for TetrominoPositions {

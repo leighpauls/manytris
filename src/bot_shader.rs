@@ -23,6 +23,8 @@ pub fn call_drop_tetromino() -> Result<(), String> {
                 tetromino_idx: 0,
                 initial_field_idx: 0,
                 dest_field_idx: 1,
+                left_shifts: 10,
+                right_shifts: 0,
             }]),
         )
     });
