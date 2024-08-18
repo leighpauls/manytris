@@ -104,7 +104,7 @@ fn run_game(ks: &ScoringKs, max_game_length: i32) -> i32 {
 
     for i in 0..max_game_length {
 
-        let all_moves = bot_player::enumerate_moves(&gs, 1);
+        let all_moves = bot_player::enumerate_moves(&gs, 0);
         let mr = all_moves
             .into_iter()
             .max_by_key(|mr| OrderedFloat(bot_player::weighted_result_score(&mr.score, &ks)))

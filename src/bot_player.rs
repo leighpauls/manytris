@@ -1,9 +1,10 @@
+use crate::compute_types::BitmapField;
 use std::cmp::Ordering;
 use std::fmt::{Display, Formatter};
 use std::iter;
 
 use crate::consts;
-use crate::field::{CompactField, Pos};
+use crate::field::Pos;
 use crate::game_state::{GameState, LockResult, TickMutation, TickResult};
 use crate::shapes::{Rot, Shift};
 
@@ -77,7 +78,7 @@ pub fn enumerate_moves(src_state: &GameState, depth: usize) -> Vec<MoveResult> {
             }
 
             let result_list: Vec<MoveResult> = if game_over || depth == 0 {
-                let cf = gs.make_compact_field();
+                let cf = gs.make_bitmap_field();
                 let height = find_height(&cf);
                 let covered = find_covered(&cf, height);
                 let score = MoveResultScore {
@@ -106,7 +107,7 @@ pub fn enumerate_moves(src_state: &GameState, depth: usize) -> Vec<MoveResult> {
         .collect()
 }
 
-fn find_height(cf: &CompactField) -> i32 {
+fn find_height(cf: &BitmapField) -> i32 {
     for y in 0..consts::H {
         let mut empty_row = true;
         for x in 0..consts::W {
@@ -122,7 +123,7 @@ fn find_height(cf: &CompactField) -> i32 {
     consts::H
 }
 
-fn find_covered(cf: &CompactField, height: i32) -> i32 {
+fn find_covered(cf: &BitmapField, height: i32) -> i32 {
     let mut count = 0;
     for x in 0..consts::W {
         let mut y = height;

@@ -1,9 +1,10 @@
 use std::fmt::{Display, Formatter};
 
+use crate::compute_types::BitmapField;
 use serde::{Deserialize, Serialize};
 
 use crate::consts;
-use crate::field::{CompactField, Field, Pos};
+use crate::field::{Field, Pos};
 use crate::shapes::{Rot, Shape, Shift};
 use crate::tetromino::Tetromino;
 use crate::upcoming::UpcomingTetrominios;
@@ -154,8 +155,8 @@ impl GameState {
         Some(Tetromino::for_preview(self.held?))
     }
 
-    pub fn make_compact_field(&self) -> CompactField {
-        self.field.make_compact_field()
+    pub fn make_bitmap_field(&self) -> BitmapField {
+        self.field.make_bitmap_field()
     }
 
     fn hold(&mut self) -> Vec<TickResult> {

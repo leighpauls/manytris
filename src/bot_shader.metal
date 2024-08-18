@@ -1,5 +1,5 @@
 constant constexpr size_t W = 10;
-constant constexpr size_t H = 22;
+constant constexpr size_t H = 26;
 constant constexpr size_t NUM_BLOCKS = W*H;
 constant constexpr size_t FIELD_BYTES = NUM_BLOCKS / 8 + ((NUM_BLOCKS % 8) ? 1 : 0);
 
