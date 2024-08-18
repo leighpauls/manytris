@@ -1,12 +1,13 @@
-use crate::compute_types::BitmapField;
+use crate::compute_types::{BitmapField, DropConfig, TetrominoPositions};
+use bevy::prelude::KeyCode::ShiftLeft;
 use std::cmp::Ordering;
 use std::fmt::{Display, Formatter};
 use std::iter;
 
-use crate::consts;
 use crate::field::Pos;
 use crate::game_state::{GameState, LockResult, TickMutation, TickResult};
-use crate::shapes::{Rot, Shift};
+use crate::shapes::{Rot, Shape, Shift};
+use crate::{bot_shader, consts};
 
 #[derive(Clone)]
 pub struct MoveResult {
@@ -23,6 +24,27 @@ pub struct MoveResultScore {
     pub covered: i32,
 }
 
+pub struct MovementDescriptor {
+    pub shape: Shape,
+    pub cw_rotations: usize,
+    pub shifts_right: isize,
+}
+
+impl MovementDescriptor {
+    fn as_tick_mutations(&self) -> Vec<TickMutation> {
+        let (dir, num_shifts) = if self.shifts_right >= 0 {
+            (Shift::Right, self.shifts_right as usize)
+        } else {
+            (Shift::Left, (-self.shifts_right) as usize)
+        };
+        iter::repeat(TickMutation::RotateInput(Rot::Cw))
+            .take(self.cw_rotations)
+            .chain(iter::repeat(TickMutation::ShiftInput(dir)).take(num_shifts))
+            .chain(iter::once(TickMutation::DropInput))
+            .collect()
+    }
+}
+
 pub type ScoringKs = [f32; 4];
 
 pub fn weighted_result_score(mrs: &MoveResultScore, ks: &ScoringKs) -> f32 {
@@ -35,34 +57,26 @@ pub fn weighted_result_score(mrs: &MoveResultScore, ks: &ScoringKs) -> f32 {
 
 pub fn enumerate_moves(src_state: &GameState, depth: usize) -> Vec<MoveResult> {
     // Create our options of mutation lists
-    let mut mutations: Vec<Vec<TickMutation>> = vec![];
-    for turns in 0..4 {
-        let turn_iter = iter::repeat(TickMutation::RotateInput(Rot::Cw)).take(turns);
-
-        for left_shifts in 0..5 {
-            let new_mutations = turn_iter
-                .clone()
-                .chain(iter::repeat(TickMutation::ShiftInput(Shift::Left)).take(left_shifts))
-                .chain(iter::once(TickMutation::DropInput))
-                .collect();
-            mutations.push(new_mutations);
-        }
-        for right_shifts in 1..6 {
-            let new_mutations = turn_iter
-                .clone()
-                .chain(iter::repeat(TickMutation::ShiftInput(Shift::Right)).take(right_shifts))
-                .chain(iter::once(TickMutation::DropInput))
-                .collect();
-            mutations.push(new_mutations);
+    let shape = src_state.active_shape();
+    let mut all_moves = vec![];
+    for cw_rotations in 0..4 {
+        for shifts_right in -5..5 {
+            all_moves.push(MovementDescriptor {
+                shape,
+                cw_rotations,
+                shifts_right,
+            });
         }
     }
 
     // Run each mutation list
-    mutations
+    all_moves
         .into_iter()
-        .map(|moves| {
+        .map(|cur_move| {
+            // CPU evaluation
             let mut gs = src_state.clone();
-            let results = gs.tick_mutation(moves.clone());
+            let mutations = cur_move.as_tick_mutations();
+            let results = gs.tick_mutation(mutations.clone());
             let mut game_over = false;
             let mut lines_cleared = 0;
             for tr in results {
@@ -77,6 +91,11 @@ pub fn enumerate_moves(src_state: &GameState, depth: usize) -> Vec<MoveResult> {
                 }
             }
 
+            // TODO: Compare against the GPU evaluation.
+            let gpu_result =
+                bot_shader::evaluate_move(&src_state.make_bitmap_field(), &cur_move).unwrap();
+            assert_eq!(gpu_result, gs.make_bitmap_field());
+
             let result_list: Vec<MoveResult> = if game_over || depth == 0 {
                 let cf = gs.make_bitmap_field();
                 let height = find_height(&cf);
@@ -87,7 +106,11 @@ pub fn enumerate_moves(src_state: &GameState, depth: usize) -> Vec<MoveResult> {
                     height,
                     covered,
                 };
-                vec![MoveResult { gs, moves, score }]
+                vec![MoveResult {
+                    gs,
+                    moves: mutations,
+                    score,
+                }]
             } else {
                 let next_turns = enumerate_moves(&gs, depth - 1);
                 next_turns
@@ -95,7 +118,7 @@ pub fn enumerate_moves(src_state: &GameState, depth: usize) -> Vec<MoveResult> {
                     .map(|mut mr| {
                         // Use the gamestate and move list of only the first move in the tree.
                         mr.gs = gs.clone();
-                        mr.moves = moves.clone();
+                        mr.moves = mutations.clone();
                         mr.score.lines_cleared += lines_cleared;
                         mr
                     })

@@ -7,18 +7,19 @@ use crate::tetromino::Tetromino;
 pub const FIELD_BYTES: usize = NUM_POSITIONS / 8 + if (NUM_POSITIONS % 8) == 0 { 0 } else { 1 };
 
 #[repr(C)]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TetrominoPositions {
     pos: [[u8; 2]; 4],
 }
 
 #[repr(C)]
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BitmapField {
     bytes: [u8; FIELD_BYTES],
 }
 
 #[repr(C)]
+#[derive(Debug, Clone)]
 pub struct DropConfig {
     pub tetromino_idx: u32,
     pub initial_field_idx: u32,
@@ -28,7 +29,7 @@ pub struct DropConfig {
 }
 
 impl TetrominoPositions {
-    pub fn starting_rotations_for_shape(s: Shape) -> Vec<TetrominoPositions> {
+    pub fn starting_rotations_for_shape(s: Shape) -> [TetrominoPositions; 4] {
         let mut t = Tetromino::new(s);
         (0..4)
             .map(|_| {
@@ -42,7 +43,9 @@ impl TetrominoPositions {
                     pos: vec.try_into().unwrap(),
                 }
             })
-            .collect()
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap()
     }
 }
 

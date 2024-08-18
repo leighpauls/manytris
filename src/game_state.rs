@@ -159,6 +159,10 @@ impl GameState {
         self.field.make_bitmap_field()
     }
 
+    pub fn active_shape(&self) -> Shape {
+        self.active.shape
+    }
+
     fn hold(&mut self) -> Vec<TickResult> {
         if self.hold_used {
             return vec![];
