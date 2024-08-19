@@ -136,6 +136,11 @@ bool try_shift(device Field* f, thread TetrominoPositions* tp, ShiftDir d) {
 
       auto dest_a = addr(x, y-drop_dist);
       assign_pos(dest_field, dest_a, value);
+
+      // Explicitly clear the top lines which "fell" from above the field.
+      if (y + drop_dist >= H) {
+        assign_pos(dest_field, a, false);
+      }
     }
 
     if (complete_line) {
