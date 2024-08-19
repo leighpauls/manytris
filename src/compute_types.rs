@@ -29,27 +29,6 @@ pub struct DropConfig {
     pub right_shifts: u8,
 }
 
-impl TetrominoPositions {
-    pub fn starting_rotations_for_shape(s: Shape) -> [TetrominoPositions; 4] {
-        let mut t = Tetromino::new(s);
-        (0..4)
-            .map(|_| {
-                let vec: Vec<[u8; 2]> = t
-                    .get_blocks()
-                    .into_iter()
-                    .map(|p| [p.x as u8, p.y as u8])
-                    .collect();
-                t = t.rotation_options(Rot::Cw).get(0).unwrap().clone();
-                TetrominoPositions {
-                    pos: vec.try_into().unwrap(),
-                }
-            })
-            .collect::<Vec<_>>()
-            .try_into()
-            .unwrap()
-    }
-}
-
 impl From<Tetromino> for TetrominoPositions {
     fn from(value: Tetromino) -> Self {
         Self {
@@ -69,7 +48,7 @@ impl Default for BitmapField {
 impl Debug for BitmapField {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_str("----------\n")?;
-        for y in (0..consts::H).rev() {
+        for y in (0..consts::MAX_H).rev() {
             for x in 0..consts::W {
                 f.write_str(if self.occupied(&Pos { x, y }) {
                     "X"

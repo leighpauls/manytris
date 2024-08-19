@@ -1,9 +1,9 @@
-use crate::consts;
 use crate::game_state::{DownType, GameState, LockResult, TickMutation, TickResult};
 use crate::plugins::assets;
 use crate::plugins::input::{InputEvent, InputType};
 use crate::plugins::system_sets::{StartupSystems, UpdateSystems};
 use crate::shapes::Shape;
+use crate::{bot_start_positions, consts};
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
@@ -137,6 +137,9 @@ fn produce_tick_events(
         }),
         DropEvent => DropInput,
         HoldEvent => HoldInput,
+        JumpToBotStartPositionEvent => JumpToBotStartPosition(
+            bot_start_positions::bot_start_position(game.game.active_shape(), 0),
+        ),
     }));
 
     let cur_time = time.elapsed();

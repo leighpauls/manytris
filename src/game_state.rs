@@ -48,6 +48,7 @@ pub enum TickMutation {
     DropInput,
     HoldInput,
     EnqueueTetromino(Shape),
+    JumpToBotStartPosition(Tetromino),
 }
 
 #[must_use]
@@ -84,6 +85,10 @@ impl GameState {
                 HoldInput => self.hold(),
                 EnqueueTetromino(shape) => {
                     self.upcoming.enqueue(shape);
+                    vec![]
+                }
+                JumpToBotStartPosition(new_tet) => {
+                    self.active = new_tet;
                     vec![]
                 }
             });

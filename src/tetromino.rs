@@ -84,6 +84,10 @@ impl Tetromino {
         result
     }
 
+    pub fn raise(&mut self, dist: i32) {
+        self.loc.1 += dist;
+    }
+
     fn out_of_bounds(&self) -> bool {
         for p in self.get_blocks() {
             if p.out_of_bounds() {

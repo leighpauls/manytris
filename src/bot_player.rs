@@ -4,6 +4,7 @@ use std::cmp::Ordering;
 use std::fmt::{Display, Formatter};
 use std::iter;
 
+use crate::bot_start_positions::bot_start_position;
 use crate::field::Pos;
 use crate::game_state::{GameState, LockResult, TickMutation, TickResult};
 use crate::shapes::{Rot, Shape, Shift};
@@ -37,11 +38,13 @@ impl MovementDescriptor {
         } else {
             (Shift::Left, (-self.shifts_right) as usize)
         };
-        iter::repeat(TickMutation::RotateInput(Rot::Cw))
-            .take(self.cw_rotations)
-            .chain(iter::repeat(TickMutation::ShiftInput(dir)).take(num_shifts))
-            .chain(iter::once(TickMutation::DropInput))
-            .collect()
+        iter::once(TickMutation::JumpToBotStartPosition(bot_start_position(
+            self.shape,
+            self.cw_rotations,
+        )))
+        .chain(iter::repeat(TickMutation::ShiftInput(dir)).take(num_shifts))
+        .chain(iter::once(TickMutation::DropInput))
+        .collect()
     }
 }
 

@@ -4,6 +4,7 @@ use std::mem::{size_of, size_of_val};
 use std::slice;
 
 use crate::bot_player::MovementDescriptor;
+use crate::bot_start_positions;
 use crate::compute_types::{BitmapField, DropConfig, TetrominoPositions};
 use crate::shapes::{Rot, Shape};
 use crate::tetromino::Tetromino;
@@ -18,10 +19,7 @@ pub fn evaluate_move(
     md: &MovementDescriptor,
 ) -> Result<BitmapField, String> {
     let kc = KernalConfig::prepare("drop_tetromino")?;
-    let mut tet = Tetromino::new(md.shape);
-    for _ in 0..md.cw_rotations {
-        tet = tet.rotation_options(Rot::Cw).get(0).unwrap().clone();
-    }
+    let tet = bot_start_positions::bot_start_position(md.shape, md.cw_rotations);
 
     let mut buffers = kc.make_buffers();
     write_to_buffer(&mut buffers.fields, 0, src_state);
