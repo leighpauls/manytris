@@ -14,6 +14,7 @@ struct TetrominoPositions {
 
 struct DropConfig {
   uint32_t tetromino_idx;
+  uint32_t next_tetromino_idx;
   uint32_t initial_field_idx;
   uint32_t dest_field_idx;
   uint8_t left_shifts;
@@ -164,9 +165,19 @@ bool try_shift(device Field* f, thread TetrominoPositions* tp, ShiftDir d) {
   if (final_height > 22) {
     final_height = 22;
   }
-  
+
+  // See if this prevents the next tetromino from being placed.
+  auto next_p = tp[config->next_tetromino_idx];
+  bool game_over = false;
+  for (size_t i = 0; i < 4; i++) {
+    if (is_occupied(dest_field, addr(next_p.pos[i][0], next_p.pos[i][1]))) {
+      game_over = true;
+      lines_cleared = 0;
+    }
+  }
+
   *score = MoveResultScore {
-    .game_over = false, // TODO: implement
+    .game_over = game_over,
     .lines_cleared = lines_cleared,
     .height = final_height,
     .covered = 0,  // TODO: implement

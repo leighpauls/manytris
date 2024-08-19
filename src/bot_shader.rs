@@ -10,6 +10,7 @@ use metal::{
 use crate::bot_player::MovementDescriptor;
 use crate::bot_start_positions::bot_start_position;
 use crate::compute_types::{BitmapField, DropConfig, MoveResultScore, TetrominoPositions};
+use crate::tetromino::Tetromino;
 
 pub fn evaluate_moves(
     src_state: &BitmapField,
@@ -23,17 +24,26 @@ pub fn evaluate_moves(
     write_to_buffer(&mut buffers.fields, 0, src_state);
 
     moves.iter().enumerate().for_each(|(i, md)| {
-        let output_field_idx = initial_states + i;
+        let cur_position_idx = i * 2;
         write_to_buffer(
             &mut buffers.positions,
-            i,
+            cur_position_idx,
             &TetrominoPositions::from(bot_start_position(md.shape, md.cw_rotations)),
         );
+        let next_position_idx = cur_position_idx + 1;
+        write_to_buffer(
+            &mut buffers.positions,
+            next_position_idx,
+            &TetrominoPositions::from(Tetromino::new(md.next_shape)),
+        );
+
+        let output_field_idx = initial_states + i;
         write_to_buffer(
             &mut buffers.configs,
             i,
             &DropConfig {
-                tetromino_idx: i as u32,
+                tetromino_idx: cur_position_idx as u32,
+                next_tetromino_idx: next_position_idx as u32,
                 initial_field_idx: 0,
                 dest_field_idx: output_field_idx as u32,
                 left_shifts: if md.shifts_right < 0 {
@@ -118,7 +128,7 @@ impl KernalConfig {
     fn make_buffers(&self, initial_states: usize, outputs: usize) -> Buffers {
         autoreleasepool(|| Buffers {
             // TODO: make positions a shard constant
-            positions: self.make_data_buffer::<TetrominoPositions>(outputs),
+            positions: self.make_data_buffer::<TetrominoPositions>(outputs*2),
             fields: self.make_data_buffer::<BitmapField>(initial_states + outputs),
             configs: self.make_data_buffer::<DropConfig>(outputs),
             scores: self.make_data_buffer::<MoveResultScore>(outputs),

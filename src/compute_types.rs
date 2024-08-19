@@ -23,6 +23,7 @@ pub struct BitmapField {
 #[derive(Debug, Clone)]
 pub struct DropConfig {
     pub tetromino_idx: u32,
+    pub next_tetromino_idx: u32,
     pub initial_field_idx: u32,
     pub dest_field_idx: u32,
     pub left_shifts: u8,

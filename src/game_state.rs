@@ -168,6 +168,10 @@ impl GameState {
         self.active.shape
     }
 
+    pub fn next_shape(&self) -> Shape {
+        self.upcoming.preview()[0]
+    }
+
     fn hold(&mut self) -> Vec<TickResult> {
         if self.hold_used {
             return vec![];

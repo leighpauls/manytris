@@ -21,6 +21,7 @@ pub struct MoveResult {
 
 pub struct MovementDescriptor {
     pub shape: Shape,
+    pub next_shape: Shape,
     pub cw_rotations: usize,
     pub shifts_right: isize,
 }
@@ -54,12 +55,12 @@ pub fn weighted_result_score(mrs: &MoveResultScore, ks: &ScoringKs) -> f32 {
 
 pub fn enumerate_moves(src_state: &GameState, depth: usize) -> Vec<MoveResult> {
     // Create our options of mutation lists
-    let shape = src_state.active_shape();
     let mut all_moves = vec![];
     for cw_rotations in 0..4 {
         for shifts_right in -5..5 {
             all_moves.push(MovementDescriptor {
-                shape,
+                shape: src_state.active_shape(),
+                next_shape: src_state.next_shape(),
                 cw_rotations,
                 shifts_right,
             });
@@ -107,8 +108,13 @@ pub fn enumerate_moves(src_state: &GameState, depth: usize) -> Vec<MoveResult> {
                     covered,
                 };
                 assert_eq!(
-                    (gpu_field, gpu_score.lines_cleared, gpu_score.height),
-                    (&cpu_field, lines_cleared, height)
+                    (
+                        gpu_field,
+                        gpu_score.lines_cleared,
+                        gpu_score.height,
+                        gpu_score.game_over
+                    ),
+                    (&cpu_field, lines_cleared, height, game_over)
                 );
 
                 vec![MoveResult {
