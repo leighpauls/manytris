@@ -1,80 +1,59 @@
-use std::cmp::min;
-use std::ffi::c_void;
-use std::mem::{size_of, size_of_val};
+use std::mem::size_of;
 use std::slice;
 
-use crate::bot_player::MovementDescriptor;
-use crate::bot_start_positions;
-use crate::compute_types::{BitmapField, DropConfig, TetrominoPositions};
-use crate::shapes::{Rot, Shape};
-use crate::tetromino::Tetromino;
 use metal::objc::rc::autoreleasepool;
 use metal::{
     Buffer, CommandBufferRef, CommandQueue, ComputeCommandEncoderRef, ComputePipelineState, Device,
     Function, Library, MTLCommandBufferStatus, MTLResourceOptions, MTLSize, NSUInteger,
 };
 
-pub fn evaluate_move(
+use crate::bot_player::MovementDescriptor;
+use crate::bot_start_positions::bot_start_position;
+use crate::compute_types::{BitmapField, DropConfig, TetrominoPositions};
+
+pub fn evaluate_moves(
     src_state: &BitmapField,
-    md: &MovementDescriptor,
-) -> Result<BitmapField, String> {
-    let kc = KernalConfig::prepare("drop_tetromino")?;
-    let tet = bot_start_positions::bot_start_position(md.shape, md.cw_rotations);
+    moves: &Vec<MovementDescriptor>,
+) -> Result<Vec<BitmapField>, String> {
+    let kc = KernalConfig::prepare()?;
 
-    let mut buffers = kc.make_buffers();
+    let initial_states = 1;
+    let num_moves = moves.len();
+    let mut buffers = kc.make_buffers(initial_states, num_moves);
     write_to_buffer(&mut buffers.fields, 0, src_state);
-    write_to_buffer(&mut buffers.positions, 0, &TetrominoPositions::from(tet));
-    write_to_buffer(
-        &mut buffers.configs,
-        0,
-        &DropConfig {
-            tetromino_idx: 0,
-            initial_field_idx: 0,
-            dest_field_idx: 1,
-            left_shifts: if md.shifts_right < 0 {
-                (-md.shifts_right) as u8
-            } else {
-                0
+
+    moves.iter().enumerate().for_each(|(i, md)| {
+        let output_field_idx = initial_states + i;
+        write_to_buffer(
+            &mut buffers.positions,
+            i,
+            &TetrominoPositions::from(bot_start_position(md.shape, md.cw_rotations)),
+        );
+        write_to_buffer(
+            &mut buffers.configs,
+            i,
+            &DropConfig {
+                tetromino_idx: i as u32,
+                initial_field_idx: 0,
+                dest_field_idx: output_field_idx as u32,
+                left_shifts: if md.shifts_right < 0 {
+                    (-md.shifts_right) as u8
+                } else {
+                    0
+                },
+                right_shifts: if md.shifts_right > 0 {
+                    md.shifts_right as u8
+                } else {
+                    0
+                },
             },
-            right_shifts: if md.shifts_right > 0 {
-                md.shifts_right as u8
-            } else {
-                0
-            },
-        },
-    );
+        )
+    });
 
-    kc.run_cmd(&buffers)?;
+    kc.run_cmd(&buffers, num_moves)?;
 
-    Ok(slice_from_buffer::<BitmapField>(&buffers.fields)[1].clone())
-}
-
-pub fn call_drop_tetromino() -> Result<(), String> {
-    let kc = KernalConfig::prepare("drop_tetromino")?;
-
-    let mut buffers = kc.make_buffers();
-
-    kc.run_cmd(&buffers)?;
-
-    println!(
-        "Positions array: {:?}",
-        slice_from_buffer::<BitmapField>(&buffers.fields)
-    );
-
-    {
-        let config = slice_from_buffer_mut::<DropConfig>(&mut buffers.configs);
-        config[0].initial_field_idx = 1;
-        config[0].dest_field_idx = 0;
-    }
-
-    kc.run_cmd(&buffers)?;
-
-    println!(
-        "Positions array: {:?}",
-        slice_from_buffer::<BitmapField>(&buffers.fields)
-    );
-
-    Ok(())
+    let result_slice = &slice_from_buffer::<BitmapField>(&buffers.fields)[initial_states..];
+    Ok(Vec::from(result_slice))
 }
 
 struct KernalConfig {
@@ -92,12 +71,12 @@ struct Buffers {
 }
 
 impl KernalConfig {
-    fn prepare(shader_name: &str) -> Result<Self, String> {
+    fn prepare() -> Result<Self, String> {
         let library_data = include_bytes!("bot_shader.metallib");
         autoreleasepool(|| -> Result<KernalConfig, String> {
             let device = Device::system_default().expect("No metal device available.");
             let library = device.new_library_with_data(&library_data[..])?;
-            let function = library.get_function(shader_name, None)?;
+            let function = library.get_function("drop_tetromino", None)?;
             let command_queue = device.new_command_queue();
 
             let pipeline_state = device.new_compute_pipeline_state_with_function(&function)?;
@@ -121,35 +100,32 @@ impl KernalConfig {
         (command_buffer, encoder)
     }
 
-    fn make_data_buffer<T>(&self, source_data: &[T]) -> Buffer {
-        self.device.new_buffer_with_data(
-            source_data.as_ptr() as *const c_void,
-            size_of_val(source_data) as NSUInteger,
+    fn make_data_buffer<T>(&self, items: usize) -> Buffer {
+        self.device.new_buffer(
+            (size_of::<T>() * items) as NSUInteger,
             MTLResourceOptions::StorageModeShared,
         )
     }
 
-    fn make_buffers(&self) -> Buffers {
+    fn make_buffers(&self, initial_states: usize, outputs: usize) -> Buffers {
         autoreleasepool(|| Buffers {
-            positions: self.make_data_buffer(&[TetrominoPositions::from(Tetromino::new(Shape::O))]),
-            fields: self.make_data_buffer(&[BitmapField::default(), BitmapField::default()]),
-            configs: self.make_data_buffer(&[DropConfig {
-                tetromino_idx: 0,
-                initial_field_idx: 0,
-                dest_field_idx: 1,
-                left_shifts: 2,
-                right_shifts: 0,
-            }]),
+            // TODO: make positions a shard constant
+            positions: self.make_data_buffer::<TetrominoPositions>(outputs),
+            fields: self.make_data_buffer::<BitmapField>(initial_states + outputs),
+            configs: self.make_data_buffer::<DropConfig>(outputs),
         })
     }
 
-    fn run_cmd(&self, buffers: &Buffers) -> Result<(), String> {
+    fn run_cmd(&self, buffers: &Buffers, moves: usize) -> Result<(), String> {
         autoreleasepool(|| -> Result<(), String> {
             let (command_buffer, encoder) = self.make_command_buffer();
             encoder.set_buffer(0, Some(&buffers.positions), 0);
             encoder.set_buffer(1, Some(&buffers.fields), 0);
             encoder.set_buffer(2, Some(&buffers.configs), 0);
-            encoder.dispatch_threads(MTLSize::new(1, 1, 1), MTLSize::new(1, 1, 1));
+            encoder.dispatch_threads(
+                MTLSize::new(moves as NSUInteger, 1, 1),
+                MTLSize::new(moves as NSUInteger, 1, 1),
+            );
             encoder.end_encoding();
 
             command_buffer.commit();

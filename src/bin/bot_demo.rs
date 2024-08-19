@@ -8,6 +8,8 @@ use std::iter;
 
 use ordered_float::OrderedFloat;
 
+const SEARCH_DEPTH: usize = 1;
+
 pub fn main() {
     let mut best_ks = [-863.55994, 24.596436, -651.4709, -825.0811];
     best_ks = [-9562.464, 4374.6016, -1771.5244, -3123.4766];
@@ -104,7 +106,7 @@ fn run_game(ks: &ScoringKs, max_game_length: i32) -> i32 {
 
     for i in 0..max_game_length {
 
-        let all_moves = bot_player::enumerate_moves(&gs, 0);
+        let all_moves = bot_player::enumerate_moves(&gs, SEARCH_DEPTH);
         let mr = all_moves
             .into_iter()
             .max_by_key(|mr| OrderedFloat(bot_player::weighted_result_score(&mr.score, &ks)))

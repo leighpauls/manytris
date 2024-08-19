@@ -10,6 +10,8 @@ use crate::game_state::{GameState, LockResult, TickMutation, TickResult};
 use crate::shapes::{Rot, Shape, Shift};
 use crate::{bot_shader, consts};
 
+const VALIDATE_GPU_MOVES: bool = false;
+
 #[derive(Clone)]
 pub struct MoveResult {
     pub gs: GameState,
@@ -72,10 +74,14 @@ pub fn enumerate_moves(src_state: &GameState, depth: usize) -> Vec<MoveResult> {
         }
     }
 
+    let gpu_results =
+        bot_shader::evaluate_moves(&src_state.make_bitmap_field(), &all_moves).unwrap();
+
     // Run each mutation list
     all_moves
         .into_iter()
-        .map(|cur_move| {
+        .enumerate()
+        .map(|(i, cur_move)| {
             // CPU evaluation
             let mut gs = src_state.clone();
             let mutations = cur_move.as_tick_mutations();
@@ -95,9 +101,7 @@ pub fn enumerate_moves(src_state: &GameState, depth: usize) -> Vec<MoveResult> {
             }
 
             // Compare against the GPU evaluation.
-            let gpu_result =
-                bot_shader::evaluate_move(&src_state.make_bitmap_field(), &cur_move).unwrap();
-            assert_eq!(gpu_result, gs.make_bitmap_field());
+            assert_eq!(gpu_results.get(i).unwrap(), &gs.make_bitmap_field());
 
             let result_list: Vec<MoveResult> = if game_over || depth == 0 {
                 let cf = gs.make_bitmap_field();
