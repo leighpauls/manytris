@@ -166,6 +166,25 @@ bool try_shift(device Field* f, thread TetrominoPositions* tp, ShiftDir d) {
     final_height = 22;
   }
 
+  // Find the number of covered empty spaces
+  uint16_t covered = 0;
+  if (final_height > 1) {
+    for (uint8_t x = 0; x < W; x++) {
+      uint8_t column_top = final_height-1;
+      while (column_top > 0) {
+        if (is_occupied(dest_field, addr(x, column_top))) {
+          break;
+        }
+        column_top -= 1;
+      }
+      for (uint8_t y = 0; y < column_top; y++) {
+        if (!is_occupied(dest_field, addr(x, y))) {
+          covered += 1;
+        }
+      }
+    }
+  }
+
   // See if this prevents the next tetromino from being placed.
   auto next_p = tp[config->next_tetromino_idx];
   bool game_over = false;
@@ -180,6 +199,6 @@ bool try_shift(device Field* f, thread TetrominoPositions* tp, ShiftDir d) {
     .game_over = game_over,
     .lines_cleared = lines_cleared,
     .height = final_height,
-    .covered = 0,  // TODO: implement
+    .covered = covered,
   };
 }

@@ -107,15 +107,7 @@ pub fn enumerate_moves(src_state: &GameState, depth: usize) -> Vec<MoveResult> {
                     height,
                     covered,
                 };
-                assert_eq!(
-                    (
-                        gpu_field,
-                        gpu_score.lines_cleared,
-                        gpu_score.height,
-                        gpu_score.game_over
-                    ),
-                    (&cpu_field, lines_cleared, height, game_over)
-                );
+                assert_eq!((gpu_field, gpu_score), (&cpu_field, &score));
 
                 vec![MoveResult {
                     gs,
@@ -160,7 +152,7 @@ fn find_height(cf: &BitmapField) -> i32 {
 fn find_covered(cf: &BitmapField, height: i32) -> i32 {
     let mut count = 0;
     for x in 0..consts::W {
-        let mut y = height;
+        let mut y = height-1;
         // Find the top of this column
         while y > 0 {
             if cf.occupied(&Pos { x, y }) {
