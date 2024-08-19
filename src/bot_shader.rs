@@ -9,12 +9,12 @@ use metal::{
 
 use crate::bot_player::MovementDescriptor;
 use crate::bot_start_positions::bot_start_position;
-use crate::compute_types::{BitmapField, DropConfig, TetrominoPositions};
+use crate::compute_types::{BitmapField, DropConfig, MoveResultScore, TetrominoPositions};
 
 pub fn evaluate_moves(
     src_state: &BitmapField,
     moves: &Vec<MovementDescriptor>,
-) -> Result<Vec<BitmapField>, String> {
+) -> Result<Vec<(BitmapField, MoveResultScore)>, String> {
     let kc = KernalConfig::prepare()?;
 
     let initial_states = 1;
@@ -53,7 +53,14 @@ pub fn evaluate_moves(
     kc.run_cmd(&buffers, num_moves)?;
 
     let result_slice = &slice_from_buffer::<BitmapField>(&buffers.fields)[initial_states..];
-    Ok(Vec::from(result_slice))
+    let score_slice = slice_from_buffer::<MoveResultScore>(&buffers.scores);
+    assert_eq!(result_slice.len(), score_slice.len());
+
+    Ok(result_slice
+        .iter()
+        .zip(score_slice)
+        .map(|(b, s)| (b.clone(), s.clone()))
+        .collect())
 }
 
 struct KernalConfig {
@@ -68,6 +75,7 @@ struct Buffers {
     positions: Buffer,
     fields: Buffer,
     configs: Buffer,
+    scores: Buffer,
 }
 
 impl KernalConfig {
@@ -113,6 +121,7 @@ impl KernalConfig {
             positions: self.make_data_buffer::<TetrominoPositions>(outputs),
             fields: self.make_data_buffer::<BitmapField>(initial_states + outputs),
             configs: self.make_data_buffer::<DropConfig>(outputs),
+            scores: self.make_data_buffer::<MoveResultScore>(outputs),
         })
     }
 
@@ -122,6 +131,7 @@ impl KernalConfig {
             encoder.set_buffer(0, Some(&buffers.positions), 0);
             encoder.set_buffer(1, Some(&buffers.fields), 0);
             encoder.set_buffer(2, Some(&buffers.configs), 0);
+            encoder.set_buffer(3, Some(&buffers.scores), 0);
             encoder.dispatch_threads(
                 MTLSize::new(moves as NSUInteger, 1, 1),
                 MTLSize::new(moves as NSUInteger, 1, 1),

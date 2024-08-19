@@ -20,6 +20,13 @@ struct DropConfig {
   uint8_t right_shifts;
 };
 
+struct MoveResultScore {
+    bool game_over;
+    uint8_t lines_cleared;
+    uint8_t height;
+    uint16_t covered;
+};
+
 struct FieldAddr {
   size_t byte_index;
   uint8_t mask;
@@ -98,10 +105,12 @@ bool try_shift(device Field* f, thread TetrominoPositions* tp, ShiftDir d) {
     device const TetrominoPositions* tp,
     device Field* fields,
     device const DropConfig* configs,
+    device MoveResultScore* scores,
     uint config_index [[thread_position_in_grid]]) {
   auto config = &configs[config_index];
   auto source_field = &fields[config->initial_field_idx];
   auto dest_field = &fields[config->dest_field_idx];
+  auto score = &scores[config_index];
 
   *dest_field = *source_field;
 
@@ -124,7 +133,8 @@ bool try_shift(device Field* f, thread TetrominoPositions* tp, ShiftDir d) {
   }
 
   // Look for lines
-  auto drop_dist = 0;
+  uint8_t lines_cleared = 0;
+  uint8_t max_height = 0;
   for (size_t y = 0; y < H; y++) {
     bool complete_line = true;
     for (size_t x = 0; x < W; x++) {
@@ -132,19 +142,33 @@ bool try_shift(device Field* f, thread TetrominoPositions* tp, ShiftDir d) {
       bool value = is_occupied(dest_field, a);
       if (!value) {
         complete_line = false;
+      } else {
+        max_height = y+1;
       }
 
-      auto dest_a = addr(x, y-drop_dist);
+      auto dest_a = addr(x, y-lines_cleared);
       assign_pos(dest_field, dest_a, value);
 
       // Explicitly clear the top lines which "fell" from above the field.
-      if (y + drop_dist >= H) {
+      if (y + lines_cleared >= H) {
         assign_pos(dest_field, a, false);
       }
     }
 
     if (complete_line) {
-      drop_dist += 1;
+      lines_cleared += 1;
     }
   }
+
+  uint8_t final_height = max_height - lines_cleared;
+  if (final_height > 22) {
+    final_height = 22;
+  }
+  
+  *score = MoveResultScore {
+    .game_over = false, // TODO: implement
+    .lines_cleared = lines_cleared,
+    .height = final_height,
+    .covered = 0,  // TODO: implement
+  };
 }

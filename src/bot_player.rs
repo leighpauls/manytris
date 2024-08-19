@@ -1,4 +1,4 @@
-use crate::compute_types::{BitmapField, DropConfig, TetrominoPositions};
+use crate::compute_types::{BitmapField, DropConfig, MoveResultScore, TetrominoPositions};
 use bevy::prelude::KeyCode::ShiftLeft;
 use std::cmp::Ordering;
 use std::fmt::{Display, Formatter};
@@ -17,14 +17,6 @@ pub struct MoveResult {
     pub gs: GameState,
     pub moves: Vec<TickMutation>,
     pub score: MoveResultScore,
-}
-
-#[derive(Eq, PartialEq, Clone, Debug)]
-pub struct MoveResultScore {
-    pub game_over: bool,
-    pub lines_cleared: i32,
-    pub height: i32,
-    pub covered: i32,
 }
 
 pub struct MovementDescriptor {
@@ -94,25 +86,31 @@ pub fn enumerate_moves(src_state: &GameState, depth: usize) -> Vec<MoveResult> {
                         game_over = true;
                     }
                     TickResult::Lock(LockResult::Ok { lines_cleared: lc }) => {
-                        lines_cleared += lc;
+                        lines_cleared += lc as u8;
                     }
                     _ => {}
                 }
             }
 
+            let (gpu_field, gpu_score) = gpu_results.get(i).unwrap();
             // Compare against the GPU evaluation.
-            assert_eq!(gpu_results.get(i).unwrap(), &gs.make_bitmap_field());
+            assert_eq!(gpu_field, &gs.make_bitmap_field());
 
             let result_list: Vec<MoveResult> = if game_over || depth == 0 {
-                let cf = gs.make_bitmap_field();
-                let height = find_height(&cf);
-                let covered = find_covered(&cf, height);
+                let cpu_field = gs.make_bitmap_field();
+                let height = find_height(&cpu_field) as u8;
+                let covered = find_covered(&cpu_field, height as i32) as u16;
                 let score = MoveResultScore {
                     game_over,
                     lines_cleared,
                     height,
                     covered,
                 };
+                assert_eq!(
+                    (gpu_field, gpu_score.lines_cleared, gpu_score.height),
+                    (&cpu_field, lines_cleared, height)
+                );
+
                 vec![MoveResult {
                     gs,
                     moves: mutations,

@@ -8,7 +8,7 @@ use std::iter;
 
 use ordered_float::OrderedFloat;
 
-const SEARCH_DEPTH: usize = 1;
+const SEARCH_DEPTH: usize = 0;
 
 pub fn main() {
     let mut best_ks = [-863.55994, 24.596436, -651.4709, -825.0811];

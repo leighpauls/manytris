@@ -29,6 +29,16 @@ pub struct DropConfig {
     pub right_shifts: u8,
 }
 
+#[repr(C)]
+#[derive(Eq, PartialEq, Clone, Debug)]
+pub struct MoveResultScore {
+    pub game_over: bool,
+    pub lines_cleared: u8,
+    pub height: u8,
+    pub covered: u16,
+}
+
+
 impl From<Tetromino> for TetrominoPositions {
     fn from(value: Tetromino) -> Self {
         Self {
