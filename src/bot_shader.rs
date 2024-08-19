@@ -154,7 +154,6 @@ impl KernalConfig {
             encoder.dispatch_threads(MTLSize::new(1, 1, 1), MTLSize::new(1, 1, 1));
             encoder.end_encoding();
 
-            println!("Committing...");
             command_buffer.commit();
             command_buffer.wait_until_completed();
 
@@ -163,8 +162,6 @@ impl KernalConfig {
                 assert_eq!(status, MTLCommandBufferStatus::Error);
                 return Err("Command buffer returned error.".to_string());
             }
-
-            println!("Done!");
 
             Ok(())
         })

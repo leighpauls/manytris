@@ -91,7 +91,7 @@ pub fn enumerate_moves(src_state: &GameState, depth: usize) -> Vec<MoveResult> {
                 }
             }
 
-            // TODO: Compare against the GPU evaluation.
+            // Compare against the GPU evaluation.
             let gpu_result =
                 bot_shader::evaluate_move(&src_state.make_bitmap_field(), &cur_move).unwrap();
             assert_eq!(gpu_result, gs.make_bitmap_field());
