@@ -4,12 +4,13 @@ use std::iter;
 
 use bevy::render::render_resource::encase::private::RuntimeSizedArray;
 
-use crate::{bot_shader, consts};
-use crate::bot_start_positions::bot_start_position;
+use crate::bot_shader::BotShaderContext;
+use crate::bot_start_positions::StartPositions;
 use crate::compute_types::{BitmapField, MoveResultScore};
 use crate::field::Pos;
 use crate::game_state::{GameState, LockResult, TickMutation, TickResult};
 use crate::shapes::{Shape, Shift};
+use crate::{bot_shader, consts};
 
 const VALIDATE_GPU_MOVES: bool = false;
 
@@ -34,16 +35,16 @@ struct MovePassResult {
 }
 
 impl MovementDescriptor {
-    fn as_tick_mutations(&self) -> Vec<TickMutation> {
+    fn as_tick_mutations(&self, bsp: &StartPositions) -> Vec<TickMutation> {
         let (dir, num_shifts) = if self.shifts_right >= 0 {
             (Shift::Right, self.shifts_right as usize)
         } else {
             (Shift::Left, (-self.shifts_right) as usize)
         };
-        iter::once(TickMutation::JumpToBotStartPosition(bot_start_position(
-            self.shape,
-            self.cw_rotations,
-        )))
+        iter::once(TickMutation::JumpToBotStartPosition(
+            bsp.bot_start_position(self.shape, self.cw_rotations)
+                .clone(),
+        ))
         .chain(iter::repeat(TickMutation::ShiftInput(dir)).take(num_shifts))
         .chain(iter::once(TickMutation::DropInput))
         .collect()
@@ -90,7 +91,11 @@ fn create_movement_descriptor_passes(
     return all_passes;
 }
 
-pub fn enumerate_moves(src_state: &GameState, depth: usize) -> Vec<MoveResult> {
+pub fn enumerate_moves(
+    bot_context: &BotShaderContext,
+    src_state: &GameState,
+    depth: usize,
+) -> Vec<MoveResult> {
     let passes = create_movement_descriptor_passes(
         src_state.active_shape(),
         &src_state.upcoming_shapes(),
@@ -114,7 +119,7 @@ pub fn enumerate_moves(src_state: &GameState, depth: usize) -> Vec<MoveResult> {
                 if mpr.score.game_over {
                     return vec![mpr];
                 }
-                let gpu_results = bot_shader::evaluate_moves(&mpr.field, &pass).unwrap();
+                let gpu_results = bot_context.evaluate_moves(&mpr.field, &pass).unwrap();
                 gpu_results
                     .into_iter()
                     .zip(&pass)
@@ -136,7 +141,7 @@ pub fn enumerate_moves(src_state: &GameState, depth: usize) -> Vec<MoveResult> {
 
     if VALIDATE_GPU_MOVES {
         layer_results.iter().for_each(|mpr| {
-            let (cpu_gs, cpu_score) = evaluate_moves_cpu(src_state, &mpr.moves);
+            let (cpu_gs, cpu_score) = evaluate_moves_cpu(src_state, &mpr.moves, &bot_context.sp);
             let cpu_field = cpu_gs.make_bitmap_field();
             assert_eq!((&mpr.field, &mpr.score), (&cpu_field, &cpu_score));
         })
@@ -154,13 +159,14 @@ pub fn enumerate_moves(src_state: &GameState, depth: usize) -> Vec<MoveResult> {
 pub fn evaluate_moves_cpu(
     src_state: &GameState,
     moves: &[MovementDescriptor],
+    sp: &StartPositions,
 ) -> (GameState, MoveResultScore) {
     let mut gs = src_state.clone();
     let mut game_over = false;
     let mut lines_cleared = 0;
 
     moves.iter().for_each(|md| {
-        let tick_results = gs.tick_mutation(md.as_tick_mutations());
+        let tick_results = gs.tick_mutation(md.as_tick_mutations(sp));
         for tr in tick_results {
             match tr {
                 TickResult::Lock(LockResult::GameOver) => {

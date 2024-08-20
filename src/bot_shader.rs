@@ -8,69 +8,81 @@ use metal::{
 };
 
 use crate::bot_player::MovementDescriptor;
-use crate::bot_start_positions::bot_start_position;
+use crate::bot_start_positions::StartPositions;
 use crate::compute_types::{BitmapField, DropConfig, MoveResultScore, TetrominoPositions};
 use crate::tetromino::Tetromino;
 
-pub fn evaluate_moves(
-    src_state: &BitmapField,
-    moves: &Vec<MovementDescriptor>,
-) -> Result<Vec<(BitmapField, MoveResultScore)>, String> {
-    let kc = KernalConfig::prepare()?;
+pub struct BotShaderContext {
+    kc: KernalConfig,
+    pub sp: StartPositions,
+}
 
-    let initial_states = 1;
-    let num_moves = moves.len();
-    let mut buffers = kc.make_buffers(initial_states, num_moves);
-    write_to_buffer(&mut buffers.fields, 0, src_state);
+impl BotShaderContext {
+    pub fn new() -> Result<Self, String> {
+        Ok(Self {
+            kc: KernalConfig::prepare()?,
+            sp: StartPositions::new(),
+        })
+    }
+    pub fn evaluate_moves(
+        &self,
+        src_state: &BitmapField,
+        moves: &Vec<MovementDescriptor>,
+    ) -> Result<Vec<(BitmapField, MoveResultScore)>, String> {
+        let initial_states = 1;
+        let num_moves = moves.len();
+        let mut buffers = self.kc.make_buffers(initial_states, num_moves);
+        write_to_buffer(&mut buffers.fields, 0, src_state);
 
-    moves.iter().enumerate().for_each(|(i, md)| {
-        let cur_position_idx = i * 2;
-        write_to_buffer(
-            &mut buffers.positions,
-            cur_position_idx,
-            &TetrominoPositions::from(bot_start_position(md.shape, md.cw_rotations)),
-        );
-        let next_position_idx = cur_position_idx + 1;
-        write_to_buffer(
-            &mut buffers.positions,
-            next_position_idx,
-            &TetrominoPositions::from(Tetromino::new(md.next_shape)),
-        );
+        moves.iter().enumerate().for_each(|(i, md)| {
+            let cur_position_idx = i * 2;
+            write_to_buffer(
+                &mut buffers.positions,
+                cur_position_idx,
+                self.sp.bot_start_tps(md.shape, md.cw_rotations),
+            );
+            let next_position_idx = cur_position_idx + 1;
+            write_to_buffer(
+                &mut buffers.positions,
+                next_position_idx,
+                self.sp.player_start_tps(md.next_shape),
+            );
 
-        let output_field_idx = initial_states + i;
-        write_to_buffer(
-            &mut buffers.configs,
-            i,
-            &DropConfig {
-                tetromino_idx: cur_position_idx as u32,
-                next_tetromino_idx: next_position_idx as u32,
-                initial_field_idx: 0,
-                dest_field_idx: output_field_idx as u32,
-                left_shifts: if md.shifts_right < 0 {
-                    (-md.shifts_right) as u8
-                } else {
-                    0
+            let output_field_idx = initial_states + i;
+            write_to_buffer(
+                &mut buffers.configs,
+                i,
+                &DropConfig {
+                    tetromino_idx: cur_position_idx as u32,
+                    next_tetromino_idx: next_position_idx as u32,
+                    initial_field_idx: 0,
+                    dest_field_idx: output_field_idx as u32,
+                    left_shifts: if md.shifts_right < 0 {
+                        (-md.shifts_right) as u8
+                    } else {
+                        0
+                    },
+                    right_shifts: if md.shifts_right > 0 {
+                        md.shifts_right as u8
+                    } else {
+                        0
+                    },
                 },
-                right_shifts: if md.shifts_right > 0 {
-                    md.shifts_right as u8
-                } else {
-                    0
-                },
-            },
-        )
-    });
+            )
+        });
 
-    kc.run_cmd(&buffers, num_moves)?;
+        self.kc.run_cmd(&buffers, num_moves)?;
 
-    let result_slice = &slice_from_buffer::<BitmapField>(&buffers.fields)[initial_states..];
-    let score_slice = slice_from_buffer::<MoveResultScore>(&buffers.scores);
-    assert_eq!(result_slice.len(), score_slice.len());
+        let result_slice = &slice_from_buffer::<BitmapField>(&buffers.fields)[initial_states..];
+        let score_slice = slice_from_buffer::<MoveResultScore>(&buffers.scores);
+        assert_eq!(result_slice.len(), score_slice.len());
 
-    Ok(result_slice
-        .iter()
-        .zip(score_slice)
-        .map(|(b, s)| (b.clone(), s.clone()))
-        .collect())
+        Ok(result_slice
+            .iter()
+            .zip(score_slice)
+            .map(|(b, s)| (b.clone(), s.clone()))
+            .collect())
+    }
 }
 
 struct KernalConfig {
@@ -128,7 +140,7 @@ impl KernalConfig {
     fn make_buffers(&self, initial_states: usize, outputs: usize) -> Buffers {
         autoreleasepool(|| Buffers {
             // TODO: make positions a shard constant
-            positions: self.make_data_buffer::<TetrominoPositions>(outputs*2),
+            positions: self.make_data_buffer::<TetrominoPositions>(outputs * 2),
             fields: self.make_data_buffer::<BitmapField>(initial_states + outputs),
             configs: self.make_data_buffer::<DropConfig>(outputs),
             scores: self.make_data_buffer::<MoveResultScore>(outputs),

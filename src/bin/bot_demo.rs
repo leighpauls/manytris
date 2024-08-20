@@ -1,3 +1,4 @@
+use bevy::ui::AlignSelf::Start;
 use std::iter;
 
 use genetic_algorithm::strategy::evolve::prelude::*;
@@ -5,6 +6,8 @@ use ordered_float::OrderedFloat;
 
 use manytris::bot_player;
 use manytris::bot_player::ScoringKs;
+use manytris::bot_shader::BotShaderContext;
+use manytris::bot_start_positions::StartPositions;
 use manytris::game_state::{GameState, TickMutation};
 use manytris::plugins::shape_producer::ShapeProducer;
 
@@ -104,8 +107,10 @@ fn run_game(ks: &ScoringKs, max_game_length: i32) -> i32 {
     let inital_shapes = iter::repeat_with(|| sp.take()).take(7).collect();
     let mut gs = GameState::new(inital_shapes);
 
+    let bot_context = BotShaderContext::new().unwrap();
+
     for i in 0..max_game_length {
-        let all_moves = bot_player::enumerate_moves(&gs, SEARCH_DEPTH);
+        let all_moves = bot_player::enumerate_moves(&bot_context, &gs, SEARCH_DEPTH);
         let mr = all_moves
             .into_iter()
             .max_by_key(|mr| OrderedFloat(bot_player::weighted_result_score(&mr.score, &ks)))
@@ -114,7 +119,7 @@ fn run_game(ks: &ScoringKs, max_game_length: i32) -> i32 {
             return i;
         }
         // Evaluate 1 move on the best result.
-        (gs, _) = bot_player::evaluate_moves_cpu(&gs, &mr.moves[0..1]);
+        (gs, _) = bot_player::evaluate_moves_cpu(&gs, &mr.moves[0..1], &bot_context.sp);
         gs.tick_mutation(vec![TickMutation::EnqueueTetromino(sp.take())]);
     }
     max_game_length

@@ -1,3 +1,4 @@
+use crate::bot_start_positions::StartPositions;
 use crate::game_state::{DownType, GameState, LockResult, TickMutation, TickResult};
 use crate::plugins::assets;
 use crate::plugins::input::{InputEvent, InputType};
@@ -16,7 +17,8 @@ pub fn common_plugin(app: &mut App) {
         .add_event::<TickEvent>()
         .add_event::<LockEvent>()
         .add_event::<SendControlEvent>()
-        .add_event::<ReceiveControlEvent>();
+        .add_event::<ReceiveControlEvent>()
+        .insert_resource(StartPositionRes(StartPositions::new()));
 }
 
 pub fn client_plugin(app: &mut App) {
@@ -36,6 +38,9 @@ pub fn stand_alone_plugin(app: &mut App) {
         produce_tick_events.in_set(UpdateSystems::LocalEventProducers),
     );
 }
+
+#[derive(Resource)]
+pub struct StartPositionRes(pub StartPositions);
 
 #[derive(Component)]
 pub struct GameRoot {
@@ -115,9 +120,9 @@ fn produce_tick_events(
     time: Res<Time<Fixed>>,
     mut q_root: Query<&mut GameRoot>,
     mut tick_event_writer: EventWriter<TickEvent>,
+    sp: Res<StartPositionRes>,
 ) {
     let mut game_root = q_root.single_mut();
-
     let Some(game) = &mut game_root.active_game else {
         return;
     };
@@ -137,9 +142,9 @@ fn produce_tick_events(
         }),
         DropEvent => DropInput,
         HoldEvent => HoldInput,
-        JumpToBotStartPositionEvent => JumpToBotStartPosition(
-            bot_start_positions::bot_start_position(game.game.active_shape(), 0),
-        ),
+        JumpToBotStartPositionEvent => {
+            JumpToBotStartPosition(sp.0.bot_start_position(game.game.active_shape(), 0).clone())
+        }
     }));
 
     let cur_time = time.elapsed();

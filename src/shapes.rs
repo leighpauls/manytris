@@ -1,10 +1,11 @@
 use crate::consts::{H, PREVIEW_H, W};
 use enum_iterator::Sequence;
 use serde::{Deserialize, Serialize};
+use enum_map::Enum;
 
 pub const KICK_ATTEMPTS: usize = 5;
 
-#[derive(Copy, Clone, Debug, Sequence, Eq, PartialEq, Hash, Deserialize, Serialize)]
+#[derive(Copy, Clone, Debug, Sequence, Eq, PartialEq, Hash, Deserialize, Serialize, Enum)]
 pub enum Shape {
     S,
     Z,

@@ -18,3 +18,4 @@ clap = { version = "4.5.7", features = ["derive"] }
 genetic_algorithm = "0.8.2"
 ordered-float = "4.2.2"
 metal = "0.29.0"
+enum-map = "2.7.3"

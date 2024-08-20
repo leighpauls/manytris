@@ -1,10 +1,41 @@
-use bevy::utils::HashMap;
-use enum_iterator::all;
+use enum_map::EnumMap;
+
+use crate::compute_types::TetrominoPositions;
 use crate::consts;
 use crate::shapes::{Rot, Shape};
 use crate::tetromino::Tetromino;
 
-pub fn bot_start_position(s: Shape, cw_rotations: usize) -> Tetromino {
+pub struct StartPositions {
+    bot_positions: EnumMap<Shape, [Tetromino; 4]>,
+    bot_positions_as_tp: EnumMap<Shape, [TetrominoPositions; 4]>,
+    player_positions: EnumMap<Shape, TetrominoPositions>,
+}
+
+impl StartPositions {
+    pub fn new() -> Self {
+        Self {
+            bot_positions: EnumMap::from_fn(|s| compute_bot_start_positions_for_shape(s)),
+            bot_positions_as_tp: EnumMap::from_fn(|s| {
+                compute_bot_start_positions_for_shape(s).map(|t| TetrominoPositions::from(t))
+            }),
+            player_positions: EnumMap::from_fn(|s| TetrominoPositions::from(Tetromino::new(s))),
+        }
+    }
+
+    pub fn bot_start_position(&self, s: Shape, cw_rotations: usize) -> &Tetromino {
+        &self.bot_positions[s][cw_rotations]
+    }
+
+    pub fn bot_start_tps(&self, s: Shape, cw_rotations: usize) -> &TetrominoPositions {
+        &self.bot_positions_as_tp[s][cw_rotations]
+    }
+
+    pub fn player_start_tps(&self, s: Shape) -> &TetrominoPositions {
+        &self.player_positions[s]
+    }
+}
+
+fn bot_start_position(s: Shape, cw_rotations: usize) -> Tetromino {
     compute_bot_start_positions_for_shape(s)[cw_rotations].clone()
 }
 fn compute_bot_start_positions_for_shape(s: Shape) -> [Tetromino; 4] {
