@@ -1,4 +1,3 @@
-use bevy::ui::AlignSelf::Start;
 use std::iter;
 
 use genetic_algorithm::strategy::evolve::prelude::*;
@@ -7,7 +6,6 @@ use ordered_float::OrderedFloat;
 use manytris::bot_player;
 use manytris::bot_player::ScoringKs;
 use manytris::bot_shader::BotShaderContext;
-use manytris::bot_start_positions::StartPositions;
 use manytris::game_state::{GameState, TickMutation};
 use manytris::plugins::shape_producer::ShapeProducer;
 
@@ -18,7 +16,7 @@ pub fn main() {
     best_ks = [-9562.464, 4374.6016, -1771.5244, -3123.4766];
     best_ks = [-2822.5542, -12.076172, -6199.834, -7082.8584];
 
-    for _ in 0..5 {
+    for _ in 0..20 {
         println!("Game length {}", run_game(&best_ks, 600));
     }
 

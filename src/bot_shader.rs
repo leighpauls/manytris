@@ -1,3 +1,4 @@
+use std::cmp::min;
 use std::mem::size_of;
 use std::slice;
 
@@ -40,17 +41,6 @@ impl BotShaderContext {
     ) -> Result<Vec<MovementBatchResult>, String> {
         let initial_states = batches.len();
         let num_moves = batches.iter().map(|b| b.moves.len()).sum();
-
-        /*
-        moves
-            .iter()
-            .map(|m| {
-                let batch = self.evaluate_single_movement_batch(&m.src_state, &m.moves)?;
-                Ok(MovementBatchResult { result: batch })
-            })
-            .collect()
-
-         */
 
         let mut buffers = self.kc.make_buffers(initial_states, num_moves);
 
@@ -187,9 +177,11 @@ impl KernalConfig {
             encoder.set_buffer(1, Some(&buffers.fields), 0);
             encoder.set_buffer(2, Some(&buffers.configs), 0);
             encoder.set_buffer(3, Some(&buffers.scores), 0);
+            let max_threads = self.pipeline_state.max_total_threads_per_threadgroup();
+            let threads_per_threadgoupd = min(max_threads, moves as NSUInteger);
             encoder.dispatch_threads(
                 MTLSize::new(moves as NSUInteger, 1, 1),
-                MTLSize::new(moves as NSUInteger, 1, 1),
+                MTLSize::new(threads_per_threadgoupd, 1, 1),
             );
             encoder.end_encoding();
 

@@ -113,39 +113,43 @@ pub fn enumerate_moves(
         },
     }];
     for pass in passes {
-        let list_of_results = layer_results
-            .into_iter()
-            .map(|mpr| {
-                if mpr.score.game_over {
-                    return vec![mpr];
-                }
-                let requests = vec![MovementBatchRequest {
-                    src_state: mpr.field.clone(),
-                    moves: pass.clone(),
-                }];
-                let gpu_results = bot_context.evaluate_moves(&requests).unwrap();
-                gpu_results
-                    .into_iter()
-                    .zip(&requests)
-                    .map(|(res, req)| {
-                        res.result.into_iter().zip(&req.moves).map(
-                            |((field, mut score), movement)| {
-                                let mut moves = mpr.moves.clone();
-                                moves.push(movement.clone());
-                                score.lines_cleared += mpr.score.lines_cleared;
-                                MovePassResult {
-                                    moves,
-                                    field,
-                                    score,
-                                }
-                            },
-                        )
-                    })
-                    .flatten()
-                    .collect::<Vec<_>>()
+        // make a list of requests
+        let reqs = layer_results
+            .iter()
+            .map(|mpr| MovementBatchRequest {
+                src_state: mpr.field.clone(),
+                moves: pass.clone(),
             })
             .collect::<Vec<_>>();
-        layer_results = list_of_results.into_iter().flatten().collect();
+
+        // Evaluate the moves
+        let gpu_results = bot_context.evaluate_moves(&reqs).unwrap();
+
+        // Collect the results for the next pass
+        layer_results = layer_results
+            .into_iter()
+            .zip(reqs)
+            .zip(gpu_results)
+            .map(|((prev_mpr, req), batch_result)| {
+                batch_result
+                    .result
+                    .into_iter()
+                    .zip(req.moves)
+                    .map(|((field, mut score), movement)| {
+                        score.lines_cleared += prev_mpr.score.lines_cleared;
+
+                        let mut moves = prev_mpr.moves.clone();
+                        moves.push(movement);
+                        MovePassResult {
+                            moves,
+                            field,
+                            score,
+                        }
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .flatten()
+            .collect();
     }
 
     if VALIDATE_GPU_MOVES {
