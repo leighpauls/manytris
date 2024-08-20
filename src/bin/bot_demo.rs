@@ -1,14 +1,14 @@
+use std::iter;
+
 use genetic_algorithm::strategy::evolve::prelude::*;
+use ordered_float::OrderedFloat;
 
 use manytris::bot_player;
 use manytris::bot_player::ScoringKs;
 use manytris::game_state::{GameState, TickMutation};
 use manytris::plugins::shape_producer::ShapeProducer;
-use std::iter;
 
-use ordered_float::OrderedFloat;
-
-const SEARCH_DEPTH: usize = 0;
+const SEARCH_DEPTH: usize = 2;
 
 pub fn main() {
     let mut best_ks = [-863.55994, 24.596436, -651.4709, -825.0811];
@@ -105,7 +105,6 @@ fn run_game(ks: &ScoringKs, max_game_length: i32) -> i32 {
     let mut gs = GameState::new(inital_shapes);
 
     for i in 0..max_game_length {
-
         let all_moves = bot_player::enumerate_moves(&gs, SEARCH_DEPTH);
         let mr = all_moves
             .into_iter()
@@ -114,7 +113,8 @@ fn run_game(ks: &ScoringKs, max_game_length: i32) -> i32 {
         if mr.score.game_over {
             return i;
         }
-        gs = mr.gs;
+        // Evaluate 1 move on the best result.
+        (gs, _) = bot_player::evaluate_moves_cpu(&gs, &mr.moves[0..1]);
         gs.tick_mutation(vec![TickMutation::EnqueueTetromino(sp.take())]);
     }
     max_game_length

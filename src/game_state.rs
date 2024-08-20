@@ -1,8 +1,8 @@
 use std::fmt::{Debug, Display, Formatter};
 
-use crate::compute_types::BitmapField;
 use serde::{Deserialize, Serialize};
 
+use crate::compute_types::BitmapField;
 use crate::consts;
 use crate::field::{Field, Pos};
 use crate::shapes::{Rot, Shape, Shift};
@@ -168,8 +168,8 @@ impl GameState {
         self.active.shape
     }
 
-    pub fn next_shape(&self) -> Shape {
-        self.upcoming.preview()[0]
+    pub fn upcoming_shapes(&self) -> [Shape; consts::NUM_PREVIEWS] {
+        self.upcoming.preview()
     }
 
     fn hold(&mut self) -> Vec<TickResult> {

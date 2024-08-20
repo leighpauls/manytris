@@ -1,29 +1,36 @@
-use crate::compute_types::{BitmapField, DropConfig, MoveResultScore, TetrominoPositions};
-use bevy::prelude::KeyCode::ShiftLeft;
 use std::cmp::Ordering;
 use std::fmt::{Display, Formatter};
 use std::iter;
 
+use bevy::render::render_resource::encase::private::RuntimeSizedArray;
+
+use crate::{bot_shader, consts};
 use crate::bot_start_positions::bot_start_position;
+use crate::compute_types::{BitmapField, MoveResultScore};
 use crate::field::Pos;
 use crate::game_state::{GameState, LockResult, TickMutation, TickResult};
-use crate::shapes::{Rot, Shape, Shift};
-use crate::{bot_shader, consts};
+use crate::shapes::{Shape, Shift};
 
 const VALIDATE_GPU_MOVES: bool = false;
 
 #[derive(Clone)]
 pub struct MoveResult {
-    pub gs: GameState,
-    pub moves: Vec<TickMutation>,
+    pub moves: Vec<MovementDescriptor>,
     pub score: MoveResultScore,
 }
 
+#[derive(Clone)]
 pub struct MovementDescriptor {
     pub shape: Shape,
     pub next_shape: Shape,
     pub cw_rotations: usize,
     pub shifts_right: isize,
+}
+
+struct MovePassResult {
+    moves: Vec<MovementDescriptor>,
+    field: BitmapField,
+    score: MoveResultScore,
 }
 
 impl MovementDescriptor {
@@ -53,84 +60,130 @@ pub fn weighted_result_score(mrs: &MoveResultScore, ks: &ScoringKs) -> f32 {
         + mrs.covered as f32 * ks[3]
 }
 
-pub fn enumerate_moves(src_state: &GameState, depth: usize) -> Vec<MoveResult> {
-    // Create our options of mutation lists
-    let mut all_moves = vec![];
+fn create_movement_descriptor_passes(
+    cur_shape: Shape,
+    upcoming_shapes: &[Shape],
+    depth: usize,
+) -> Vec<Vec<MovementDescriptor>> {
+    assert!(upcoming_shapes.len() > 0);
+    assert!(depth > 0);
+
+    let mut cur_pass = vec![];
     for cw_rotations in 0..4 {
         for shifts_right in -5..5 {
-            all_moves.push(MovementDescriptor {
-                shape: src_state.active_shape(),
-                next_shape: src_state.next_shape(),
+            cur_pass.push(MovementDescriptor {
+                shape: cur_shape,
+                next_shape: upcoming_shapes[0],
                 cw_rotations,
                 shifts_right,
             });
         }
     }
 
-    let gpu_results =
-        bot_shader::evaluate_moves(&src_state.make_bitmap_field(), &all_moves).unwrap();
+    let mut all_passes = vec![cur_pass];
+    if depth > 1 {
+        let later_moves =
+            create_movement_descriptor_passes(upcoming_shapes[0], &upcoming_shapes[1..], depth - 1);
+        all_passes.extend(later_moves);
+    }
 
-    // Run each mutation list
-    all_moves
-        .into_iter()
-        .enumerate()
-        .map(|(i, cur_move)| {
-            // CPU evaluation
-            let mut gs = src_state.clone();
-            let mutations = cur_move.as_tick_mutations();
-            let results = gs.tick_mutation(mutations.clone());
-            let mut game_over = false;
-            let mut lines_cleared = 0;
-            for tr in results {
-                match tr {
-                    TickResult::Lock(LockResult::GameOver) => {
-                        game_over = true;
-                    }
-                    TickResult::Lock(LockResult::Ok { lines_cleared: lc }) => {
-                        lines_cleared += lc as u8;
-                    }
-                    _ => {}
+    return all_passes;
+}
+
+pub fn enumerate_moves(src_state: &GameState, depth: usize) -> Vec<MoveResult> {
+    let passes = create_movement_descriptor_passes(
+        src_state.active_shape(),
+        &src_state.upcoming_shapes(),
+        depth,
+    );
+
+    let mut layer_results = vec![MovePassResult {
+        moves: vec![],
+        field: src_state.make_bitmap_field(),
+        score: MoveResultScore {
+            game_over: false,
+            lines_cleared: 0,
+            height: 0,
+            covered: 0,
+        },
+    }];
+    for pass in passes {
+        let list_of_results = layer_results
+            .into_iter()
+            .map(|mpr| {
+                if mpr.score.game_over {
+                    return vec![mpr];
                 }
-            }
-
-            let (gpu_field, gpu_score) = gpu_results.get(i).unwrap();
-            // Compare against the GPU evaluation.
-            assert_eq!(gpu_field, &gs.make_bitmap_field());
-
-            let result_list: Vec<MoveResult> = if game_over || depth == 0 {
-                let cpu_field = gs.make_bitmap_field();
-                let height = find_height(&cpu_field) as u8;
-                let covered = find_covered(&cpu_field, height as i32) as u16;
-                let score = MoveResultScore {
-                    game_over,
-                    lines_cleared,
-                    height,
-                    covered,
-                };
-                assert_eq!((gpu_field, gpu_score), (&cpu_field, &score));
-
-                vec![MoveResult {
-                    gs,
-                    moves: mutations,
-                    score,
-                }]
-            } else {
-                let next_turns = enumerate_moves(&gs, depth - 1);
-                next_turns
+                let gpu_results = bot_shader::evaluate_moves(&mpr.field, &pass).unwrap();
+                gpu_results
                     .into_iter()
-                    .map(|mut mr| {
-                        // Use the gamestate and move list of only the first move in the tree.
-                        mr.gs = gs.clone();
-                        mr.moves = mutations.clone();
-                        mr.score.lines_cleared += lines_cleared;
-                        mr
+                    .zip(&pass)
+                    .map(|((field, mut score), movement)| {
+                        let mut moves = mpr.moves.clone();
+                        moves.push(movement.clone());
+                        score.lines_cleared += mpr.score.lines_cleared;
+                        MovePassResult {
+                            moves,
+                            field,
+                            score,
+                        }
                     })
-                    .collect()
-            };
-            result_list
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>();
+        layer_results = list_of_results.into_iter().flatten().collect();
+    }
+
+    if VALIDATE_GPU_MOVES {
+        layer_results.iter().for_each(|mpr| {
+            let (cpu_gs, cpu_score) = evaluate_moves_cpu(src_state, &mpr.moves);
+            let cpu_field = cpu_gs.make_bitmap_field();
+            assert_eq!((&mpr.field, &mpr.score), (&cpu_field, &cpu_score));
         })
-        .flatten()
+    }
+
+    layer_results
+        .into_iter()
+        .map(|mpr| MoveResult {
+            moves: mpr.moves,
+            score: mpr.score,
+        })
         .collect()
+}
+
+pub fn evaluate_moves_cpu(
+    src_state: &GameState,
+    moves: &[MovementDescriptor],
+) -> (GameState, MoveResultScore) {
+    let mut gs = src_state.clone();
+    let mut game_over = false;
+    let mut lines_cleared = 0;
+
+    moves.iter().for_each(|md| {
+        let tick_results = gs.tick_mutation(md.as_tick_mutations());
+        for tr in tick_results {
+            match tr {
+                TickResult::Lock(LockResult::GameOver) => {
+                    game_over = true;
+                }
+                TickResult::Lock(LockResult::Ok { lines_cleared: lc }) => {
+                    lines_cleared += lc as u8;
+                }
+                _ => {}
+            }
+        }
+    });
+    let cpu_field = gs.make_bitmap_field();
+    let height = find_height(&cpu_field) as u8;
+    let covered = find_covered(&cpu_field, height as i32) as u16;
+    let score = MoveResultScore {
+        game_over,
+        lines_cleared,
+        height,
+        covered,
+    };
+
+    (gs, score)
 }
 
 fn find_height(cf: &BitmapField) -> i32 {
@@ -152,7 +205,7 @@ fn find_height(cf: &BitmapField) -> i32 {
 fn find_covered(cf: &BitmapField, height: i32) -> i32 {
     let mut count = 0;
     for x in 0..consts::W {
-        let mut y = height-1;
+        let mut y = height - 1;
         // Find the top of this column
         while y > 0 {
             if cf.occupied(&Pos { x, y }) {
