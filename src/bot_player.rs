@@ -4,7 +4,7 @@ use std::iter;
 
 use bevy::render::render_resource::encase::private::RuntimeSizedArray;
 
-use crate::bot_shader::BotShaderContext;
+use crate::bot_shader::{BotShaderContext, MovementBatchRequest};
 use crate::bot_start_positions::StartPositions;
 use crate::compute_types::{BitmapField, MoveResultScore};
 use crate::field::Pos;
@@ -119,20 +119,29 @@ pub fn enumerate_moves(
                 if mpr.score.game_over {
                     return vec![mpr];
                 }
-                let gpu_results = bot_context.evaluate_moves(&mpr.field, &pass).unwrap();
+                let requests = vec![MovementBatchRequest {
+                    src_state: mpr.field.clone(),
+                    moves: pass.clone(),
+                }];
+                let gpu_results = bot_context.evaluate_moves(&requests).unwrap();
                 gpu_results
                     .into_iter()
-                    .zip(&pass)
-                    .map(|((field, mut score), movement)| {
-                        let mut moves = mpr.moves.clone();
-                        moves.push(movement.clone());
-                        score.lines_cleared += mpr.score.lines_cleared;
-                        MovePassResult {
-                            moves,
-                            field,
-                            score,
-                        }
+                    .zip(&requests)
+                    .map(|(res, req)| {
+                        res.result.into_iter().zip(&req.moves).map(
+                            |((field, mut score), movement)| {
+                                let mut moves = mpr.moves.clone();
+                                moves.push(movement.clone());
+                                score.lines_cleared += mpr.score.lines_cleared;
+                                MovePassResult {
+                                    moves,
+                                    field,
+                                    score,
+                                }
+                            },
+                        )
                     })
+                    .flatten()
                     .collect::<Vec<_>>()
             })
             .collect::<Vec<_>>();

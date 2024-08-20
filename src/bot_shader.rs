@@ -17,6 +17,15 @@ pub struct BotShaderContext {
     pub sp: StartPositions,
 }
 
+pub struct MovementBatchRequest {
+    pub src_state: BitmapField,
+    pub moves: Vec<MovementDescriptor>,
+}
+
+pub struct MovementBatchResult {
+    pub result: Vec<(BitmapField, MoveResultScore)>,
+}
+
 impl BotShaderContext {
     pub fn new() -> Result<Self, String> {
         Ok(Self {
@@ -24,7 +33,21 @@ impl BotShaderContext {
             sp: StartPositions::new(),
         })
     }
+
     pub fn evaluate_moves(
+        &self,
+        moves: &Vec<MovementBatchRequest>,
+    ) -> Result<Vec<MovementBatchResult>, String> {
+        moves
+            .iter()
+            .map(|m| {
+                let batch = self.evaluate_single_movement_batch(&m.src_state, &m.moves)?;
+                Ok(MovementBatchResult { result: batch })
+            })
+            .collect()
+    }
+
+    pub fn evaluate_single_movement_batch(
         &self,
         src_state: &BitmapField,
         moves: &Vec<MovementDescriptor>,
