@@ -9,12 +9,10 @@ use manytris::bot_shader::BotShaderContext;
 use manytris::game_state::{GameState, TickMutation};
 use manytris::plugins::shape_producer::ShapeProducer;
 
-const SEARCH_DEPTH: usize = 2;
+const SEARCH_DEPTH: usize = 3;
 
 pub fn main() {
-    let mut best_ks = [-863.55994, 24.596436, -651.4709, -825.0811];
-    best_ks = [-9562.464, 4374.6016, -1771.5244, -3123.4766];
-    best_ks = [-2822.5542, -12.076172, -6199.834, -7082.8584];
+    let best_ks = [-2447.9722, 7782.121, -6099.498, -1970.1172];
 
     for _ in 0..20 {
         println!("Game length {}", run_game(&best_ks, 600));
@@ -29,8 +27,8 @@ pub fn main() {
     let mut rng = rand::thread_rng();
     let evolve = Evolve::builder()
         .with_genotype(genotype)
-        .with_target_population_size(100)
-        .with_target_fitness_score(400)
+        .with_target_population_size(50)
+        .with_target_fitness_score(550)
         .with_fitness(GameFitness)
         .with_fitness_ordering(FitnessOrdering::Maximize)
         .with_multithreading(true)
