@@ -1,13 +1,15 @@
+use std::time::Duration;
+
+use bevy::prelude::*;
+use serde::{Deserialize, Serialize};
+
 use crate::bot_start_positions::StartPositions;
+use crate::consts;
 use crate::game_state::{DownType, GameState, LockResult, TickMutation, TickResult};
 use crate::plugins::assets;
 use crate::plugins::input::{InputEvent, InputType};
 use crate::plugins::system_sets::{StartupSystems, UpdateSystems};
 use crate::shapes::Shape;
-use crate::{bot_start_positions, consts};
-use bevy::prelude::*;
-use serde::{Deserialize, Serialize};
-use std::time::Duration;
 
 const LINES_PER_LEVEL: i32 = 10;
 

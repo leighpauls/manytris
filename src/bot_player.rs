@@ -2,15 +2,13 @@ use std::cmp::Ordering;
 use std::fmt::{Display, Formatter};
 use std::iter;
 
-use bevy::render::render_resource::encase::private::RuntimeSizedArray;
-
 use crate::bot_shader::{BotShaderContext, MovementBatchRequest};
 use crate::bot_start_positions::StartPositions;
 use crate::compute_types::{BitmapField, MoveResultScore};
+use crate::consts;
 use crate::field::Pos;
 use crate::game_state::{GameState, LockResult, TickMutation, TickResult};
 use crate::shapes::{Shape, Shift};
-use crate::{bot_shader, consts};
 
 const VALIDATE_GPU_MOVES: bool = false;
 

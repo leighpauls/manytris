@@ -1,9 +1,9 @@
+use std::fmt::{Debug, Formatter};
+
 use crate::consts;
 use crate::consts::NUM_POSITIONS;
 use crate::field::Pos;
-use crate::shapes::{Rot, Shape};
 use crate::tetromino::Tetromino;
-use std::fmt::{Debug, Formatter};
 
 pub const FIELD_BYTES: usize = NUM_POSITIONS / 8 + if (NUM_POSITIONS % 8) == 0 { 0 } else { 1 };
 
@@ -39,6 +39,34 @@ pub struct MoveResultScore {
     pub covered: u16,
 }
 
+#[repr(C)]
+pub struct ShapeStartingPositions {
+    pub bot_positions: [TetrominoPositions; 4],
+    pub player_position: TetrominoPositions,
+}
+
+#[repr(C)]
+pub struct ShapePositionConfig {
+    pub starting_positions: [ShapeStartingPositions; consts::NUM_SHAPES],
+}
+
+#[repr(C)]
+#[derive(Eq, PartialEq, Clone, Debug)]
+pub struct SearchParams {
+    pub cur_search_depth: u8,
+    pub upcoming_shape_idxs: [u8; consts::MAX_SEARCH_DEPTH],
+}
+
+#[repr(C)]
+#[derive(Eq, PartialEq, Clone, Debug)]
+pub struct ComputedDropConfig {
+    pub shape_idx: u8,
+    pub cw_rotations: u8,
+    pub src_field_idx: u32,
+    pub dest_field_idx: u32,
+    pub left_shifts: u8,
+    pub right_shifts: u8,
+}
 
 impl From<Tetromino> for TetrominoPositions {
     fn from(value: Tetromino) -> Self {

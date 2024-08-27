@@ -14,10 +14,12 @@ const SEARCH_DEPTH: usize = 3;
 pub fn main() {
     let best_ks = [-2447.9722, 7782.121, -6099.498, -1970.1172];
 
-    for _ in 0..20 {
+    println!("Start test games...");
+    for _ in 0..2 {
         println!("Game length {}", run_game(&best_ks, 600));
     }
 
+    println!("Start evolving...");
     let genotype = ContinuousGenotype::builder()
         .with_genes_size(4)
         .with_allele_range(-10000.0..10000.0)
@@ -38,6 +40,7 @@ pub fn main() {
         .with_reporter(PrintBestReporter)
         .call(&mut rng)
         .unwrap();
+
 
     let bc = evolve.best_chromosome().unwrap();
     println!("Best chromosome: {:?}", bc);

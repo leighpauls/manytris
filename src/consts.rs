@@ -12,4 +12,12 @@ pub const PREVIEW_H: i32 = 2;
 
 pub const NUM_PREVIEWS: usize = 6;
 
+pub const NUM_SHAPES: usize = 7;
+
+pub const MAX_SEARCH_DEPTH: usize = NUM_PREVIEWS;
+
+pub const ROTATIONS_PER_SHAPE: usize = 4;
+pub const SHIFTS_PER_ROTATION: usize = 10;
+pub const OUTPUTS_PER_INPUT_FIELD: usize = ROTATIONS_PER_SHAPE * SHIFTS_PER_ROTATION;
+
 pub const LOCK_TIMER_DURATION: Duration = Duration::from_millis(500);
