@@ -12,7 +12,8 @@ use metal::{
 use crate::bot_player::MovementDescriptor;
 use crate::bot_start_positions::StartPositions;
 use crate::compute_types::{
-    BitmapField, ComputedDropConfig, DropConfig, MoveResultScore, SearchParams, TetrominoPositions,
+    BitmapField, ComputedDropConfig, DropConfig, MoveResultScore, SearchParams,
+    ShapePositionConfig, TetrominoPositions,
 };
 use crate::consts;
 use crate::shapes::Shape;
@@ -43,6 +44,7 @@ impl BotShaderContext {
         &self,
         search_depth: usize,
         upcoming_shapes: &[Shape; consts::MAX_SEARCH_DEPTH],
+        source_field: &BitmapField,
     ) -> Result<Vec<ComputedDropConfig>, String> {
         let shape_enum_idxs: HashMap<Shape, u8> = HashMap::from_iter(
             upcoming_shapes
@@ -58,6 +60,18 @@ impl BotShaderContext {
             .make_data_buffer::<ComputedDropConfig>(total_outputs);
         let mut search_param_buffer = self.kc.make_data_buffer::<SearchParams>(1);
 
+        let mut shape_position_config_buffer = self.kc.make_data_buffer::<ShapePositionConfig>(1);
+        write_to_buffer(
+            &mut shape_position_config_buffer,
+            0,
+            &self.sp.shape_position_config,
+        );
+
+        let mut fields_buffer = self.kc.make_data_buffer::<BitmapField>(total_outputs + 1);
+        write_to_buffer(&mut fields_buffer, 0, source_field);
+
+        let scores_buffer = self.kc.make_data_buffer::<MoveResultScore>(total_outputs);
+
         for cur_search_depth in 0..(search_depth as u8 + 1) {
             let sp = SearchParams {
                 cur_search_depth,
@@ -67,28 +81,45 @@ impl BotShaderContext {
 
             write_to_buffer(&mut search_param_buffer, 0, &sp);
 
+            let mut total_threads = consts::OUTPUTS_PER_INPUT_FIELD;
+            (0..cur_search_depth).for_each(|_| total_threads *= consts::OUTPUTS_PER_INPUT_FIELD);
+            let max_threads_per_threadgroup = self
+                .kc
+                .make_configs_pipeline_state
+                .max_total_threads_per_threadgroup();
+
+            let threads = MTLSize::new(total_threads as NSUInteger, 1, 1);
+            let threads_per_threadgroup = MTLSize::new(
+                min(total_threads as NSUInteger, max_threads_per_threadgroup),
+                1,
+                1,
+            );
+
             autoreleasepool(|| {
                 let (cmd_buffer, encoder) = self.kc.make_make_config_command_buffer();
 
                 encoder.set_buffer(0, Some(&search_param_buffer), 0);
                 encoder.set_buffer(1, Some(&configs_buffer), 0);
 
-                let max_threads_per_threadgroup = self
-                    .kc
-                    .make_configs_pipeline_state
-                    .max_total_threads_per_threadgroup();
+                encoder.dispatch_threads(threads, threads_per_threadgroup);
+                encoder.end_encoding();
 
-                let mut total_threads = consts::OUTPUTS_PER_INPUT_FIELD;
-                (0..cur_search_depth)
-                    .for_each(|_| total_threads *= consts::OUTPUTS_PER_INPUT_FIELD);
-                encoder.dispatch_threads(
-                    MTLSize::new(total_threads as NSUInteger, 1, 1),
-                    MTLSize::new(
-                        min(total_threads as NSUInteger, max_threads_per_threadgroup),
-                        1,
-                        1,
-                    ),
-                );
+                cmd_buffer.commit();
+                cmd_buffer.wait_until_completed();
+
+                assert_eq!(cmd_buffer.status(), MTLCommandBufferStatus::Completed);
+            });
+
+            autoreleasepool(|| {
+                let (cmd_buffer, encoder) = self.kc.make_computed_drop_command_buffer();
+
+                encoder.set_buffer(0, Some(&search_param_buffer), 0);
+                encoder.set_buffer(1, Some(&shape_position_config_buffer), 0);
+                encoder.set_buffer(2, Some(&fields_buffer), 0);
+                encoder.set_buffer(3, Some(&configs_buffer), 0);
+                encoder.set_buffer(4, Some(&scores_buffer), 0);
+
+                encoder.dispatch_threads(threads, threads_per_threadgroup);
                 encoder.end_encoding();
 
                 cmd_buffer.commit();
@@ -97,8 +128,9 @@ impl BotShaderContext {
                 assert_eq!(cmd_buffer.status(), MTLCommandBufferStatus::Completed);
             });
         }
-        let slice = slice_from_buffer::<ComputedDropConfig>(&configs_buffer);
-        Ok(Vec::from(slice))
+
+        let config_slice = slice_from_buffer::<ComputedDropConfig>(&configs_buffer);
+        Ok(Vec::from(config_slice))
     }
 
     pub fn evaluate_moves(
@@ -183,6 +215,8 @@ struct KernalConfig {
     make_configs_pipeline_state: ComputePipelineState,
     _make_configs_function: Function,
 
+    computed_drop_pipeline_state: ComputePipelineState,
+
     _library: Library,
     device: Device,
 }
@@ -210,12 +244,17 @@ impl KernalConfig {
             let make_configs_pipeline_state =
                 device.new_compute_pipeline_state_with_function(&make_configs_function)?;
 
+            let computed_drop_function = library.get_function("drop_tetromino_for_config", None)?;
+            let computed_drop_pipeline_state =
+                device.new_compute_pipeline_state_with_function(&computed_drop_function)?;
+
             Ok(KernalConfig {
                 command_queue,
                 drop_pipeline_state,
                 _drop_function: drop_function,
                 make_configs_pipeline_state,
                 _make_configs_function: make_configs_function,
+                computed_drop_pipeline_state,
                 _library: library,
                 device,
             })
@@ -236,6 +275,15 @@ impl KernalConfig {
         let encoder = command_buffer.new_compute_command_encoder();
 
         encoder.set_compute_pipeline_state(&self.make_configs_pipeline_state);
+
+        (command_buffer, encoder)
+    }
+
+    fn make_computed_drop_command_buffer(&self) -> (&CommandBufferRef, &ComputeCommandEncoderRef) {
+        let command_buffer = self.command_queue.new_command_buffer();
+        let encoder = command_buffer.new_compute_command_encoder();
+
+        encoder.set_compute_pipeline_state(&self.computed_drop_pipeline_state);
 
         (command_buffer, encoder)
     }
@@ -307,13 +355,14 @@ mod test {
     use enum_iterator::all;
 
     use crate::bot_shader::BotShaderContext;
-    use crate::compute_types::ComputedDropConfig;
+    use crate::compute_types::{BitmapField, ComputedDropConfig};
     use crate::consts;
     use crate::shapes::Shape;
 
     #[test]
     fn verify_computed_configs() {
         let ctx = BotShaderContext::new();
+
         let cfgs = ctx
             .unwrap()
             .make_drop_configs(
@@ -323,6 +372,7 @@ mod test {
                     .collect::<Vec<_>>()
                     .try_into()
                     .unwrap(),
+                &BitmapField::default(),
             )
             .unwrap();
 

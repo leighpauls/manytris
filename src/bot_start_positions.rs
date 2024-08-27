@@ -1,24 +1,40 @@
+use enum_iterator::all;
 use enum_map::EnumMap;
 
-use crate::compute_types::TetrominoPositions;
+use crate::compute_types::{ShapePositionConfig, ShapeStartingPositions, TetrominoPositions};
 use crate::consts;
 use crate::shapes::{Rot, Shape};
 use crate::tetromino::Tetromino;
 
 pub struct StartPositions {
     bot_positions: EnumMap<Shape, [Tetromino; 4]>,
-    bot_positions_as_tp: EnumMap<Shape, [TetrominoPositions; 4]>,
-    player_positions: EnumMap<Shape, TetrominoPositions>,
+    pub bot_positions_as_tp: EnumMap<Shape, [TetrominoPositions; 4]>,
+    pub player_positions: EnumMap<Shape, TetrominoPositions>,
+    pub shape_position_config: ShapePositionConfig,
 }
 
 impl StartPositions {
     pub fn new() -> Self {
+        let bot_positions_as_tp = EnumMap::from_fn(|s| {
+            compute_bot_start_positions_for_shape(s).map(|t| TetrominoPositions::from(t))
+        });
+        let player_positions = EnumMap::from_fn(|s| TetrominoPositions::from(Tetromino::new(s)));
+
+        let sp_vec = all::<Shape>()
+            .map(|s| ShapeStartingPositions {
+                bot_positions: bot_positions_as_tp[s].clone(),
+                player_position: player_positions[s].clone(),
+            })
+            .collect::<Vec<_>>();
+
+        let shape_position_config = ShapePositionConfig {
+            starting_positions: sp_vec.try_into().unwrap(),
+        };
         Self {
             bot_positions: EnumMap::from_fn(|s| compute_bot_start_positions_for_shape(s)),
-            bot_positions_as_tp: EnumMap::from_fn(|s| {
-                compute_bot_start_positions_for_shape(s).map(|t| TetrominoPositions::from(t))
-            }),
-            player_positions: EnumMap::from_fn(|s| TetrominoPositions::from(Tetromino::new(s))),
+            bot_positions_as_tp,
+            player_positions,
+            shape_position_config,
         }
     }
 

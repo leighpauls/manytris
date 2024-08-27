@@ -1,8 +1,11 @@
+use crate::bot_start_positions::StartPositions;
+use enum_iterator::all;
 use std::fmt::{Debug, Formatter};
 
 use crate::consts;
 use crate::consts::NUM_POSITIONS;
 use crate::field::Pos;
+use crate::shapes::Shape;
 use crate::tetromino::Tetromino;
 
 pub const FIELD_BYTES: usize = NUM_POSITIONS / 8 + if (NUM_POSITIONS % 8) == 0 { 0 } else { 1 };
@@ -40,12 +43,14 @@ pub struct MoveResultScore {
 }
 
 #[repr(C)]
+#[derive(Clone, Debug)]
 pub struct ShapeStartingPositions {
     pub bot_positions: [TetrominoPositions; 4],
     pub player_position: TetrominoPositions,
 }
 
 #[repr(C)]
+#[derive(Clone, Debug)]
 pub struct ShapePositionConfig {
     pub starting_positions: [ShapeStartingPositions; consts::NUM_SHAPES],
 }

@@ -63,7 +63,6 @@ struct ComputedDropConfig {
 };
 
 
-
 struct FieldAddr {
   size_t byte_index;
   uint8_t mask;
@@ -181,6 +180,15 @@ bool try_shift(device Field* f, thread TetrominoPositions* tp, ShiftDir d) {
   return true;
 }
 
+void do_drop_tetromino(
+  TetrominoPositions p,
+  TetrominoPositions next_p,
+  device const Field* source_field,
+  device Field* dest_field,
+  device MoveResultScore* score,
+  uint8_t left_shifts,
+  uint8_t right_shifts);
+
 [[kernel]] void drop_tetromino(
     device const TetrominoPositions* tp,
     device Field* fields,
@@ -192,15 +200,64 @@ bool try_shift(device Field* f, thread TetrominoPositions* tp, ShiftDir d) {
   auto dest_field = &fields[config->dest_field_idx];
   auto score = &scores[config_index];
 
+  do_drop_tetromino(
+    tp[config->tetromino_idx],
+    tp[config->next_tetromino_idx],
+    source_field,
+    dest_field,
+    score,
+    config->left_shifts,
+    config->right_shifts);
+}
+
+[[kernel]] void drop_tetromino_for_config(
+  device const SearchParams* search_params,
+  device const ShapePositionConfig* spc,
+  device Field* fields,
+  device const ComputedDropConfig* configs,
+  device MoveResultScore* scores,
+  uint thread_idx [[thread_position_in_grid]]
+) {
+  auto search_depth = search_params->cur_search_depth;
+  uint32_t params_start = 0;
+  for (uint32_t i = 0; i < search_depth; i++) {
+    params_start += int_pow(OUTPUTS_PER_INPUT_FIELD, i+1);
+  }
+
+  auto config_idx = params_start + thread_idx;
+  auto config = configs[config_idx];
+
+  auto p = spc->starting_positions[search_params->upcoming_shape_idxs[search_depth]]
+    .bot_positions[config.cw_rotations];
+  auto next_p = spc->starting_positions[search_params->upcoming_shape_idxs[search_depth+1]]
+    .player_position;
+
+  do_drop_tetromino(
+    p,
+    next_p,
+    &fields[config.src_field_idx],
+    &fields[config.dest_field_idx],
+    &scores[config_idx],
+    config.left_shifts,
+    config.right_shifts);
+}
+
+void do_drop_tetromino(
+  TetrominoPositions p,
+  TetrominoPositions next_p,
+  device const Field* source_field,
+  device Field* dest_field,
+  device MoveResultScore* score,
+  uint8_t left_shifts,
+  uint8_t right_shifts) {
+
   *dest_field = *source_field;
 
-  auto p = tp[config->tetromino_idx];
-
   // Shift left and right
-  for (auto i = 0; i < config->left_shifts; i++) {
+  for (auto i = 0; i < left_shifts; i++) {
     try_shift(dest_field, &p, ShiftDir::Left);
   }
-  for (auto i = 0; i < config->right_shifts; i++) {
+  for (auto i = 0; i < right_shifts; i++) {
     try_shift(dest_field, &p, ShiftDir::Right);
   }
 
@@ -265,7 +322,6 @@ bool try_shift(device Field* f, thread TetrominoPositions* tp, ShiftDir d) {
   }
 
   // See if this prevents the next tetromino from being placed.
-  auto next_p = tp[config->next_tetromino_idx];
   bool game_over = false;
   for (size_t i = 0; i < 4; i++) {
     if (is_occupied(dest_field, addr(next_p.pos[i][0], next_p.pos[i][1]))) {
