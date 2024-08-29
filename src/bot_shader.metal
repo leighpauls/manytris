@@ -6,7 +6,7 @@ constant constexpr size_t FIELD_BYTES = NUM_BLOCKS / 8 + ((NUM_BLOCKS % 8) ? 1 :
 constant constexpr size_t MAX_SEARCH_DEPTH = 6;
 constant constexpr size_t ROTATIONS_PER_SHAPE = 4;
 constant constexpr size_t SHIFTS_PER_ROTATION = 10;
-constant constexpr uint32_t OUTPUTS_PER_INPUT_FIELD = ROTATIONS_PER_SHAPE * SHIFTS_PER_ROTATION;
+constant constexpr uint32_t OUTPUTS_PER_INPUT_FIELD = static_cast<uint32_t>(ROTATIONS_PER_SHAPE * SHIFTS_PER_ROTATION);
 constant constexpr size_t NUM_SHAPES = 7;
 
 struct Field {
@@ -49,7 +49,7 @@ struct ShapePositionConfig {
 struct SearchParams {
   uint8_t cur_search_depth;
   // List of the avilable upcoming shapes, starting with the first move of the search.
-  uint8_t upcoming_shape_idxs[MAX_SEARCH_DEPTH];
+  uint8_t upcoming_shape_idxs[MAX_SEARCH_DEPTH + 1];
 };
 
 
@@ -60,6 +60,11 @@ struct ComputedDropConfig {
   uint32_t dest_field_idx;
   uint8_t left_shifts;
   uint8_t right_shifts;
+  uint32_t thread_index;
+  uint32_t input_start;
+  uint32_t input_offset;
+  uint32_t output_start;
+  uint32_t depth;
 };
 
 
@@ -97,11 +102,11 @@ uint32_t int_pow(uint32_t base, uint32_t exp) {
   uint32_t input_field_start = 0;
   uint32_t output_field_start = 1;
   for (uint32_t i = 0; i < search_params->cur_search_depth; i++) {
-    input_field_start = output_field_start;
+    input_field_start += int_pow(OUTPUTS_PER_INPUT_FIELD, i);
     output_field_start += int_pow(OUTPUTS_PER_INPUT_FIELD, i+1);
   }
 
-  uint32_t initial_field_idx = input_field_start + (thread_idx / OUTPUTS_PER_INPUT_FIELD);
+  uint32_t initial_field_idx = input_field_start + (static_cast<uint32_t>(thread_idx) / OUTPUTS_PER_INPUT_FIELD);
   uint32_t output_field_idx = output_field_start + thread_idx;
 
   // Order of moves for each input is:
@@ -112,13 +117,18 @@ uint32_t int_pow(uint32_t base, uint32_t exp) {
   uint8_t right_shifts = (shifts > 0) ? static_cast<uint8_t>(shifts) : 0;
   uint8_t left_shifts = (shifts > 0) ? 0 : static_cast<uint8_t>(-shifts);
 
-  drop_params[output_field_start + thread_idx - 1] = ComputedDropConfig {
+  drop_params[output_field_idx - 1] = ComputedDropConfig {
     .shape_idx = search_params->upcoming_shape_idxs[search_params->cur_search_depth],
     .cw_rotations = num_rotations,
     .src_field_idx = initial_field_idx,
     .dest_field_idx = output_field_idx,
     .left_shifts = left_shifts,
     .right_shifts = right_shifts,
+    .thread_index = thread_idx,
+    .input_start = input_field_start,
+    .input_offset = (static_cast<uint32_t>(thread_idx) / OUTPUTS_PER_INPUT_FIELD),
+    .output_start = output_field_start,
+    .depth = search_params->cur_search_depth,
   };
 }
 
@@ -232,14 +242,27 @@ void do_drop_tetromino(
   auto next_p = spc->starting_positions[search_params->upcoming_shape_idxs[search_depth+1]]
     .player_position;
 
+  device MoveResultScore* score = &scores[config_idx];
+
   do_drop_tetromino(
     p,
     next_p,
     &fields[config.src_field_idx],
     &fields[config.dest_field_idx],
-    &scores[config_idx],
+    score,
     config.left_shifts,
     config.right_shifts);
+
+  // Accumulate the previous config, if any
+  if (search_params->cur_search_depth > 0) {
+    auto prev_score_idx = config.src_field_idx - 1;
+    auto prev_score = scores[prev_score_idx];
+    if (prev_score.game_over) {
+      *score = prev_score;
+    } else {
+      score->lines_cleared += prev_score.lines_cleared;
+    }
+  }
 }
 
 void do_drop_tetromino(

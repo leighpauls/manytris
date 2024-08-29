@@ -1,7 +1,6 @@
 use std::iter;
 
 use genetic_algorithm::strategy::evolve::prelude::*;
-use ordered_float::OrderedFloat;
 
 use manytris::bot_player;
 use manytris::bot_player::ScoringKs;
@@ -40,7 +39,6 @@ pub fn main() {
         .with_reporter(PrintBestReporter)
         .call(&mut rng)
         .unwrap();
-
 
     let bc = evolve.best_chromosome().unwrap();
     println!("Best chromosome: {:?}", bc);
@@ -109,11 +107,11 @@ fn run_game(ks: &ScoringKs, max_game_length: i32) -> i32 {
     let bot_context = BotShaderContext::new().unwrap();
 
     for i in 0..max_game_length {
-        let all_moves = bot_player::enumerate_moves(&bot_context, &gs, SEARCH_DEPTH);
-        let mr = all_moves
-            .into_iter()
-            .max_by_key(|mr| OrderedFloat(bot_player::weighted_result_score(&mr.score, &ks)))
-            .unwrap();
+        // let mr = bot_player::select_next_move(&gs, &bot_context, ks, SEARCH_DEPTH);
+        let mr =
+            bot_player::select_next_move_computed_config(&gs, &bot_context, ks, SEARCH_DEPTH)
+                .unwrap();
+
         if mr.score.game_over {
             return i;
         }

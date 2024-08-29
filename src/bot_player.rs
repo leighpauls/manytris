@@ -1,8 +1,9 @@
+use ordered_float::OrderedFloat;
 use std::cmp::Ordering;
 use std::fmt::{Display, Formatter};
 use std::iter;
 
-use crate::bot_shader::{BotShaderContext, MovementBatchRequest};
+use crate::bot_shader::{BotShaderContext, MovementBatchRequest, UpcomingShapes};
 use crate::bot_start_positions::StartPositions;
 use crate::compute_types::{BitmapField, MoveResultScore};
 use crate::consts;
@@ -12,13 +13,13 @@ use crate::shapes::{Shape, Shift};
 
 const VALIDATE_GPU_MOVES: bool = false;
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub struct MoveResult {
     pub moves: Vec<MovementDescriptor>,
     pub score: MoveResultScore,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct MovementDescriptor {
     pub shape: Shape,
     pub next_shape: Shape,
@@ -26,11 +27,23 @@ pub struct MovementDescriptor {
     pub shifts_right: isize,
 }
 
+impl PartialEq<Self> for MovementDescriptor {
+    fn eq(&self, other: &Self) -> bool {
+        other.shape == self.shape && other.cw_rotations == self.cw_rotations && other.shifts_right == self.shifts_right
+    }
+}
+
+impl Eq for MovementDescriptor {
+
+}
+
 struct MovePassResult {
     moves: Vec<MovementDescriptor>,
     field: BitmapField,
     score: MoveResultScore,
 }
+
+pub type ScoringKs = [f32; 4];
 
 impl MovementDescriptor {
     fn as_tick_mutations(&self, bsp: &StartPositions) -> Vec<TickMutation> {
@@ -49,9 +62,44 @@ impl MovementDescriptor {
     }
 }
 
-pub type ScoringKs = [f32; 4];
+pub fn select_next_move(
+    gs: &GameState,
+    ctx: &BotShaderContext,
+    ks: &ScoringKs,
+    search_depth: usize,
+) -> MoveResult {
+    let all_moves = enumerate_moves(ctx, gs, search_depth);
+    all_moves
+        .into_iter()
+        .max_by_key(|mr| OrderedFloat(weighted_result_score(&mr.score, ks)))
+        .unwrap()
+}
 
-pub fn weighted_result_score(mrs: &MoveResultScore, ks: &ScoringKs) -> f32 {
+pub fn select_next_move_computed_config(
+    gs: &GameState,
+    ctx: &BotShaderContext,
+    ks: &ScoringKs,
+    mut search_depth: usize,
+) -> Result<MoveResult, String> {
+    search_depth -= 1;
+    let mut usv = vec![gs.active_shape()];
+    usv.extend_from_slice(&gs.upcoming_shapes());
+    let us: UpcomingShapes = usv.try_into().unwrap();
+
+    let results = ctx.make_drop_configs(search_depth, &us, &gs.make_bitmap_field())?;
+
+    let (configs, scores) = results.result_slice(search_depth);
+
+    let (best_idx, best_score) = scores
+        .into_iter()
+        .enumerate()
+        .max_by_key(|(_i, score)| OrderedFloat(weighted_result_score(score, ks)))
+        .unwrap();
+
+    Ok(results.make_move_result(search_depth, best_idx, &ctx.sp))
+}
+
+fn weighted_result_score(mrs: &MoveResultScore, ks: &ScoringKs) -> f32 {
     let game_over_f32 = if mrs.game_over { 1.0 } else { -1.0 };
     game_over_f32 * ks[0]
         + mrs.lines_cleared as f32 * ks[1]
@@ -69,7 +117,7 @@ fn create_movement_descriptor_passes(
 
     let mut cur_pass = vec![];
     for cw_rotations in 0..4 {
-        for shifts_right in -5..5 {
+        for shifts_right in -4..6 {
             cur_pass.push(MovementDescriptor {
                 shape: cur_shape,
                 next_shape: upcoming_shapes[0],
@@ -89,7 +137,7 @@ fn create_movement_descriptor_passes(
     return all_passes;
 }
 
-pub fn enumerate_moves(
+fn enumerate_moves(
     bot_context: &BotShaderContext,
     src_state: &GameState,
     depth: usize,

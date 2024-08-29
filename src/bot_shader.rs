@@ -9,7 +9,7 @@ use metal::{
     Function, Library, MTLCommandBufferStatus, MTLResourceOptions, MTLSize, NSUInteger,
 };
 
-use crate::bot_player::MovementDescriptor;
+use crate::bot_player::{MoveResult, MovementDescriptor};
 use crate::bot_start_positions::StartPositions;
 use crate::compute_types::{
     BitmapField, ComputedDropConfig, DropConfig, MoveResultScore, SearchParams,
@@ -17,6 +17,7 @@ use crate::compute_types::{
 };
 use crate::consts;
 use crate::shapes::Shape;
+use crate::upcoming::UpcomingTetrominios;
 
 pub struct BotShaderContext {
     kc: KernalConfig,
@@ -32,6 +33,55 @@ pub struct MovementBatchResult {
     pub result: Vec<(BitmapField, MoveResultScore)>,
 }
 
+pub type UpcomingShapes = [Shape; consts::MAX_SEARCH_DEPTH + 1];
+pub struct ComputedDropSearchResults {
+    pub search_depth: usize,
+    pub upcoming_shapes: UpcomingShapes,
+    pub drop_configs: Vec<ComputedDropConfig>,
+    pub scores: Vec<MoveResultScore>,
+}
+
+impl ComputedDropSearchResults {
+    pub fn make_move_result(
+        &self,
+        search_depth: usize,
+        idx: usize,
+        sp: &StartPositions,
+    ) -> MoveResult {
+        let (start_idx, _) = Self::idx_range(search_depth);
+        let mut next_idx = idx + start_idx;
+        let mut moves = vec![];
+        loop {
+            let cfg = &self.drop_configs[next_idx];
+            moves.insert(0, cfg.as_move_descriptor(sp));
+
+            if cfg.src_field_idx == 0 {
+                break;
+            }
+            next_idx = cfg.src_field_idx as usize - 1;
+        }
+        let score = self.result_slice(search_depth).1[idx].clone();
+        MoveResult { moves, score }
+    }
+    pub fn result_slice(&self, search_depth: usize) -> (&[ComputedDropConfig], &[MoveResultScore]) {
+        let (start_idx, end_idx) = Self::idx_range(search_depth);
+        (
+            &self.drop_configs.as_slice()[start_idx..end_idx],
+            &self.scores.as_slice()[start_idx..end_idx],
+        )
+    }
+
+    fn idx_range(search_depth: usize) -> (usize, usize) {
+        let mut start_idx = 0;
+        let mut end_idx = 0;
+        for i in 0..search_depth + 1 {
+            start_idx = end_idx;
+            end_idx += consts::OUTPUTS_PER_INPUT_FIELD.pow(i as u32 + 1);
+        }
+        (start_idx, end_idx)
+    }
+}
+
 impl BotShaderContext {
     pub fn new() -> Result<Self, String> {
         Ok(Self {
@@ -43,15 +93,9 @@ impl BotShaderContext {
     pub fn make_drop_configs(
         &self,
         search_depth: usize,
-        upcoming_shapes: &[Shape; consts::MAX_SEARCH_DEPTH],
+        upcoming_shapes: &UpcomingShapes,
         source_field: &BitmapField,
-    ) -> Result<Vec<ComputedDropConfig>, String> {
-        let shape_enum_idxs: HashMap<Shape, u8> = HashMap::from_iter(
-            upcoming_shapes
-                .iter()
-                .enumerate()
-                .map(|(i, s)| (s.clone(), i as u8)),
-        );
+    ) -> Result<ComputedDropSearchResults, String> {
         let mut total_outputs = 0;
         (0..search_depth + 1)
             .for_each(|i| total_outputs += consts::OUTPUTS_PER_INPUT_FIELD.pow(i as u32 + 1));
@@ -76,7 +120,7 @@ impl BotShaderContext {
             let sp = SearchParams {
                 cur_search_depth,
                 upcoming_shape_idxs: upcoming_shapes
-                    .map(|s| shape_enum_idxs.get(&s).unwrap().clone()),
+                    .map(|s| self.sp.shape_to_idx[s].clone()),
             };
 
             write_to_buffer(&mut search_param_buffer, 0, &sp);
@@ -130,7 +174,13 @@ impl BotShaderContext {
         }
 
         let config_slice = slice_from_buffer::<ComputedDropConfig>(&configs_buffer);
-        Ok(Vec::from(config_slice))
+        let scores_slice = slice_from_buffer::<MoveResultScore>(&scores_buffer);
+        Ok(ComputedDropSearchResults {
+            search_depth,
+            upcoming_shapes: upcoming_shapes.clone(),
+            drop_configs: Vec::from(config_slice),
+            scores: Vec::from(scores_slice),
+        })
     }
 
     pub fn evaluate_moves(
@@ -363,17 +413,19 @@ mod test {
     fn verify_computed_configs() {
         let ctx = BotShaderContext::new();
 
-        let cfgs = ctx
+        let shapes = [
+            Shape::I,
+            Shape::J,
+            Shape::L,
+            Shape::I,
+            Shape::I,
+            Shape::I,
+            Shape::I,
+        ];
+
+        let results = ctx
             .unwrap()
-            .make_drop_configs(
-                1,
-                &all::<Shape>()
-                    .take(consts::MAX_SEARCH_DEPTH)
-                    .collect::<Vec<_>>()
-                    .try_into()
-                    .unwrap(),
-                &BitmapField::default(),
-            )
+            .make_drop_configs(1, &shapes, &BitmapField::default())
             .unwrap();
 
         let mut expected_cfgs = vec![];
@@ -385,7 +437,7 @@ mod test {
                 let left_shifts = max(4 - shifts, 0) as u8;
                 let right_shifts = max(shifts - 4, 0) as u8;
                 expected_cfgs.push(ComputedDropConfig {
-                    shape_idx: 0,
+                    shape_idx: 4,
                     cw_rotations,
                     left_shifts,
                     right_shifts,
@@ -403,7 +455,7 @@ mod test {
                     let left_shifts = max(4 - shifts, 0) as u8;
                     let right_shifts = max(shifts - 4, 0) as u8;
                     expected_cfgs.push(ComputedDropConfig {
-                        shape_idx: 1,
+                        shape_idx: 3,
                         cw_rotations,
                         left_shifts,
                         right_shifts,
@@ -415,7 +467,7 @@ mod test {
             }
         }
 
-        assert_eq!(cfgs.len(), expected_cfgs.len());
-        assert_eq!(cfgs, expected_cfgs);
+        assert_eq!(results.drop_configs.len(), expected_cfgs.len());
+        assert_eq!(results.drop_configs, expected_cfgs);
     }
 }
