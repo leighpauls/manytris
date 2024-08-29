@@ -56,21 +56,15 @@ pub fn select_next_move(
     usv.extend_from_slice(&gs.upcoming_shapes());
     let us: UpcomingShapes = usv.try_into().unwrap();
 
-    let results = ctx.compute_drop_search(search_depth, &us, &gs.make_bitmap_field())?;
+    let results = ctx.compute_drop_search(search_depth, &us, &gs.make_bitmap_field(), |score| {
+        OrderedFloat(weighted_result_score(score, ks))
+    })?;
 
-    let (_configs, scores) = results.result_slice(search_depth);
-
-    let (best_idx, best_score) = scores
-        .into_iter()
-        .enumerate()
-        .max_by_key(|(_i, score)| OrderedFloat(weighted_result_score(score, ks)))
-        .unwrap();
-
-    let move_result = results.make_move_result(search_depth, best_idx, &ctx.sp);
+    let move_result = results.make_move_result();
 
     if VALIDATE_GPU_MOVES {
         let (_cpu_gs, cpu_score) = evaluate_moves_cpu(gs, &move_result.moves, &ctx.sp);
-        assert_eq!(&cpu_score, best_score);
+        assert_eq!(&cpu_score, &move_result.score);
     }
 
     Ok(move_result)

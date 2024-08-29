@@ -7,8 +7,9 @@ use metal::{
     Buffer, CommandBufferRef, CommandQueue, ComputeCommandEncoderRef, ComputePipelineState, Device,
     MTLCommandBufferStatus, MTLResourceOptions, MTLSize, NSUInteger,
 };
+use ordered_float::OrderedFloat;
 
-use crate::bot_player::MoveResult;
+use crate::bot_player::{MoveResult, MovementDescriptor};
 use crate::bot_start_positions::StartPositions;
 use crate::compute_types::{
     BitmapField, ComputedDropConfig, MoveResultScore, SearchParams, ShapePositionConfig,
@@ -25,38 +26,54 @@ pub type UpcomingShapes = [Shape; consts::MAX_SEARCH_DEPTH + 1];
 pub struct ComputedDropSearchResults {
     pub search_depth: usize,
     pub upcoming_shapes: UpcomingShapes,
-    pub drop_configs: Vec<ComputedDropConfig>,
-    pub scores: Vec<MoveResultScore>,
+    pub drops: Vec<MovementDescriptor>,
+    pub score: MoveResultScore,
 }
 
 impl ComputedDropSearchResults {
-    pub fn make_move_result(
-        &self,
+    pub fn find_results<F: Fn(&MoveResultScore) -> OrderedFloat<f32>>(
         search_depth: usize,
-        idx: usize,
+        upcoming_shapes: UpcomingShapes,
+        configs: &[ComputedDropConfig],
+        scores: &[MoveResultScore],
+        scoring_fn: F,
         sp: &StartPositions,
-    ) -> MoveResult {
-        let (start_idx, _) = Self::idx_range(search_depth);
-        let mut next_idx = idx + start_idx;
+    ) -> Self {
+        let (start_idx, end_idx) = Self::idx_range(search_depth);
+        assert_eq!(end_idx, scores.len());
+
+        // Find the best score
+        let (best_idx, best_score) = scores[start_idx..end_idx]
+            .into_iter()
+            .enumerate()
+            .max_by_key(|(i, s)| scoring_fn(s))
+            .unwrap();
+
+        let mut next_config_idx = start_idx + best_idx;
         let mut moves = vec![];
         loop {
-            let cfg = &self.drop_configs[next_idx];
+            let cfg = &configs[next_config_idx];
             moves.insert(0, cfg.as_move_descriptor(sp));
 
             if cfg.src_field_idx == 0 {
                 break;
             }
-            next_idx = cfg.src_field_idx as usize - 1;
+            next_config_idx = cfg.src_field_idx as usize - 1;
         }
-        let score = self.result_slice(search_depth).1[idx].clone();
-        MoveResult { moves, score }
+
+        ComputedDropSearchResults {
+            search_depth,
+            upcoming_shapes: upcoming_shapes.clone(),
+            drops: moves,
+            score: best_score.clone(),
+        }
     }
-    pub fn result_slice(&self, search_depth: usize) -> (&[ComputedDropConfig], &[MoveResultScore]) {
-        let (start_idx, end_idx) = Self::idx_range(search_depth);
-        (
-            &self.drop_configs.as_slice()[start_idx..end_idx],
-            &self.scores.as_slice()[start_idx..end_idx],
-        )
+
+    pub fn make_move_result(&self) -> MoveResult {
+        MoveResult {
+            moves: self.drops.clone(),
+            score: self.score.clone(),
+        }
     }
 
     fn idx_range(search_depth: usize) -> (usize, usize) {
@@ -78,11 +95,12 @@ impl BotShaderContext {
         })
     }
 
-    pub fn compute_drop_search(
+    pub fn compute_drop_search<F: Fn(&MoveResultScore) -> OrderedFloat<f32>>(
         &self,
         search_depth: usize,
         upcoming_shapes: &UpcomingShapes,
         source_field: &BitmapField,
+        scoring_fn: F,
     ) -> Result<ComputedDropSearchResults, String> {
         let mut total_outputs = 0;
         (0..search_depth + 1)
@@ -162,12 +180,15 @@ impl BotShaderContext {
 
         let config_slice = slice_from_buffer::<ComputedDropConfig>(&configs_buffer);
         let scores_slice = slice_from_buffer::<MoveResultScore>(&scores_buffer);
-        Ok(ComputedDropSearchResults {
+
+        Ok(ComputedDropSearchResults::find_results(
             search_depth,
-            upcoming_shapes: upcoming_shapes.clone(),
-            drop_configs: Vec::from(config_slice),
-            scores: Vec::from(scores_slice),
-        })
+            upcoming_shapes.clone(),
+            config_slice,
+            scores_slice,
+            scoring_fn,
+            &self.sp,
+        ))
     }
 }
 
