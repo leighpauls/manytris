@@ -107,10 +107,7 @@ fn run_game(ks: &ScoringKs, max_game_length: i32) -> i32 {
     let bot_context = BotShaderContext::new().unwrap();
 
     for i in 0..max_game_length {
-        // let mr = bot_player::select_next_move(&gs, &bot_context, ks, SEARCH_DEPTH);
-        let mr =
-            bot_player::select_next_move_computed_config(&gs, &bot_context, ks, SEARCH_DEPTH)
-                .unwrap();
+        let mr = bot_player::select_next_move(&gs, &bot_context, ks, SEARCH_DEPTH).unwrap();
 
         if mr.score.game_over {
             return i;

@@ -18,16 +18,6 @@ struct TetrominoPositions {
 };
 
 
-struct DropConfig {
-  uint32_t tetromino_idx;
-  uint32_t next_tetromino_idx;
-  uint32_t initial_field_idx;
-  uint32_t dest_field_idx;
-  uint8_t left_shifts;
-  uint8_t right_shifts;
-};
-
-
 struct MoveResultScore {
     bool game_over;
     uint8_t lines_cleared;
@@ -60,11 +50,6 @@ struct ComputedDropConfig {
   uint32_t dest_field_idx;
   uint8_t left_shifts;
   uint8_t right_shifts;
-  uint32_t thread_index;
-  uint32_t input_start;
-  uint32_t input_offset;
-  uint32_t output_start;
-  uint32_t depth;
 };
 
 
@@ -124,11 +109,6 @@ uint32_t int_pow(uint32_t base, uint32_t exp) {
     .dest_field_idx = output_field_idx,
     .left_shifts = left_shifts,
     .right_shifts = right_shifts,
-    .thread_index = thread_idx,
-    .input_start = input_field_start,
-    .input_offset = (static_cast<uint32_t>(thread_idx) / OUTPUTS_PER_INPUT_FIELD),
-    .output_start = output_field_start,
-    .depth = search_params->cur_search_depth,
   };
 }
 
@@ -198,27 +178,6 @@ void do_drop_tetromino(
   device MoveResultScore* score,
   uint8_t left_shifts,
   uint8_t right_shifts);
-
-[[kernel]] void drop_tetromino(
-    device const TetrominoPositions* tp,
-    device Field* fields,
-    device const DropConfig* configs,
-    device MoveResultScore* scores,
-    uint config_index [[thread_position_in_grid]]) {
-  auto config = &configs[config_index];
-  auto source_field = &fields[config->initial_field_idx];
-  auto dest_field = &fields[config->dest_field_idx];
-  auto score = &scores[config_index];
-
-  do_drop_tetromino(
-    tp[config->tetromino_idx],
-    tp[config->next_tetromino_idx],
-    source_field,
-    dest_field,
-    score,
-    config->left_shifts,
-    config->right_shifts);
-}
 
 [[kernel]] void drop_tetromino_for_config(
   device const SearchParams* search_params,

@@ -3,7 +3,7 @@ use std::cmp::Ordering;
 use std::fmt::{Display, Formatter};
 use std::iter;
 
-use crate::bot_shader::{BotShaderContext, MovementBatchRequest, UpcomingShapes};
+use crate::bot_shader::{BotShaderContext, UpcomingShapes};
 use crate::bot_start_positions::StartPositions;
 use crate::compute_types::{BitmapField, MoveResultScore};
 use crate::consts;
@@ -19,28 +19,11 @@ pub struct MoveResult {
     pub score: MoveResultScore,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MovementDescriptor {
     pub shape: Shape,
-    pub next_shape: Shape,
     pub cw_rotations: usize,
     pub shifts_right: isize,
-}
-
-impl PartialEq<Self> for MovementDescriptor {
-    fn eq(&self, other: &Self) -> bool {
-        other.shape == self.shape && other.cw_rotations == self.cw_rotations && other.shifts_right == self.shifts_right
-    }
-}
-
-impl Eq for MovementDescriptor {
-
-}
-
-struct MovePassResult {
-    moves: Vec<MovementDescriptor>,
-    field: BitmapField,
-    score: MoveResultScore,
 }
 
 pub type ScoringKs = [f32; 4];
@@ -66,19 +49,6 @@ pub fn select_next_move(
     gs: &GameState,
     ctx: &BotShaderContext,
     ks: &ScoringKs,
-    search_depth: usize,
-) -> MoveResult {
-    let all_moves = enumerate_moves(ctx, gs, search_depth);
-    all_moves
-        .into_iter()
-        .max_by_key(|mr| OrderedFloat(weighted_result_score(&mr.score, ks)))
-        .unwrap()
-}
-
-pub fn select_next_move_computed_config(
-    gs: &GameState,
-    ctx: &BotShaderContext,
-    ks: &ScoringKs,
     mut search_depth: usize,
 ) -> Result<MoveResult, String> {
     search_depth -= 1;
@@ -86,9 +56,9 @@ pub fn select_next_move_computed_config(
     usv.extend_from_slice(&gs.upcoming_shapes());
     let us: UpcomingShapes = usv.try_into().unwrap();
 
-    let results = ctx.make_drop_configs(search_depth, &us, &gs.make_bitmap_field())?;
+    let results = ctx.compute_drop_search(search_depth, &us, &gs.make_bitmap_field())?;
 
-    let (configs, scores) = results.result_slice(search_depth);
+    let (_configs, scores) = results.result_slice(search_depth);
 
     let (best_idx, best_score) = scores
         .into_iter()
@@ -96,7 +66,14 @@ pub fn select_next_move_computed_config(
         .max_by_key(|(_i, score)| OrderedFloat(weighted_result_score(score, ks)))
         .unwrap();
 
-    Ok(results.make_move_result(search_depth, best_idx, &ctx.sp))
+    let move_result = results.make_move_result(search_depth, best_idx, &ctx.sp);
+
+    if VALIDATE_GPU_MOVES {
+        let (_cpu_gs, cpu_score) = evaluate_moves_cpu(gs, &move_result.moves, &ctx.sp);
+        assert_eq!(&cpu_score, best_score);
+    }
+
+    Ok(move_result)
 }
 
 fn weighted_result_score(mrs: &MoveResultScore, ks: &ScoringKs) -> f32 {
@@ -105,114 +82,6 @@ fn weighted_result_score(mrs: &MoveResultScore, ks: &ScoringKs) -> f32 {
         + mrs.lines_cleared as f32 * ks[1]
         + mrs.height as f32 * ks[2]
         + mrs.covered as f32 * ks[3]
-}
-
-fn create_movement_descriptor_passes(
-    cur_shape: Shape,
-    upcoming_shapes: &[Shape],
-    depth: usize,
-) -> Vec<Vec<MovementDescriptor>> {
-    assert!(upcoming_shapes.len() > 0);
-    assert!(depth > 0);
-
-    let mut cur_pass = vec![];
-    for cw_rotations in 0..4 {
-        for shifts_right in -4..6 {
-            cur_pass.push(MovementDescriptor {
-                shape: cur_shape,
-                next_shape: upcoming_shapes[0],
-                cw_rotations,
-                shifts_right,
-            });
-        }
-    }
-
-    let mut all_passes = vec![cur_pass];
-    if depth > 1 {
-        let later_moves =
-            create_movement_descriptor_passes(upcoming_shapes[0], &upcoming_shapes[1..], depth - 1);
-        all_passes.extend(later_moves);
-    }
-
-    return all_passes;
-}
-
-fn enumerate_moves(
-    bot_context: &BotShaderContext,
-    src_state: &GameState,
-    depth: usize,
-) -> Vec<MoveResult> {
-    let passes = create_movement_descriptor_passes(
-        src_state.active_shape(),
-        &src_state.upcoming_shapes(),
-        depth,
-    );
-
-    let mut layer_results = vec![MovePassResult {
-        moves: vec![],
-        field: src_state.make_bitmap_field(),
-        score: MoveResultScore {
-            game_over: false,
-            lines_cleared: 0,
-            height: 0,
-            covered: 0,
-        },
-    }];
-    for pass in passes {
-        // make a list of requests
-        let reqs = layer_results
-            .iter()
-            .map(|mpr| MovementBatchRequest {
-                src_state: mpr.field.clone(),
-                moves: pass.clone(),
-            })
-            .collect::<Vec<_>>();
-
-        // Evaluate the moves
-        let gpu_results = bot_context.evaluate_moves(&reqs).unwrap();
-
-        // Collect the results for the next pass
-        layer_results = layer_results
-            .into_iter()
-            .zip(reqs)
-            .zip(gpu_results)
-            .map(|((prev_mpr, req), batch_result)| {
-                batch_result
-                    .result
-                    .into_iter()
-                    .zip(req.moves)
-                    .map(|((field, mut score), movement)| {
-                        score.lines_cleared += prev_mpr.score.lines_cleared;
-
-                        let mut moves = prev_mpr.moves.clone();
-                        moves.push(movement);
-                        MovePassResult {
-                            moves,
-                            field,
-                            score,
-                        }
-                    })
-                    .collect::<Vec<_>>()
-            })
-            .flatten()
-            .collect();
-    }
-
-    if VALIDATE_GPU_MOVES {
-        layer_results.iter().for_each(|mpr| {
-            let (cpu_gs, cpu_score) = evaluate_moves_cpu(src_state, &mpr.moves, &bot_context.sp);
-            let cpu_field = cpu_gs.make_bitmap_field();
-            assert_eq!((&mpr.field, &mpr.score), (&cpu_field, &cpu_score));
-        })
-    }
-
-    layer_results
-        .into_iter()
-        .map(|mpr| MoveResult {
-            moves: mpr.moves,
-            score: mpr.score,
-        })
-        .collect()
 }
 
 pub fn evaluate_moves_cpu(

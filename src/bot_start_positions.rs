@@ -61,9 +61,6 @@ impl StartPositions {
     }
 }
 
-fn bot_start_position(s: Shape, cw_rotations: usize) -> Tetromino {
-    compute_bot_start_positions_for_shape(s)[cw_rotations].clone()
-}
 fn compute_bot_start_positions_for_shape(s: Shape) -> [Tetromino; 4] {
     let mut result = vec![];
     for rotations in 0..4 {

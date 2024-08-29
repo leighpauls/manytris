@@ -1,12 +1,10 @@
-use crate::bot_start_positions::StartPositions;
-use enum_iterator::all;
 use std::fmt::{Debug, Formatter};
-use crate::bot_player::MovementDescriptor;
 
+use crate::bot_player::MovementDescriptor;
+use crate::bot_start_positions::StartPositions;
 use crate::consts;
 use crate::consts::NUM_POSITIONS;
 use crate::field::Pos;
-use crate::shapes::Shape;
 use crate::tetromino::Tetromino;
 
 pub const FIELD_BYTES: usize = NUM_POSITIONS / 8 + if (NUM_POSITIONS % 8) == 0 { 0 } else { 1 };
@@ -74,18 +72,12 @@ pub struct ComputedDropConfig {
     pub dest_field_idx: u32,
     pub left_shifts: u8,
     pub right_shifts: u8,
-    pub thread_index: u32,
-    pub input_start: u32,
-    pub input_offset: u32,
-    pub output_start: u32,
-    pub search_depth: u32,
 }
 
 impl ComputedDropConfig {
     pub fn as_move_descriptor(&self, sp: &StartPositions) -> MovementDescriptor {
         MovementDescriptor {
             shape: sp.idx_to_shape.get(&self.shape_idx).unwrap().clone(),
-            next_shape: Shape::I, // TODO: field not really needed
             cw_rotations: self.cw_rotations as usize,
             shifts_right: self.right_shifts as isize - (self.left_shifts as isize),
         }
