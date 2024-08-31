@@ -14,7 +14,7 @@ pub fn main() {
     let best_ks = [-2447.9722, 7782.121, -6099.498, -1970.1172];
 
     println!("Start test games...");
-    for _ in 0..2 {
+    for _ in 0..4 {
         println!("Game length {}", run_game(&best_ks, 600));
     }
 

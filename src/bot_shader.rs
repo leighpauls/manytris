@@ -46,7 +46,7 @@ impl ComputedDropSearchResults {
         let (best_idx, best_score) = scores[start_idx..end_idx]
             .into_iter()
             .enumerate()
-            .max_by_key(|(i, s)| scoring_fn(s))
+            .max_by_key(|(_i, s)| scoring_fn(s))
             .unwrap();
 
         let mut next_config_idx = start_idx + best_idx;
