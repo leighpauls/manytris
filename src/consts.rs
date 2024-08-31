@@ -1,4 +1,5 @@
 use std::time::Duration;
+use crate::bot_player::ScoringKs;
 
 pub const W: i32 = 10;
 /// Height of the visible game
@@ -21,3 +22,5 @@ pub const SHIFTS_PER_ROTATION: usize = 10;
 pub const OUTPUTS_PER_INPUT_FIELD: usize = ROTATIONS_PER_SHAPE * SHIFTS_PER_ROTATION;
 
 pub const LOCK_TIMER_DURATION: Duration = Duration::from_millis(500);
+
+pub const BEST_BOT_KS: ScoringKs = [-2447.9722, 7782.121, -6099.498, -1970.1172];

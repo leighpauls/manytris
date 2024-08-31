@@ -2,7 +2,7 @@ use std::iter;
 
 use genetic_algorithm::strategy::evolve::prelude::*;
 
-use manytris::bot_player;
+use manytris::{bot_player, consts};
 use manytris::bot_player::ScoringKs;
 use manytris::bot_shader::BotShaderContext;
 use manytris::game_state::{GameState, TickMutation};
@@ -11,11 +11,10 @@ use manytris::plugins::shape_producer::ShapeProducer;
 const SEARCH_DEPTH: usize = 3;
 
 pub fn main() {
-    let best_ks = [-2447.9722, 7782.121, -6099.498, -1970.1172];
 
     println!("Start test games...");
     for _ in 0..4 {
-        println!("Game length {}", run_game(&best_ks, 600));
+        println!("Game length {}", run_game(&consts::BEST_BOT_KS, 600));
     }
 
     println!("Start evolving...");

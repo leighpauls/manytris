@@ -29,7 +29,7 @@ pub struct MovementDescriptor {
 pub type ScoringKs = [f32; 4];
 
 impl MovementDescriptor {
-    fn as_tick_mutations(&self, bsp: &StartPositions) -> Vec<TickMutation> {
+    pub fn as_tick_mutations(&self, bsp: &StartPositions) -> Vec<TickMutation> {
         let (dir, num_shifts) = if self.shifts_right >= 0 {
             (Shift::Right, self.shifts_right as usize)
         } else {

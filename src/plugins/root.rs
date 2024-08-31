@@ -1,15 +1,16 @@
 use std::time::Duration;
 
+use crate::bot_shader::BotShaderContext;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::bot_start_positions::StartPositions;
-use crate::consts;
 use crate::game_state::{DownType, GameState, LockResult, TickMutation, TickResult};
 use crate::plugins::assets;
 use crate::plugins::input::{InputEvent, InputType};
 use crate::plugins::system_sets::{StartupSystems, UpdateSystems};
 use crate::shapes::Shape;
+use crate::{bot_player, consts};
 
 const LINES_PER_LEVEL: i32 = 10;
 
@@ -134,20 +135,28 @@ fn produce_tick_events(
     use InputType::*;
     use TickMutation::*;
 
-    tick_events.extend(input_events.read().map(|e| match e.input_type {
-        ShiftEvent(s) => ShiftInput(s),
-        RotateEvent(r) => RotateInput(r),
-        DownEvent => DownInput(if e.is_repeat {
-            DownType::HoldRepeat
-        } else {
-            DownType::FirstPress
-        }),
-        DropEvent => DropInput,
-        HoldEvent => HoldInput,
-        JumpToBotStartPositionEvent => {
-            JumpToBotStartPosition(sp.0.bot_start_position(game.game.active_shape(), 0).clone())
-        }
-    }));
+    tick_events.extend(
+        input_events
+            .read()
+            .map(|e| match e.input_type {
+                ShiftEvent(s) => vec![ShiftInput(s)],
+                RotateEvent(r) => vec![RotateInput(r)],
+                DownEvent => vec![DownInput(if e.is_repeat {
+                    DownType::HoldRepeat
+                } else {
+                    DownType::FirstPress
+                })],
+                DropEvent => vec![DropInput],
+                HoldEvent => vec![HoldInput],
+                JumpToBotStartPositionEvent => {
+                    vec![JumpToBotStartPosition(
+                        sp.0.bot_start_position(game.game.active_shape(), 0).clone(),
+                    )]
+                }
+                PerformBotMoveEvent => make_bot_move_events(game, &sp.0),
+            })
+            .flatten(),
+    );
 
     let cur_time = time.elapsed();
     while cur_time > game.next_drop_time {
@@ -164,6 +173,13 @@ fn produce_tick_events(
             .into_iter()
             .map(|mutation| TickEvent::new_local(mutation)),
     );
+}
+
+fn make_bot_move_events(game: &ActiveGame, sp: &StartPositions) -> Vec<TickMutation> {
+    let bot_context = BotShaderContext::new().unwrap();
+    let mr =
+        bot_player::select_next_move(&game.game, &bot_context, &consts::BEST_BOT_KS, 3).unwrap();
+    mr.moves[0].as_tick_mutations(sp)
 }
 
 fn update_root_tick(

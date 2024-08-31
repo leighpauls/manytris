@@ -26,6 +26,7 @@ pub enum InputType {
     DropEvent,
     HoldEvent,
     JumpToBotStartPositionEvent,
+    PerformBotMoveEvent,
 }
 
 #[derive(Resource)]
@@ -129,6 +130,13 @@ fn update_for_input(
     if keys.just_pressed(KeyCode::KeyQ) {
         input_event_writer.send(InputEvent {
             input_type: InputType::JumpToBotStartPositionEvent,
+            is_repeat: false,
+        });
+    }
+
+    if keys.just_pressed(KeyCode::KeyW) {
+        input_event_writer.send(InputEvent {
+            input_type: InputType::PerformBotMoveEvent,
             is_repeat: false,
         });
     }

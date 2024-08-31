@@ -3,7 +3,7 @@ pub mod bot_shader;
 pub mod bot_start_positions;
 pub mod cli_options;
 mod compute_types;
-mod consts;
+pub mod consts;
 mod field;
 pub mod game_state;
 pub mod plugins;
