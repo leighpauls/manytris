@@ -4,7 +4,7 @@ use crate::tetromino::Tetromino;
 use serde::{Deserialize, Serialize};
 use std::cmp::max;
 use std::collections::HashMap;
-use crate::compute_types::BitmapField;
+use crate::bot::compute_types::BitmapField;
 
 #[derive(Clone, Eq, PartialEq, Hash, Debug, Deserialize, Serialize)]
 pub struct Pos {

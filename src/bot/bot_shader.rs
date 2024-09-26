@@ -9,9 +9,9 @@ use metal::{
 };
 use ordered_float::OrderedFloat;
 
-use crate::bot_player::{MoveResult, MovementDescriptor};
-use crate::bot_start_positions::StartPositions;
-use crate::compute_types::{
+use crate::bot::bot_player::{MoveResult, MovementDescriptor};
+use crate::bot::bot_start_positions::StartPositions;
+use crate::bot::compute_types::{
     BitmapField, ComputedDropConfig, MoveResultScore, SearchParams, ShapePositionConfig,
 };
 use crate::consts;

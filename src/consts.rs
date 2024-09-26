@@ -1,5 +1,5 @@
 use std::time::Duration;
-use crate::bot_player::ScoringKs;
+use crate::bot::bot_player::ScoringKs;
 
 pub const W: i32 = 10;
 /// Height of the visible game

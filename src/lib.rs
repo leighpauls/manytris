@@ -1,8 +1,5 @@
-pub mod bot_player;
-pub mod bot_shader;
-pub mod bot_start_positions;
+pub mod bot;
 pub mod cli_options;
-mod compute_types;
 pub mod consts;
 mod field;
 pub mod game_state;

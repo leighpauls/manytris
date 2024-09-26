@@ -1,19 +1,21 @@
 use std::time::Duration;
 
-use crate::bot_shader::BotShaderContext;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::bot_start_positions::StartPositions;
+use crate::bot::bot_player;
+use crate::bot::bot_shader::BotShaderContext;
+use crate::bot::bot_start_positions::StartPositions;
+use crate::consts;
 use crate::game_state::{DownType, GameState, LockResult, TickMutation, TickResult};
 use crate::plugins::assets;
 use crate::plugins::input::{InputEvent, InputType};
 use crate::plugins::system_sets::{StartupSystems, UpdateSystems};
 use crate::shapes::Shape;
-use crate::{bot_player, consts};
 
 const LINES_PER_LEVEL: i32 = 10;
 
+/// This plugin must be used for all executable variants.
 pub fn common_plugin(app: &mut App) {
     app.add_systems(Startup, setup_root.in_set(StartupSystems::Root))
         .add_systems(Update, update_root_tick.in_set(UpdateSystems::RootTick))
@@ -24,6 +26,7 @@ pub fn common_plugin(app: &mut App) {
         .insert_resource(StartPositionRes(StartPositions::new()));
 }
 
+/// Use this plugin for the client of a multiplayer game.
 pub fn client_plugin(app: &mut App) {
     app.add_systems(
         Update,
@@ -31,6 +34,7 @@ pub fn client_plugin(app: &mut App) {
     );
 }
 
+/// Use this plugin for clients of single-player games.
 pub fn stand_alone_plugin(app: &mut App) {
     app.add_systems(
         Startup,

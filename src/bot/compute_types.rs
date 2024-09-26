@@ -1,7 +1,7 @@
 use std::fmt::{Debug, Formatter};
 
-use crate::bot_player::MovementDescriptor;
-use crate::bot_start_positions::StartPositions;
+use crate::bot::bot_player::MovementDescriptor;
+use crate::bot::bot_start_positions::StartPositions;
 use crate::consts;
 use crate::consts::NUM_POSITIONS;
 use crate::field::Pos;

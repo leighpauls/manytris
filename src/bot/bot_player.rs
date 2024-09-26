@@ -1,11 +1,12 @@
-use ordered_float::OrderedFloat;
 use std::cmp::Ordering;
 use std::fmt::{Display, Formatter};
 use std::iter;
 
-use crate::bot_shader::{BotShaderContext, UpcomingShapes};
-use crate::bot_start_positions::StartPositions;
-use crate::compute_types::{BitmapField, MoveResultScore};
+use ordered_float::OrderedFloat;
+
+use crate::bot::bot_shader::{BotShaderContext, UpcomingShapes};
+use crate::bot::bot_start_positions::StartPositions;
+use crate::bot::compute_types::{BitmapField, MoveResultScore};
 use crate::consts;
 use crate::field::Pos;
 use crate::game_state::{GameState, LockResult, TickMutation, TickResult};

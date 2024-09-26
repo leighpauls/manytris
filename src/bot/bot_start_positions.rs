@@ -2,7 +2,7 @@ use bevy::utils::HashMap;
 use enum_iterator::all;
 use enum_map::EnumMap;
 
-use crate::compute_types::{ShapePositionConfig, ShapeStartingPositions, TetrominoPositions};
+use crate::bot::compute_types::{ShapePositionConfig, ShapeStartingPositions, TetrominoPositions};
 use crate::consts;
 use crate::shapes::{Rot, Shape};
 use crate::tetromino::Tetromino;
