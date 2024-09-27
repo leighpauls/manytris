@@ -49,7 +49,7 @@ pub struct StartPositionRes(pub StartPositions);
 
 #[derive(Component)]
 pub struct GameRoot {
-    pub game_id: Uuid,
+    pub game_id: GameId,
     pub active_game: ActiveGame,
 }
 
@@ -71,7 +71,7 @@ struct RootTransformBundle {
 #[derive(Clone, Deserialize, Serialize, Debug)]
 pub struct TickMutationMessage {
     pub mutation: TickMutation,
-    pub game_id: Uuid,
+    pub game_id: GameId,
 }
 
 #[derive(Clone, Event, Deserialize, Serialize, Debug)]
@@ -96,9 +96,18 @@ impl TickEvent {
     }
 }
 
+#[derive(Deserialize, Serialize, Copy, Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub struct GameId(Uuid);
+
+impl GameId {
+    pub fn new() -> Self {
+        GameId(Uuid::new_v4())
+    }
+}
+
 #[derive(Event, Deserialize, Serialize)]
 pub struct LockEvent {
-    pub game_id: Uuid,
+    pub game_id: GameId,
     pub lock_result: LockResult,
 }
 
@@ -117,10 +126,10 @@ pub fn create_new_root(
     ra: &Res<RenderAssets>,
     asset_server: &Res<AssetServer>,
     cur_time: Duration,
-) -> (GameState, Uuid) {
+) -> (GameState, GameId) {
     let active_game = ActiveGame::new(cur_time);
     let game_state = active_game.game.clone();
-    let game_id = Uuid::new_v4();
+    let game_id = GameId::new();
     spawn_root(commands, ra, asset_server, active_game, game_id);
     (game_state, game_id)
 }
@@ -131,7 +140,7 @@ pub fn create_root_from_snapshot(
     asset_server: &Res<AssetServer>,
     gs: GameState,
     cur_time: Duration,
-    game_id: Uuid,
+    game_id: GameId,
 ) {
     let active_game = ActiveGame::from_snapshot(gs, cur_time);
     spawn_root(commands, ra, asset_server, active_game, game_id);
@@ -142,7 +151,7 @@ fn spawn_root(
     ra: &Res<RenderAssets>,
     asset_server: &Res<AssetServer>,
     active_game: ActiveGame,
-    game_id: Uuid,
+    game_id: GameId,
 ) {
     let root_entitiy = commands
         .spawn(RootTransformBundle {
@@ -240,7 +249,7 @@ fn update_root_tick(
     };
     let active_game = &mut game_root.active_game;
 
-    let mut mutations_by_game: BTreeMap<Uuid, Vec<TickMutation>> = BTreeMap::new();
+    let mut mutations_by_game: BTreeMap<GameId, Vec<TickMutation>> = BTreeMap::new();
     for tick_event in tick_event_reader.read() {
         let game_id = tick_event.mutation.game_id;
         mutations_by_game

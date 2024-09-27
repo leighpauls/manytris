@@ -1,16 +1,16 @@
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
 use crate::game_state::GameState;
 use crate::plugins::assets::RenderAssets;
 use crate::plugins::root;
+use crate::plugins::root::GameId;
 use crate::plugins::system_sets::UpdateSystems;
 
 #[derive(Clone, Deserialize, Serialize, Debug)]
 pub enum ControlEvent {
     JoinRequest,
-    SnapshotResponse(GameState, Uuid),
+    SnapshotResponse(GameState, GameId),
 }
 
 #[derive(Event)]
