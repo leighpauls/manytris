@@ -1,12 +1,16 @@
+use std::collections::BTreeMap;
 use std::error::Error;
 use std::io;
 use std::net::{TcpListener, TcpStream};
 
 use bevy::prelude::*;
+use bevy::tasks::futures_lite::AsyncSeek;
 use tungstenite::{Message, WebSocket};
 
 use crate::cli_options::HostConfig;
-use crate::plugins::net_game_control_manager::{ReceiveControlEvent, SendControlEvent};
+use crate::plugins::net_game_control_manager::{
+    ConnectionId, ReceiveControlEventFromClient, SendControlEventToClient,
+};
 use crate::plugins::net_listener::ListenResult::{DropSocket, NewMessage};
 use crate::plugins::net_protocol::NetMessage;
 use crate::plugins::root::TickEvent;
@@ -15,7 +19,7 @@ use crate::plugins::system_sets::UpdateSystems;
 #[derive(Component)]
 pub struct ServerListenerComponent {
     listener: TcpListener,
-    sockets: Vec<WebSocket<TcpStream>>,
+    sockets: BTreeMap<ConnectionId, WebSocket<TcpStream>>,
 }
 
 #[derive(Resource)]
@@ -37,14 +41,14 @@ fn init_listener(mut commands: Commands, config: Res<NetListenerConfig>) {
 
     commands.spawn(ServerListenerComponent {
         listener,
-        sockets: vec![],
+        sockets: BTreeMap::new(),
     });
 }
 
 fn listener_system(
     mut listener_q: Query<&mut ServerListenerComponent>,
     mut tick_writer: EventWriter<TickEvent>,
-    mut control_writer: EventWriter<ReceiveControlEvent>,
+    mut control_writer: EventWriter<ReceiveControlEventFromClient>,
 ) {
     let listener = listener_q.single_mut().into_inner();
 
@@ -52,11 +56,11 @@ fn listener_system(
         eprintln!("Error while accepting new sockets: {}", e);
     }
 
-    let mut i = 0;
-    while i < listener.sockets.len() {
-        match listen_to_socket(&mut listener.sockets[i]) {
+    let mut remove_connections = vec![];
+    for (connection_id, socket) in &mut listener.sockets {
+        match listen_to_socket(socket) {
             DropSocket => {
-                listener.sockets.remove(i);
+                remove_connections.push(connection_id.clone());
             }
             NewMessage(msgs) => {
                 for m in msgs {
@@ -64,39 +68,56 @@ fn listener_system(
                         NetMessage::Tick(tm) => {
                             tick_writer.send(TickEvent::new_remote(tm));
                         }
-                        NetMessage::Control(ce) => {
-                            control_writer.send(ReceiveControlEvent(ce));
+                        NetMessage::ClientControl(event) => {
+                            control_writer.send(ReceiveControlEventFromClient {
+                                event,
+                                from_connection: connection_id.clone(),
+                            });
+                        }
+                        NetMessage::ServerControl(_) => {
+                            eprintln!("Unexpected server control message");
                         }
                     }
                 }
-                i += 1;
             }
         }
     }
+    remove_connections.iter().for_each(|cid| {
+        listener.sockets.remove(cid);
+    });
 }
 
 fn sender_system(
     mut listener_q: Query<&mut ServerListenerComponent>,
     mut event_reader: EventReader<TickEvent>,
-    mut control_reader: EventReader<SendControlEvent>,
+    mut control_reader: EventReader<SendControlEventToClient>,
 ) {
     let mut listener = listener_q.single_mut();
 
-    let payloads: Vec<Vec<u8>> = control_reader
+    let tick_event_payloads: Vec<Vec<u8>> = event_reader
         .read()
-        .map(|SendControlEvent(ce)| NetMessage::Control(ce.clone()))
-        .chain(
-            event_reader
-                .read()
-                .filter(|e| e.local)
-                .map(|e| NetMessage::Tick(e.mutation.clone())),
-        )
-        .map(|nm| rmp_serde::to_vec(&nm).unwrap())
+        .filter(|e| e.local)
+        .map(|e| rmp_serde::to_vec(&NetMessage::Tick(e.mutation.clone())).unwrap())
         .collect();
 
-    for socket in &mut listener.sockets {
-        for p in &payloads {
-            // TODO: drop socket on error?
+    let mut control_payloads_by_connection_id: BTreeMap<ConnectionId, Vec<Vec<u8>>> =
+        BTreeMap::new();
+    for ce in control_reader.read() {
+        let payload_list = control_payloads_by_connection_id
+            .entry(ce.to_connection)
+            .or_default();
+        payload_list.push(rmp_serde::to_vec(&NetMessage::ServerControl(ce.event.clone())).unwrap())
+    }
+
+    for (connection_id, socket) in &mut listener.sockets {
+        for p in control_payloads_by_connection_id
+            .get(connection_id)
+            .unwrap_or(&vec![])
+        {
+            socket.send(Message::Binary(p.clone())).unwrap();
+        }
+
+        for p in &tick_event_payloads {
             socket.send(Message::Binary(p.clone())).unwrap();
         }
     }
@@ -104,13 +125,13 @@ fn sender_system(
 
 fn accept_new_connections(
     listener: &TcpListener,
-    sockets: &mut Vec<WebSocket<TcpStream>>,
+    sockets: &mut BTreeMap<ConnectionId, WebSocket<TcpStream>>,
 ) -> Result<(), Box<dyn Error>> {
     for stream in listener.incoming() {
         match stream {
             Ok(s) => {
                 s.set_nonblocking(true)?;
-                sockets.push(tungstenite::accept(s)?);
+                sockets.insert(ConnectionId::new(), tungstenite::accept(s)?);
             }
             Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
                 break;

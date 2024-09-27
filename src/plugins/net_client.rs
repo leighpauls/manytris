@@ -4,9 +4,7 @@ use bevy::prelude::*;
 use ewebsock::{Options, WsEvent, WsMessage, WsReceiver, WsSender};
 
 use crate::cli_options::HostConfig;
-use crate::plugins::net_game_control_manager::{
-    ControlEvent, ReceiveControlEvent, SendControlEvent,
-};
+use crate::plugins::net_game_control_manager::{ClientControlEvent, ServerControlEvent};
 use crate::plugins::net_protocol::NetMessage;
 use crate::plugins::root::TickEvent;
 use crate::plugins::system_sets::UpdateSystems;
@@ -39,7 +37,7 @@ fn init(mut commands: Commands) {
 fn update_client_connect(
     mut net_q: Query<&mut ClientNetComponent>,
     mut virtual_time: ResMut<Time<Virtual>>,
-    mut control_events: EventWriter<SendControlEvent>,
+    mut control_events: EventWriter<ClientControlEvent>,
     config: Res<NetClientConfig>,
 ) {
     let net = net_q.single_mut().into_inner();
@@ -65,7 +63,7 @@ fn update_client_connect(
                 Some(WsEvent::Opened) => {
                     println!("Connected!");
                     new_net = Some(ClientNetComponent::Connected(sr_pair.clone()));
-                    control_events.send(SendControlEvent(ControlEvent::JoinRequest));
+                    control_events.send(ClientControlEvent::JoinRequest);
                 }
                 Some(e) => {
                     eprintln!("Unexpected connecting message: {:?}", e);
@@ -87,7 +85,7 @@ fn update_client_connect(
 fn update_client_net_receive(
     mut net_q: Query<&mut ClientNetComponent>,
     mut tick_events: EventWriter<TickEvent>,
-    mut control_events: EventWriter<ReceiveControlEvent>,
+    mut control_events: EventWriter<ServerControlEvent>,
 ) {
     let net = net_q.single_mut().into_inner();
 
@@ -105,8 +103,11 @@ fn update_client_net_receive(
                         NetMessage::Tick(tm) => {
                             tick_events.send(TickEvent::new_remote(tm));
                         }
-                        NetMessage::Control(ce) => {
-                            control_events.send(ReceiveControlEvent(ce));
+                        NetMessage::ServerControl(sce) => {
+                            control_events.send(sce);
+                        }
+                        NetMessage::ClientControl(_) => {
+                            eprintln!("Unexpected client control message");
                         }
                     }
                 }
@@ -133,7 +134,7 @@ fn update_client_net_receive(
 fn update_client_net_send(
     mut net_q: Query<&mut ClientNetComponent>,
     mut tick_events: EventReader<TickEvent>,
-    mut control_events: EventReader<SendControlEvent>,
+    mut control_events: EventReader<ClientControlEvent>,
 ) {
     let net = net_q.single_mut();
 
@@ -146,7 +147,7 @@ fn update_client_net_send(
 
         control_events
             .read()
-            .map(|SendControlEvent(ce)| NetMessage::Control(ce.clone()))
+            .map(|ce| NetMessage::ClientControl(ce.clone()))
             .for_each(send_func);
 
         tick_events

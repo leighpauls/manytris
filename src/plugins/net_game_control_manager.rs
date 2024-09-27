@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 use crate::game_state::GameState;
 use crate::plugins::assets::RenderAssets;
@@ -7,58 +8,100 @@ use crate::plugins::root;
 use crate::plugins::root::GameId;
 use crate::plugins::system_sets::UpdateSystems;
 
-#[derive(Clone, Deserialize, Serialize, Debug)]
-pub enum ControlEvent {
+#[derive(Deserialize, Serialize, Copy, Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub struct ConnectionId(Uuid);
+
+#[derive(Clone, Deserialize, Serialize, Debug, Event)]
+pub enum ClientControlEvent {
     JoinRequest,
+}
+
+#[derive(Clone, Deserialize, Serialize, Debug, Event)]
+pub enum ServerControlEvent {
     SnapshotResponse(GameState, GameId),
 }
 
 #[derive(Event)]
-pub struct SendControlEvent(pub ControlEvent);
-
-#[derive(Event)]
-pub struct ReceiveControlEvent(pub ControlEvent);
-
-pub fn plugin(app: &mut App) {
-    app.add_systems(
-        Update,
-        update_for_control_events.in_set(UpdateSystems::LocalEventProducers),
-    )
-    .add_event::<SendControlEvent>()
-    .add_event::<ReceiveControlEvent>();
+pub struct SendControlEventToClient {
+    pub event: ServerControlEvent,
+    pub to_connection: ConnectionId,
 }
 
-pub fn update_for_control_events(
+#[derive(Event)]
+pub struct ReceiveControlEventFromClient {
+    pub event: ClientControlEvent,
+    pub from_connection: ConnectionId,
+}
+
+pub fn server_plugin(app: &mut App) {
+    app.add_systems(
+        Update,
+        update_server_for_control_events.in_set(UpdateSystems::LocalEventProducers),
+    )
+    .add_event::<SendControlEventToClient>()
+    .add_event::<ReceiveControlEventFromClient>();
+}
+
+pub fn client_plugin(app: &mut App) {
+    app.add_systems(
+        Update,
+        update_client_for_control_events.in_set(UpdateSystems::LocalEventProducers),
+    )
+    .add_event::<ClientControlEvent>()
+    .add_event::<ServerControlEvent>();
+}
+
+pub fn update_server_for_control_events(
     mut commands: Commands,
     ra: Res<RenderAssets>,
     asset_server: Res<AssetServer>,
-    mut control_event_reader: EventReader<ReceiveControlEvent>,
-    mut control_event_writer: EventWriter<SendControlEvent>,
+    mut control_event_reader: EventReader<ReceiveControlEventFromClient>,
+    mut control_event_writer: EventWriter<SendControlEventToClient>,
     time: Res<Time<Fixed>>,
 ) {
-    let cur_time = time.elapsed();
-
     for rce in control_event_reader.read() {
-        let ReceiveControlEvent(ce) = rce;
-        match ce {
-            ControlEvent::JoinRequest => {
+        match rce {
+            ReceiveControlEventFromClient {
+                event: ClientControlEvent::JoinRequest,
+                from_connection,
+            } => {
                 let (game_state, game_id) =
-                    root::create_new_root(&mut commands, &ra, &asset_server, cur_time);
+                    root::create_new_root(&mut commands, &ra, &asset_server, time.elapsed());
 
-                control_event_writer.send(SendControlEvent(ControlEvent::SnapshotResponse(
-                    game_state, game_id,
-                )));
+                control_event_writer.send(SendControlEventToClient {
+                    event: ServerControlEvent::SnapshotResponse(game_state, game_id),
+                    to_connection: from_connection.clone(),
+                });
             }
-            ControlEvent::SnapshotResponse(gs, game_id) => {
+        }
+    }
+}
+
+pub fn update_client_for_control_events(
+    mut commands: Commands,
+    ra: Res<RenderAssets>,
+    asset_server: Res<AssetServer>,
+    mut control_event_reader: EventReader<ServerControlEvent>,
+    time: Res<Time<Fixed>>,
+) {
+    for sce in control_event_reader.read() {
+        match sce {
+            ServerControlEvent::SnapshotResponse(gs, game_id) => {
                 root::create_root_from_snapshot(
                     &mut commands,
                     &ra,
                     &asset_server,
                     gs.clone(),
-                    cur_time,
+                    time.elapsed(),
                     game_id.clone(),
                 );
             }
         }
+    }
+}
+
+impl ConnectionId {
+    pub fn new() -> Self {
+        Self(Uuid::new_v4())
     }
 }

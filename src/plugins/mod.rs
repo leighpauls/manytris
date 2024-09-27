@@ -36,7 +36,7 @@ pub fn run(cfg: ExecCommand) {
                     input::plugin,
                     root::client_plugin,
                     net_client::plugin,
-                    net_game_control_manager::plugin,
+                    net_game_control_manager::client_plugin,
                 ));
         }
         ExecCommand::Server(hc) => {
@@ -44,7 +44,7 @@ pub fn run(cfg: ExecCommand) {
                 .add_plugins((
                     net_listener::plugin,
                     shape_producer::plugin,
-                    net_game_control_manager::plugin,
+                    net_game_control_manager::server_plugin,
                 ));
         }
         ExecCommand::StandAlone => {
