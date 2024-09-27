@@ -1,6 +1,6 @@
 use crate::consts;
 use crate::game_state::{LockResult, TickMutation};
-use crate::plugins::root::{LockEvent, TickEvent};
+use crate::plugins::root::{LockEvent, TickEvent, TickMutationMessage};
 use crate::plugins::system_sets::{StartupSystems, UpdateSystems};
 use crate::shapes::Shape;
 use bevy::prelude::*;
@@ -29,11 +29,17 @@ fn update(
     let mut sp = sp_q.single_mut();
 
     for event in reader.read() {
-        if let LockEvent(LockResult::Ok { lines_cleared: _ }) = event {
+        if let LockEvent {
+            lock_result: LockResult::Ok { lines_cleared: _ },
+            game_id,
+        } = event
+        {
+            // TODO: sp.take() needs to take the game ID to track multiple games.
             println!("Producing new tetromino");
-            writer.send(TickEvent::new_local(TickMutation::EnqueueTetromino(
-                sp.take(),
-            )));
+            writer.send(TickEvent::new_local(TickMutationMessage {
+                mutation: TickMutation::EnqueueTetromino(sp.take()),
+                game_id: game_id.clone(),
+            }));
         }
     }
 }

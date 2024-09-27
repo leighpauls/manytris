@@ -19,3 +19,4 @@ genetic_algorithm = "0.8.2"
 ordered-float = "4.2.2"
 metal = "0.29.0"
 enum-map = "2.7.3"
+uuid = { version = "1.10.0", features = ["js", "v4"] }

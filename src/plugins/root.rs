@@ -1,7 +1,9 @@
+use std::collections::{BTreeMap, HashMap};
 use std::time::Duration;
 
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 use crate::bot::bot_player;
 use crate::bot::bot_shader::BotShaderContext;
@@ -51,6 +53,7 @@ pub struct StartPositionRes(pub StartPositions);
 
 #[derive(Component)]
 pub struct GameRoot {
+    pub game_id: Option<Uuid>,
     pub active_game: Option<ActiveGame>,
 }
 
@@ -69,16 +72,22 @@ struct RootTransformBundle {
     marker: GameRoot,
 }
 
+#[derive(Clone, Deserialize, Serialize, Debug)]
+pub struct TickMutationMessage {
+    pub mutation: TickMutation,
+    pub game_id: Uuid,
+}
+
 #[derive(Clone, Event, Deserialize, Serialize, Debug)]
 pub struct TickEvent {
-    pub mutation: TickMutation,
+    pub mutation: TickMutationMessage,
     pub local: bool,
 }
 
 #[derive(Clone, Deserialize, Serialize, Debug)]
 pub enum ControlEvent {
     JoinRequest,
-    SnapshotResponse(GameState),
+    SnapshotResponse(GameState, Uuid),
 }
 
 #[derive(Event)]
@@ -88,14 +97,14 @@ pub struct SendControlEvent(pub ControlEvent);
 pub struct ReceiveControlEvent(pub ControlEvent);
 
 impl TickEvent {
-    pub fn new_local(mutation: TickMutation) -> Self {
+    pub fn new_local(mutation: TickMutationMessage) -> Self {
         Self {
             mutation,
             local: true,
         }
     }
 
-    pub fn new_remote(mutation: TickMutation) -> Self {
+    pub fn new_remote(mutation: TickMutationMessage) -> Self {
         Self {
             mutation,
             local: false,
@@ -104,7 +113,10 @@ impl TickEvent {
 }
 
 #[derive(Event, Deserialize, Serialize)]
-pub struct LockEvent(pub LockResult);
+pub struct LockEvent {
+    pub game_id: Uuid,
+    pub lock_result: LockResult,
+}
 
 fn setup_root(mut commands: Commands) {
     commands.spawn(RootTransformBundle {
@@ -113,13 +125,18 @@ fn setup_root(mut commands: Commands) {
             -assets::BLOCK_SIZE * 11.,
             0.,
         )),
-        marker: GameRoot { active_game: None },
+        marker: GameRoot {
+            active_game: None,
+            game_id: None,
+        },
     });
 }
 
 fn setup_start_standalone_game(mut q_root: Query<&mut GameRoot>, time: Res<Time<Fixed>>) {
     let start_time = time.elapsed();
-    q_root.single_mut().active_game = Some(ActiveGame::new(start_time));
+    let mut root = q_root.single_mut();
+    root.active_game = Some(ActiveGame::new(start_time));
+    root.game_id = Some(Uuid::new_v4());
 }
 
 fn produce_tick_events(
@@ -130,7 +147,9 @@ fn produce_tick_events(
     sp: Res<StartPositionRes>,
 ) {
     let mut game_root = q_root.single_mut();
-    let Some(game) = &mut game_root.active_game else {
+    let (game_id, game) = if game_root.active_game.is_some() {
+        (game_root.game_id.unwrap(), game_root.active_game.as_mut().unwrap())
+    } else {
         return;
     };
 
@@ -172,11 +191,12 @@ fn produce_tick_events(
     if game.lock_timer_target.filter(|t| t <= &cur_time).is_some() {
         tick_events.push(LockTimerExpired);
     }
-    tick_event_writer.send_batch(
-        tick_events
-            .into_iter()
-            .map(|mutation| TickEvent::new_local(mutation)),
-    );
+    tick_event_writer.send_batch(tick_events.into_iter().map(|mutation| {
+        TickEvent::new_local(TickMutationMessage {
+            mutation,
+            game_id,
+        })
+    }));
 }
 
 fn make_bot_move_events(game: &ActiveGame, sp: &StartPositions) -> Vec<TickMutation> {
@@ -203,8 +223,8 @@ fn update_root_tick(
             ControlEvent::JoinRequest => {
                 control_event_writer.send(game_root.handle_join_request(cur_time));
             }
-            ControlEvent::SnapshotResponse(gs) => {
-                game_root.handle_snapshot_response(gs.clone(), cur_time);
+            ControlEvent::SnapshotResponse(gs, game_id) => {
+                game_root.handle_snapshot_response(gs.clone(), game_id.clone(), cur_time);
             }
         }
     }
@@ -213,25 +233,34 @@ fn update_root_tick(
         return;
     };
 
-    let events = tick_event_reader
-        .read()
-        .into_iter()
-        .map(|e| e.mutation.clone())
-        .collect();
+    let mut mutations_by_game: BTreeMap<Uuid, Vec<TickMutation>> = BTreeMap::new();
+    for tick_event in tick_event_reader.read() {
+        let game_id = tick_event.mutation.game_id;
+        mutations_by_game
+            .entry(game_id)
+            .or_default()
+            .push(tick_event.mutation.mutation.clone());
+    }
 
-    for tick_result in active_game.game.tick_mutation(events) {
-        use TickResult::*;
-        match tick_result {
-            Lock(lr) => {
-                println!("Lock result: {:?}", lr);
-                lock_event_writer.send(LockEvent(lr.clone()));
-                active_game.apply_lock_result(&lr);
-            }
-            RestartLockTimer => {
-                active_game.lock_timer_target = Some(cur_time + consts::LOCK_TIMER_DURATION);
-            }
-            ClearLockTimer => {
-                active_game.lock_timer_target = None;
+    for (game_id, mutations) in mutations_by_game {
+        // TODO: get game by game_id
+        for tick_result in active_game.game.tick_mutation(mutations) {
+            use TickResult::*;
+            match tick_result {
+                Lock(lr) => {
+                    println!("Lock result: {:?}", lr);
+                    lock_event_writer.send(LockEvent {
+                        game_id,
+                        lock_result: lr.clone(),
+                    });
+                    active_game.apply_lock_result(&lr);
+                }
+                RestartLockTimer => {
+                    active_game.lock_timer_target = Some(cur_time + consts::LOCK_TIMER_DURATION);
+                }
+                ClearLockTimer => {
+                    active_game.lock_timer_target = None;
+                }
             }
         }
     }
@@ -241,22 +270,28 @@ impl GameRoot {
     fn handle_join_request(&mut self, cur_time: Duration) -> SendControlEvent {
         if let None = self.active_game {
             self.active_game = Some(ActiveGame::new(cur_time));
+            self.game_id = Some(Uuid::new_v4());
         }
+        let active_game = self.active_game.as_ref().unwrap();
+
         SendControlEvent(ControlEvent::SnapshotResponse(
-            self.active_game.as_ref().unwrap().game.clone(),
+            active_game.game.clone(),
+            self.game_id.unwrap(),
         ))
     }
 
-    fn handle_snapshot_response(&mut self, game_state: GameState, cur_time: Duration) {
+    fn handle_snapshot_response(&mut self, game_state: GameState, game_id: Uuid, cur_time: Duration) {
         if self.active_game.is_some() {
             eprintln!("Overwriting current game with snapshot from server!");
         }
+        self.game_id = Some(game_id);
         self.active_game = Some(ActiveGame::from_snapshot(game_state, cur_time));
     }
 }
 
 impl ActiveGame {
     fn new(start_time: Duration) -> Self {
+        // TODO: make this random
         let initial_states = enum_iterator::all::<Shape>()
             .chain(enum_iterator::all::<Shape>())
             .collect();
