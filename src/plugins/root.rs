@@ -1,4 +1,5 @@
-use std::collections::{BTreeMap, HashMap};
+use bevy::ecs::query::QuerySingleError;
+use std::collections::BTreeMap;
 use std::time::Duration;
 
 use bevy::prelude::*;
@@ -10,21 +11,19 @@ use crate::bot::bot_shader::BotShaderContext;
 use crate::bot::bot_start_positions::StartPositions;
 use crate::consts;
 use crate::game_state::{DownType, GameState, LockResult, TickMutation, TickResult};
-use crate::plugins::assets;
+use crate::plugins::assets::RenderAssets;
 use crate::plugins::input::{InputEvent, InputType};
-use crate::plugins::system_sets::{StartupSystems, UpdateSystems};
+use crate::plugins::system_sets::UpdateSystems;
+use crate::plugins::{assets, field_blocks, scoreboard, window_blocks};
 use crate::shapes::Shape;
 
 const LINES_PER_LEVEL: i32 = 10;
 
 /// This plugin must be used for all executable variants.
 pub fn common_plugin(app: &mut App) {
-    app.add_systems(Startup, setup_root.in_set(StartupSystems::Root))
-        .add_systems(Update, update_root_tick.in_set(UpdateSystems::RootTick))
+    app.add_systems(Update, update_root_tick.in_set(UpdateSystems::RootTick))
         .add_event::<TickEvent>()
         .add_event::<LockEvent>()
-        .add_event::<SendControlEvent>()
-        .add_event::<ReceiveControlEvent>()
         .insert_resource(StartPositionRes(StartPositions::new()));
 }
 
@@ -38,14 +37,11 @@ pub fn client_plugin(app: &mut App) {
 
 /// Use this plugin for clients of single-player games.
 pub fn stand_alone_plugin(app: &mut App) {
-    app.add_systems(
-        Startup,
-        setup_start_standalone_game.in_set(StartupSystems::AfterRoot),
-    )
-    .add_systems(
-        Update,
-        produce_tick_events.in_set(UpdateSystems::LocalEventProducers),
-    );
+    app.add_systems(Startup, setup_start_standalone_game)
+        .add_systems(
+            Update,
+            produce_tick_events.in_set(UpdateSystems::LocalEventProducers),
+        );
 }
 
 #[derive(Resource)]
@@ -53,8 +49,8 @@ pub struct StartPositionRes(pub StartPositions);
 
 #[derive(Component)]
 pub struct GameRoot {
-    pub game_id: Option<Uuid>,
-    pub active_game: Option<ActiveGame>,
+    pub game_id: Uuid,
+    pub active_game: ActiveGame,
 }
 
 pub struct ActiveGame {
@@ -84,18 +80,6 @@ pub struct TickEvent {
     pub local: bool,
 }
 
-#[derive(Clone, Deserialize, Serialize, Debug)]
-pub enum ControlEvent {
-    JoinRequest,
-    SnapshotResponse(GameState, Uuid),
-}
-
-#[derive(Event)]
-pub struct SendControlEvent(pub ControlEvent);
-
-#[derive(Event)]
-pub struct ReceiveControlEvent(pub ControlEvent);
-
 impl TickEvent {
     pub fn new_local(mutation: TickMutationMessage) -> Self {
         Self {
@@ -118,25 +102,65 @@ pub struct LockEvent {
     pub lock_result: LockResult,
 }
 
-fn setup_root(mut commands: Commands) {
-    commands.spawn(RootTransformBundle {
-        transform: SpatialBundle::from_transform(Transform::from_xyz(
-            -assets::BLOCK_SIZE * 8.,
-            -assets::BLOCK_SIZE * 11.,
-            0.,
-        )),
-        marker: GameRoot {
-            active_game: None,
-            game_id: None,
-        },
-    });
+fn setup_start_standalone_game(
+    mut commands: Commands,
+    ra: Res<RenderAssets>,
+    asset_server: Res<AssetServer>,
+    time: Res<Time<Fixed>>,
+) {
+    let start_time = time.elapsed();
+    create_new_root(&mut commands, &ra, &asset_server, start_time);
 }
 
-fn setup_start_standalone_game(mut q_root: Query<&mut GameRoot>, time: Res<Time<Fixed>>) {
-    let start_time = time.elapsed();
-    let mut root = q_root.single_mut();
-    root.active_game = Some(ActiveGame::new(start_time));
-    root.game_id = Some(Uuid::new_v4());
+pub fn create_new_root(
+    commands: &mut Commands,
+    ra: &Res<RenderAssets>,
+    asset_server: &Res<AssetServer>,
+    cur_time: Duration,
+) -> (GameState, Uuid) {
+    let active_game = ActiveGame::new(cur_time);
+    let game_state = active_game.game.clone();
+    let game_id = Uuid::new_v4();
+    spawn_root(commands, ra, asset_server, active_game, game_id);
+    (game_state, game_id)
+}
+
+pub fn create_root_from_snapshot(
+    commands: &mut Commands,
+    ra: &Res<RenderAssets>,
+    asset_server: &Res<AssetServer>,
+    gs: GameState,
+    cur_time: Duration,
+    game_id: Uuid,
+) {
+    let active_game = ActiveGame::from_snapshot(gs, cur_time);
+    spawn_root(commands, ra, asset_server, active_game, game_id);
+}
+
+fn spawn_root(
+    commands: &mut Commands,
+    ra: &Res<RenderAssets>,
+    asset_server: &Res<AssetServer>,
+    active_game: ActiveGame,
+    game_id: Uuid,
+) {
+    let root_entitiy = commands
+        .spawn(RootTransformBundle {
+            transform: SpatialBundle::from_transform(Transform::from_xyz(
+                -assets::BLOCK_SIZE * 8.,
+                -assets::BLOCK_SIZE * 11.,
+                0.,
+            )),
+            marker: GameRoot {
+                active_game,
+                game_id: game_id,
+            },
+        })
+        .id();
+
+    field_blocks::spawn_field(commands, ra, root_entitiy);
+    scoreboard::spawn_scoreboard(commands, asset_server, root_entitiy);
+    window_blocks::spawn_windows(commands, ra, root_entitiy);
 }
 
 fn produce_tick_events(
@@ -146,13 +170,11 @@ fn produce_tick_events(
     mut tick_event_writer: EventWriter<TickEvent>,
     sp: Res<StartPositionRes>,
 ) {
-    let mut game_root = q_root.single_mut();
-    let (game_id, game) = if game_root.active_game.is_some() {
-        (game_root.game_id.unwrap(), game_root.active_game.as_mut().unwrap())
-    } else {
+    let Some(mut game_root) = GameRoot::for_single_mut(q_root.get_single_mut()) else {
         return;
     };
-
+    let game_id = game_root.game_id;
+    let game = &mut game_root.active_game;
     let mut tick_events = vec![];
 
     use InputType::*;
@@ -191,12 +213,11 @@ fn produce_tick_events(
     if game.lock_timer_target.filter(|t| t <= &cur_time).is_some() {
         tick_events.push(LockTimerExpired);
     }
-    tick_event_writer.send_batch(tick_events.into_iter().map(|mutation| {
-        TickEvent::new_local(TickMutationMessage {
-            mutation,
-            game_id,
-        })
-    }));
+    tick_event_writer.send_batch(
+        tick_events
+            .into_iter()
+            .map(|mutation| TickEvent::new_local(TickMutationMessage { mutation, game_id })),
+    );
 }
 
 fn make_bot_move_events(game: &ActiveGame, sp: &StartPositions) -> Vec<TickMutation> {
@@ -208,30 +229,16 @@ fn make_bot_move_events(game: &ActiveGame, sp: &StartPositions) -> Vec<TickMutat
 
 fn update_root_tick(
     mut q_root: Query<&mut GameRoot>,
-    mut control_event_reader: EventReader<ReceiveControlEvent>,
-    mut control_event_writer: EventWriter<SendControlEvent>,
     mut tick_event_reader: EventReader<TickEvent>,
     mut lock_event_writer: EventWriter<LockEvent>,
     time: Res<Time<Fixed>>,
 ) {
-    let mut game_root = q_root.single_mut();
     let cur_time = time.elapsed();
 
-    for rce in control_event_reader.read() {
-        let ReceiveControlEvent(ce) = rce;
-        match ce {
-            ControlEvent::JoinRequest => {
-                control_event_writer.send(game_root.handle_join_request(cur_time));
-            }
-            ControlEvent::SnapshotResponse(gs, game_id) => {
-                game_root.handle_snapshot_response(gs.clone(), game_id.clone(), cur_time);
-            }
-        }
-    }
-
-    let Some(active_game) = &mut game_root.active_game else {
+    let Some(mut game_root) = GameRoot::for_single_mut(q_root.get_single_mut()) else {
         return;
     };
+    let active_game = &mut game_root.active_game;
 
     let mut mutations_by_game: BTreeMap<Uuid, Vec<TickMutation>> = BTreeMap::new();
     for tick_event in tick_event_reader.read() {
@@ -267,25 +274,19 @@ fn update_root_tick(
 }
 
 impl GameRoot {
-    fn handle_join_request(&mut self, cur_time: Duration) -> SendControlEvent {
-        if let None = self.active_game {
-            self.active_game = Some(ActiveGame::new(cur_time));
-            self.game_id = Some(Uuid::new_v4());
+    pub fn for_single(res: Result<&GameRoot, QuerySingleError>) -> Option<&GameRoot> {
+        match res {
+            Ok(r) => Some(r),
+            Err(QuerySingleError::NoEntities(_)) => None,
+            Err(QuerySingleError::MultipleEntities(_)) => panic!("Unexpected multiple roots found"),
         }
-        let active_game = self.active_game.as_ref().unwrap();
-
-        SendControlEvent(ControlEvent::SnapshotResponse(
-            active_game.game.clone(),
-            self.game_id.unwrap(),
-        ))
     }
-
-    fn handle_snapshot_response(&mut self, game_state: GameState, game_id: Uuid, cur_time: Duration) {
-        if self.active_game.is_some() {
-            eprintln!("Overwriting current game with snapshot from server!");
+    pub fn for_single_mut(res: Result<Mut<GameRoot>, QuerySingleError>) -> Option<Mut<GameRoot>> {
+        match res {
+            Ok(r) => Some(r),
+            Err(QuerySingleError::NoEntities(_)) => None,
+            Err(QuerySingleError::MultipleEntities(_)) => panic!("Unexpected multiple roots found"),
         }
-        self.game_id = Some(game_id);
-        self.active_game = Some(ActiveGame::from_snapshot(game_state, cur_time));
     }
 }
 

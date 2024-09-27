@@ -1,12 +1,15 @@
 use std::sync::{Arc, Mutex};
 
-use crate::cli_options::HostConfig;
-use crate::plugins::net_protocol::NetMessage;
 use bevy::prelude::*;
 use ewebsock::{Options, WsEvent, WsMessage, WsReceiver, WsSender};
 
-use crate::plugins::root::{ControlEvent, ReceiveControlEvent, SendControlEvent, TickEvent};
-use crate::plugins::system_sets::{StartupSystems, UpdateSystems};
+use crate::cli_options::HostConfig;
+use crate::plugins::net_game_control_manager::{
+    ControlEvent, ReceiveControlEvent, SendControlEvent,
+};
+use crate::plugins::net_protocol::NetMessage;
+use crate::plugins::root::TickEvent;
+use crate::plugins::system_sets::UpdateSystems;
 
 #[derive(Component)]
 pub enum ClientNetComponent {
@@ -19,15 +22,14 @@ pub enum ClientNetComponent {
 pub struct NetClientConfig(pub HostConfig);
 
 pub fn plugin(app: &mut App) {
-    app.add_systems(Startup, init.in_set(StartupSystems::AfterRoot))
-        .add_systems(
-            Update,
-            (
-                update_client_connect.in_set(UpdateSystems::LocalEventProducers),
-                update_client_net_receive.in_set(UpdateSystems::LocalEventProducers),
-                update_client_net_send.in_set(UpdateSystems::EventSenders),
-            ),
-        );
+    app.add_systems(Startup, init).add_systems(
+        Update,
+        (
+            update_client_connect.in_set(UpdateSystems::LocalEventProducers),
+            update_client_net_receive.in_set(UpdateSystems::LocalEventProducers),
+            update_client_net_send.in_set(UpdateSystems::EventSenders),
+        ),
+    );
 }
 
 fn init(mut commands: Commands) {

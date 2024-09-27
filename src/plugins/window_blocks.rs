@@ -1,20 +1,19 @@
+use bevy::prelude::*;
+
 use crate::consts;
 use crate::field::Pos;
 use crate::plugins::assets;
 use crate::plugins::assets::RenderAssets;
 use crate::plugins::block_render::{BlockBundle, BlockColor, BlockComponent};
 use crate::plugins::root::GameRoot;
-use crate::plugins::system_sets::{StartupSystems, UpdateSystems};
+use crate::plugins::system_sets::UpdateSystems;
 use crate::tetromino::Tetromino;
-use bevy::prelude::*;
 
 pub fn plugin(app: &mut App) {
-    app.add_systems(Startup, setup_windows.in_set(StartupSystems::AfterRoot))
-        .add_systems(
-            Update,
-            (update_preview_window_blocks, update_hold_window_blocks)
-                .in_set(UpdateSystems::PreRender),
-        );
+    app.add_systems(
+        Update,
+        (update_preview_window_blocks, update_hold_window_blocks).in_set(UpdateSystems::PreRender),
+    );
 }
 
 #[derive(Bundle)]
@@ -37,12 +36,7 @@ struct HoldWindowBundle {
 #[derive(Component)]
 struct HoldWindowComponent();
 
-fn setup_windows(
-    mut commands: Commands,
-    ra: Res<RenderAssets>,
-    q_root: Query<Entity, With<GameRoot>>,
-) {
-    let root = q_root.single();
+pub fn spawn_windows(commands: &mut Commands, ra: &Res<RenderAssets>, root_entity: Entity) {
     let spawn_blocks_fn = |parent: &mut ChildBuilder| {
         spawn_window_block_children(parent, &ra);
     };
@@ -50,13 +44,13 @@ fn setup_windows(
     for i in 0..consts::NUM_PREVIEWS {
         commands
             .spawn(PreviewWindowBundle::new(i))
-            .set_parent(root)
+            .set_parent(root_entity)
             .with_children(spawn_blocks_fn);
     }
 
     commands
         .spawn(HoldWindowBundle::new())
-        .set_parent(root)
+        .set_parent(root_entity)
         .with_children(spawn_blocks_fn);
 }
 
@@ -67,9 +61,9 @@ fn update_preview_window_blocks(
     q_windows: Query<(&PreviewWindowComponent, &Children)>,
     mut q_blocks: BlockQuery,
 ) {
-    const ARRAY_REPEAT_VALUE: std::option::Option<Tetromino> = None;
-    let previews = if let Some(active_game) = &q_root.single().active_game {
-        active_game.game.previews().map(Some)
+    const ARRAY_REPEAT_VALUE: Option<Tetromino> = None;
+    let previews = if let Some(game_root) = GameRoot::for_single(q_root.get_single()) {
+        game_root.active_game.game.previews().map(Some)
     } else {
         [ARRAY_REPEAT_VALUE; 6]
     };
@@ -85,11 +79,11 @@ fn update_hold_window_blocks(
     q_window: Query<&Children, With<HoldWindowComponent>>,
     mut q_blocks: BlockQuery,
 ) {
-    let held = if let Some(active_game) = &q_root.single().active_game {
-        active_game.game.held_tetromino()
-    } else {
-        None
+    let Some(game_root) = GameRoot::for_single(q_root.get_single()) else {
+        return;
     };
+
+    let held = game_root.active_game.game.held_tetromino();
 
     update_child_block_colors(held.as_ref(), q_window.single(), &mut q_blocks);
 }

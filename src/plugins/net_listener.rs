@@ -2,13 +2,14 @@ use std::error::Error;
 use std::io;
 use std::net::{TcpListener, TcpStream};
 
-use crate::cli_options::HostConfig;
 use bevy::prelude::*;
 use tungstenite::{Message, WebSocket};
 
+use crate::cli_options::HostConfig;
+use crate::plugins::net_game_control_manager::{ReceiveControlEvent, SendControlEvent};
 use crate::plugins::net_listener::ListenResult::{DropSocket, NewMessage};
 use crate::plugins::net_protocol::NetMessage;
-use crate::plugins::root::{ReceiveControlEvent, SendControlEvent, TickEvent};
+use crate::plugins::root::TickEvent;
 use crate::plugins::system_sets::UpdateSystems;
 
 #[derive(Component)]

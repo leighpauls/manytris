@@ -1,7 +1,6 @@
 use std::fmt::{Debug, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
 use crate::bot::compute_types::BitmapField;
 use crate::consts;

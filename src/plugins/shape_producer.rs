@@ -1,10 +1,11 @@
+use bevy::prelude::*;
+use rand::{thread_rng, RngCore};
+
 use crate::consts;
 use crate::game_state::{LockResult, TickMutation};
 use crate::plugins::root::{LockEvent, TickEvent, TickMutationMessage};
-use crate::plugins::system_sets::{StartupSystems, UpdateSystems};
+use crate::plugins::system_sets::UpdateSystems;
 use crate::shapes::Shape;
-use bevy::prelude::*;
-use rand::{thread_rng, RngCore};
 
 #[derive(Component)]
 pub struct ShapeProducer {
@@ -13,7 +14,7 @@ pub struct ShapeProducer {
 }
 
 pub fn plugin(app: &mut App) {
-    app.add_systems(Startup, setup.in_set(StartupSystems::AfterRoot))
+    app.add_systems(Startup, setup)
         .add_systems(Update, update.in_set(UpdateSystems::LocalEventProducers));
 }
 

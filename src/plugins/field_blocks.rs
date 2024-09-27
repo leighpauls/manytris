@@ -1,15 +1,15 @@
+use bevy::prelude::*;
+
 use crate::consts;
 use crate::field::Pos;
 use crate::game_state::BlockDisplayState;
 use crate::plugins::assets::RenderAssets;
 use crate::plugins::block_render::{BlockBundle, BlockColor, BlockComponent};
 use crate::plugins::root::GameRoot;
-use crate::plugins::system_sets::{StartupSystems, UpdateSystems};
-use bevy::prelude::*;
+use crate::plugins::system_sets::UpdateSystems;
 
 pub fn plugin(app: &mut App) {
-    app.add_systems(Startup, setup_field.in_set(StartupSystems::AfterRoot))
-        .add_systems(Update, update_field_blocks.in_set(UpdateSystems::PreRender));
+    app.add_systems(Update, update_field_blocks.in_set(UpdateSystems::PreRender));
 }
 
 #[derive(Bundle)]
@@ -30,22 +30,16 @@ impl FieldBundle {
     }
 }
 
-fn setup_field(
-    mut commands: Commands,
-    ra: Res<RenderAssets>,
-    q_root: Query<Entity, With<GameRoot>>,
-) {
+pub fn spawn_field(commands: &mut Commands, ra: &Res<RenderAssets>, root_entity: Entity) {
     commands.spawn(Camera2dBundle::default());
-
-    let root = q_root.single();
 
     commands
         .spawn(FieldBundle::new())
-        .set_parent(root)
+        .set_parent(root_entity)
         .with_children(|parent| {
             for y in 0..consts::H {
                 for x in 0..consts::W {
-                    parent.spawn(BlockBundle::new(Pos { x, y }, &ra));
+                    parent.spawn(BlockBundle::new(Pos { x, y }, ra));
                 }
             }
         });
@@ -56,7 +50,7 @@ fn update_field_blocks(
     q_field_children: Query<&Children, With<FieldComponent>>,
     mut q_blocks: Query<&mut BlockComponent>,
 ) {
-    let Some(ag) = &q_root.single().active_game else {
+    let Some(game_root) = GameRoot::for_single(q_root.get_single()) else {
         return;
     };
     let children = q_field_children.single();
@@ -65,7 +59,7 @@ fn update_field_blocks(
         let mut block = q_blocks.get_mut(child_id.clone()).unwrap();
 
         use BlockDisplayState::*;
-        block.color = match ag.game.get_display_state(&block.pos) {
+        block.color = match game_root.active_game.game.get_display_state(&block.pos) {
             Active(s) | Occupied(s) => BlockColor::Occupied(s),
             Shadow(s) => BlockColor::Shadow(s),
             Empty => {
