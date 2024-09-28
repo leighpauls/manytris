@@ -45,17 +45,15 @@ pub fn spawn_scoreboard(
 
 fn update_scoreboard(
     q_root: Query<&GameRoot>,
-    mut q_scoreboard: Query<&mut Text, With<ScoreboardComponent>>,
+    mut q_scoreboard: Query<(&mut Text, &Parent), With<ScoreboardComponent>>,
 ) {
-    let Some(game_root) = GameRoot::for_single(q_root.get_single()) else {
-        return;
-    };
-
-    let mut score_text = q_scoreboard.single_mut();
-    score_text.sections[0].value = get_score_text(
-        game_root.active_game.level,
-        game_root.active_game.lines_cleared,
-    );
+    for (mut score_text, parent_entity) in q_scoreboard.iter_mut() {
+        let game_root = q_root.get(parent_entity.get()).unwrap();
+        score_text.sections[0].value = get_score_text(
+            game_root.active_game.level,
+            game_root.active_game.lines_cleared,
+        );
+    }
 }
 
 fn get_score_text(level: i32, lines_cleared: i32) -> String {

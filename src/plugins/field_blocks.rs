@@ -46,17 +46,23 @@ pub fn spawn_field(commands: &mut Commands, ra: &Res<RenderAssets>, root_entity:
 }
 
 fn update_field_blocks(
-    q_root: Query<&GameRoot>,
+    q_root: Query<(&GameRoot, &Children)>,
     q_field_children: Query<&Children, With<FieldComponent>>,
     mut q_blocks: Query<&mut BlockComponent>,
 ) {
-    let Some(game_root) = GameRoot::for_single(q_root.get_single()) else {
-        return;
-    };
-    let children = q_field_children.single();
+    // Collect the game_root and associated block entities
+    let iter = q_root
+        .iter()
+        .map(|(game_root, root_children)| {
+            q_field_children
+                .iter_many(root_children)
+                .flatten()
+                .map(move |block_entity| (game_root, block_entity))
+        })
+        .flatten();
 
-    for child_id in children {
-        let mut block = q_blocks.get_mut(child_id.clone()).unwrap();
+    for (game_root, block_entity) in iter {
+        let mut block = q_blocks.get_mut(block_entity.clone()).unwrap();
 
         use BlockDisplayState::*;
         block.color = match game_root.active_game.game.get_display_state(&block.pos) {

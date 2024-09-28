@@ -5,7 +5,7 @@ use uuid::Uuid;
 use crate::game_state::GameState;
 use crate::plugins::assets::RenderAssets;
 use crate::plugins::root;
-use crate::plugins::root::GameId;
+use crate::plugins::root::{GameId, LocalGameRoot};
 use crate::plugins::system_sets::UpdateSystems;
 
 #[derive(Deserialize, Serialize, Copy, Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
@@ -65,7 +65,7 @@ pub fn update_server_for_control_events(
                 event: ClientControlEvent::JoinRequest,
                 from_connection,
             } => {
-                let (game_state, game_id) =
+                let (game_state, game_id, _) =
                     root::create_new_root(&mut commands, &ra, &asset_server, time.elapsed());
 
                 control_event_writer.send(SendControlEventToClient {
@@ -87,7 +87,7 @@ pub fn update_client_for_control_events(
     for sce in control_event_reader.read() {
         match sce {
             ServerControlEvent::SnapshotResponse(gs, game_id) => {
-                root::create_root_from_snapshot(
+                let root_entity = root::create_root_from_snapshot(
                     &mut commands,
                     &ra,
                     &asset_server,
@@ -95,6 +95,10 @@ pub fn update_client_for_control_events(
                     time.elapsed(),
                     game_id.clone(),
                 );
+                commands.insert_resource(LocalGameRoot {
+                    game_id: game_id.clone(),
+                    root_entity,
+                });
             }
         }
     }

@@ -57,35 +57,33 @@ pub fn spawn_windows(commands: &mut Commands, ra: &Res<RenderAssets>, root_entit
 type BlockQuery<'world, 'state, 'a> = Query<'world, 'state, &'a mut BlockComponent>;
 
 fn update_preview_window_blocks(
-    q_root: Query<&GameRoot>,
+    q_root: Query<(&GameRoot, &Children)>,
     q_windows: Query<(&PreviewWindowComponent, &Children)>,
     mut q_blocks: BlockQuery,
 ) {
-    const ARRAY_REPEAT_VALUE: Option<Tetromino> = None;
-    let previews = if let Some(game_root) = GameRoot::for_single(q_root.get_single()) {
-        game_root.active_game.game.previews().map(Some)
-    } else {
-        [ARRAY_REPEAT_VALUE; 6]
-    };
-
-    for (window, children) in &q_windows {
-        let preview = previews[window.preview_idx].clone();
-        update_child_block_colors(preview.as_ref(), children, &mut q_blocks);
+    for (game_root, root_children) in q_root.iter() {
+        let previews = game_root.active_game.game.previews();
+        for (window, window_children) in q_windows.iter_many(root_children) {
+            update_child_block_colors(
+                Some(&previews[window.preview_idx]),
+                window_children,
+                &mut q_blocks,
+            );
+        }
     }
 }
 
 fn update_hold_window_blocks(
     q_root: Query<&GameRoot>,
-    q_window: Query<&Children, With<HoldWindowComponent>>,
+    q_window: Query<(&Children, &Parent), With<HoldWindowComponent>>,
     mut q_blocks: BlockQuery,
 ) {
-    let Some(game_root) = GameRoot::for_single(q_root.get_single()) else {
-        return;
-    };
+    for (window_children, window_parent) in q_window.iter() {
+        let game_root = q_root.get(window_parent.get()).unwrap();
+        let held = game_root.active_game.game.held_tetromino();
 
-    let held = game_root.active_game.game.held_tetromino();
-
-    update_child_block_colors(held.as_ref(), q_window.single(), &mut q_blocks);
+        update_child_block_colors(held.as_ref(), window_children, &mut q_blocks);
+    }
 }
 
 fn spawn_window_block_children(parent: &mut ChildBuilder, ra: &RenderAssets) {

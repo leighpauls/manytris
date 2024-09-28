@@ -4,7 +4,6 @@ use std::io;
 use std::net::{TcpListener, TcpStream};
 
 use bevy::prelude::*;
-use bevy::tasks::futures_lite::AsyncSeek;
 use tungstenite::{Message, WebSocket};
 
 use crate::cli_options::HostConfig;

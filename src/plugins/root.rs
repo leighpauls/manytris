@@ -45,6 +45,12 @@ pub fn stand_alone_plugin(app: &mut App) {
 }
 
 #[derive(Resource)]
+pub struct LocalGameRoot {
+    pub game_id: GameId,
+    pub root_entity: Entity,
+}
+
+#[derive(Resource)]
 pub struct StartPositionRes(pub StartPositions);
 
 #[derive(Component)]
@@ -118,7 +124,11 @@ fn setup_start_standalone_game(
     time: Res<Time<Fixed>>,
 ) {
     let start_time = time.elapsed();
-    create_new_root(&mut commands, &ra, &asset_server, start_time);
+    let (_, game_id, root_entity) = create_new_root(&mut commands, &ra, &asset_server, start_time);
+    commands.insert_resource(LocalGameRoot {
+        game_id,
+        root_entity,
+    });
 }
 
 pub fn create_new_root(
@@ -126,12 +136,12 @@ pub fn create_new_root(
     ra: &Res<RenderAssets>,
     asset_server: &Res<AssetServer>,
     cur_time: Duration,
-) -> (GameState, GameId) {
+) -> (GameState, GameId, Entity) {
     let active_game = ActiveGame::new(cur_time);
     let game_state = active_game.game.clone();
     let game_id = GameId::new();
-    spawn_root(commands, ra, asset_server, active_game, game_id);
-    (game_state, game_id)
+    let entity = spawn_root(commands, ra, asset_server, active_game, game_id);
+    (game_state, game_id, entity)
 }
 
 pub fn create_root_from_snapshot(
@@ -141,9 +151,9 @@ pub fn create_root_from_snapshot(
     gs: GameState,
     cur_time: Duration,
     game_id: GameId,
-) {
+) -> Entity {
     let active_game = ActiveGame::from_snapshot(gs, cur_time);
-    spawn_root(commands, ra, asset_server, active_game, game_id);
+    spawn_root(commands, ra, asset_server, active_game, game_id)
 }
 
 fn spawn_root(
@@ -152,7 +162,7 @@ fn spawn_root(
     asset_server: &Res<AssetServer>,
     active_game: ActiveGame,
     game_id: GameId,
-) {
+) -> Entity {
     let root_entitiy = commands
         .spawn(RootTransformBundle {
             transform: SpatialBundle::from_transform(Transform::from_xyz(
@@ -170,6 +180,8 @@ fn spawn_root(
     field_blocks::spawn_field(commands, ra, root_entitiy);
     scoreboard::spawn_scoreboard(commands, asset_server, root_entitiy);
     window_blocks::spawn_windows(commands, ra, root_entitiy);
+
+    root_entitiy
 }
 
 fn produce_tick_events(
@@ -178,14 +190,16 @@ fn produce_tick_events(
     mut q_root: Query<&mut GameRoot>,
     mut tick_event_writer: EventWriter<TickEvent>,
     sp: Res<StartPositionRes>,
+    local_game_root_res: Option<Res<LocalGameRoot>>,
 ) {
-    let Some(mut game_root) = GameRoot::for_single_mut(q_root.get_single_mut()) else {
+    let Some(local_game_root) = local_game_root_res else {
         return;
     };
-    let game_id = game_root.game_id;
+    let mut game_root = q_root.get_mut(local_game_root.root_entity).unwrap();
+    let game_id = local_game_root.game_id;
     let game = &mut game_root.active_game;
-    let mut tick_events = vec![];
 
+    let mut tick_events = vec![];
     use InputType::*;
     use TickMutation::*;
 
@@ -244,11 +258,7 @@ fn update_root_tick(
 ) {
     let cur_time = time.elapsed();
 
-    let Some(mut game_root) = GameRoot::for_single_mut(q_root.get_single_mut()) else {
-        return;
-    };
-    let active_game = &mut game_root.active_game;
-
+    // Group the incoming mutations by game.
     let mut mutations_by_game: BTreeMap<GameId, Vec<TickMutation>> = BTreeMap::new();
     for tick_event in tick_event_reader.read() {
         let game_id = tick_event.mutation.game_id;
@@ -258,9 +268,15 @@ fn update_root_tick(
             .push(tick_event.mutation.mutation.clone());
     }
 
-    for (game_id, mutations) in mutations_by_game {
+    for mut game_root in q_root.iter_mut() {
+        let game_id = game_root.game_id;
+        let active_game = &mut game_root.active_game;
+        let Some(mutations) = mutations_by_game.get(&game_id) else {
+            continue;
+        };
+
         // TODO: get game by game_id
-        for tick_result in active_game.game.tick_mutation(mutations) {
+        for tick_result in active_game.game.tick_mutation(mutations.clone()) {
             use TickResult::*;
             match tick_result {
                 Lock(lr) => {
@@ -278,23 +294,6 @@ fn update_root_tick(
                     active_game.lock_timer_target = None;
                 }
             }
-        }
-    }
-}
-
-impl GameRoot {
-    pub fn for_single(res: Result<&GameRoot, QuerySingleError>) -> Option<&GameRoot> {
-        match res {
-            Ok(r) => Some(r),
-            Err(QuerySingleError::NoEntities(_)) => None,
-            Err(QuerySingleError::MultipleEntities(_)) => panic!("Unexpected multiple roots found"),
-        }
-    }
-    pub fn for_single_mut(res: Result<Mut<GameRoot>, QuerySingleError>) -> Option<Mut<GameRoot>> {
-        match res {
-            Ok(r) => Some(r),
-            Err(QuerySingleError::NoEntities(_)) => None,
-            Err(QuerySingleError::MultipleEntities(_)) => panic!("Unexpected multiple roots found"),
         }
     }
 }
