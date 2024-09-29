@@ -1,4 +1,3 @@
-use bevy::ecs::query::QuerySingleError;
 use std::collections::BTreeMap;
 use std::time::Duration;
 
@@ -12,6 +11,7 @@ use crate::bot::bot_start_positions::StartPositions;
 use crate::consts;
 use crate::game_state::{DownType, GameState, LockResult, TickMutation, TickResult};
 use crate::plugins::assets::RenderAssets;
+use crate::plugins::game_container::LocalGameRoot;
 use crate::plugins::input::{InputEvent, InputType};
 use crate::plugins::system_sets::UpdateSystems;
 use crate::plugins::{assets, field_blocks, scoreboard, window_blocks};
@@ -37,17 +37,10 @@ pub fn client_plugin(app: &mut App) {
 
 /// Use this plugin for clients of single-player games.
 pub fn stand_alone_plugin(app: &mut App) {
-    app.add_systems(Startup, setup_start_standalone_game)
-        .add_systems(
-            Update,
-            produce_tick_events.in_set(UpdateSystems::LocalEventProducers),
-        );
-}
-
-#[derive(Resource)]
-pub struct LocalGameRoot {
-    pub game_id: GameId,
-    pub root_entity: Entity,
+    app.add_systems(
+        Update,
+        produce_tick_events.in_set(UpdateSystems::LocalEventProducers),
+    );
 }
 
 #[derive(Resource)]
@@ -117,22 +110,9 @@ pub struct LockEvent {
     pub lock_result: LockResult,
 }
 
-fn setup_start_standalone_game(
-    mut commands: Commands,
-    ra: Res<RenderAssets>,
-    asset_server: Res<AssetServer>,
-    time: Res<Time<Fixed>>,
-) {
-    let start_time = time.elapsed();
-    let (_, game_id, root_entity) = create_new_root(&mut commands, &ra, &asset_server, start_time);
-    commands.insert_resource(LocalGameRoot {
-        game_id,
-        root_entity,
-    });
-}
-
 pub fn create_new_root(
     commands: &mut Commands,
+    container_entity: Entity,
     ra: &Res<RenderAssets>,
     asset_server: &Res<AssetServer>,
     cur_time: Duration,
@@ -140,12 +120,20 @@ pub fn create_new_root(
     let active_game = ActiveGame::new(cur_time);
     let game_state = active_game.game.clone();
     let game_id = GameId::new();
-    let entity = spawn_root(commands, ra, asset_server, active_game, game_id);
+    let entity = spawn_root(
+        commands,
+        container_entity,
+        ra,
+        asset_server,
+        active_game,
+        game_id,
+    );
     (game_state, game_id, entity)
 }
 
 pub fn create_root_from_snapshot(
     commands: &mut Commands,
+    container_entity: Entity,
     ra: &Res<RenderAssets>,
     asset_server: &Res<AssetServer>,
     gs: GameState,
@@ -153,11 +141,19 @@ pub fn create_root_from_snapshot(
     game_id: GameId,
 ) -> Entity {
     let active_game = ActiveGame::from_snapshot(gs, cur_time);
-    spawn_root(commands, ra, asset_server, active_game, game_id)
+    spawn_root(
+        commands,
+        container_entity,
+        ra,
+        asset_server,
+        active_game,
+        game_id,
+    )
 }
 
 fn spawn_root(
     commands: &mut Commands,
+    container_entitiy: Entity,
     ra: &Res<RenderAssets>,
     asset_server: &Res<AssetServer>,
     active_game: ActiveGame,
@@ -175,6 +171,7 @@ fn spawn_root(
                 game_id: game_id,
             },
         })
+        .set_parent(container_entitiy)
         .id();
 
     field_blocks::spawn_field(commands, ra, root_entitiy);

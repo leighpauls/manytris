@@ -3,10 +3,6 @@ use bevy::prelude::*;
 /// Configure the system sets' run ordering
 pub fn plugin(app: &mut App) {
     app.configure_sets(
-        Startup,
-        (StartupSystems::Root, StartupSystems::AfterRoot).chain(),
-    )
-    .configure_sets(
         Update,
         (
             UpdateSystems::Input,
@@ -18,12 +14,6 @@ pub fn plugin(app: &mut App) {
         )
             .chain(),
     );
-}
-
-#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
-pub enum StartupSystems {
-    Root,
-    AfterRoot,
 }
 
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]

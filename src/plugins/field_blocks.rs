@@ -31,8 +31,6 @@ impl FieldBundle {
 }
 
 pub fn spawn_field(commands: &mut Commands, ra: &Res<RenderAssets>, root_entity: Entity) {
-    commands.spawn(Camera2dBundle::default());
-
     commands
         .spawn(FieldBundle::new())
         .set_parent(root_entity)

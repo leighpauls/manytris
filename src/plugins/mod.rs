@@ -15,6 +15,7 @@ mod scoreboard;
 pub mod shape_producer;
 mod system_sets;
 mod window_blocks;
+mod game_container;
 
 pub fn run(cfg: ExecCommand) {
     let mut app = App::new();
@@ -33,6 +34,7 @@ pub fn run(cfg: ExecCommand) {
         ExecCommand::Client(hc) => {
             app.insert_resource(net_client::NetClientConfig(hc))
                 .add_plugins((
+                    game_container::multiplayer_client_plugin,
                     input::plugin,
                     root::client_plugin,
                     net_client::plugin,
@@ -42,6 +44,7 @@ pub fn run(cfg: ExecCommand) {
         ExecCommand::Server(hc) => {
             app.insert_resource(net_listener::NetListenerConfig(hc))
                 .add_plugins((
+                    game_container::server_plugin,
                     net_listener::plugin,
                     shape_producer::plugin,
                     net_game_control_manager::server_plugin,
@@ -49,6 +52,7 @@ pub fn run(cfg: ExecCommand) {
         }
         ExecCommand::StandAlone => {
             app.add_plugins((
+                game_container::stand_alone_plugin,
                 input::plugin,
                 root::stand_alone_plugin,
                 shape_producer::plugin,
