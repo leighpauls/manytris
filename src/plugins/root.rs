@@ -14,7 +14,7 @@ use crate::plugins::assets::RenderAssets;
 use crate::plugins::game_container::LocalGameRoot;
 use crate::plugins::input::{InputEvent, InputType};
 use crate::plugins::system_sets::UpdateSystems;
-use crate::plugins::{assets, field_blocks, scoreboard, window_blocks};
+use crate::plugins::{field_blocks, scoreboard, window_blocks};
 use crate::shapes::Shape;
 
 const LINES_PER_LEVEL: i32 = 10;
@@ -113,6 +113,7 @@ pub struct LockEvent {
 pub fn create_new_root(
     commands: &mut Commands,
     container_entity: Entity,
+    transform: Transform,
     ra: &Res<RenderAssets>,
     asset_server: &Res<AssetServer>,
     cur_time: Duration,
@@ -123,6 +124,7 @@ pub fn create_new_root(
     let entity = spawn_root(
         commands,
         container_entity,
+        transform,
         ra,
         asset_server,
         active_game,
@@ -134,6 +136,7 @@ pub fn create_new_root(
 pub fn create_root_from_snapshot(
     commands: &mut Commands,
     container_entity: Entity,
+    transform: Transform,
     ra: &Res<RenderAssets>,
     asset_server: &Res<AssetServer>,
     gs: GameState,
@@ -144,6 +147,7 @@ pub fn create_root_from_snapshot(
     spawn_root(
         commands,
         container_entity,
+        transform,
         ra,
         asset_server,
         active_game,
@@ -154,6 +158,7 @@ pub fn create_root_from_snapshot(
 fn spawn_root(
     commands: &mut Commands,
     container_entitiy: Entity,
+    transform: Transform,
     ra: &Res<RenderAssets>,
     asset_server: &Res<AssetServer>,
     active_game: ActiveGame,
@@ -161,11 +166,7 @@ fn spawn_root(
 ) -> Entity {
     let root_entitiy = commands
         .spawn(RootTransformBundle {
-            transform: SpatialBundle::from_transform(Transform::from_xyz(
-                -assets::BLOCK_SIZE * 8.,
-                -assets::BLOCK_SIZE * 11.,
-                0.,
-            )),
+            transform: SpatialBundle::from_transform(transform),
             marker: GameRoot {
                 active_game,
                 game_id: game_id,

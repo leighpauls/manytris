@@ -1,10 +1,12 @@
+use bevy::prelude::*;
+
 // use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use crate::cli_options::ExecCommand;
-use bevy::prelude::*;
 
 mod assets;
 mod block_render;
 mod field_blocks;
+mod game_container;
 mod input;
 mod net_client;
 mod net_game_control_manager;
@@ -15,7 +17,6 @@ mod scoreboard;
 pub mod shape_producer;
 mod system_sets;
 mod window_blocks;
-mod game_container;
 
 pub fn run(cfg: ExecCommand) {
     let mut app = App::new();
@@ -28,6 +29,7 @@ pub fn run(cfg: ExecCommand) {
         system_sets::plugin,
         block_render::plugin,
         scoreboard::plugin,
+        game_container::common_plugin,
     ));
 
     match cfg {

@@ -1,14 +1,25 @@
-use crate::plugins::assets::RenderAssets;
+use bevy::prelude::*;
+use bevy::window::WindowResized;
+
+use crate::plugins::assets::{RenderAssets, BLOCK_SIZE};
 use crate::plugins::net_game_control_manager::{
     ClientControlEvent, ReceiveControlEventFromClient, SendControlEventToClient, ServerControlEvent,
 };
 use crate::plugins::root;
-use crate::plugins::root::{GameId, GameRoot};
-use bevy::prelude::*;
-use std::collections::BTreeMap;
+use crate::plugins::root::GameId;
+
+const HEIGHT_IN_BLOCKS: f32 = 26.;
+const PADDING_BLOCKS: f32 = 2.;
+const WIDTH_IN_BLOCKS: f32 = 22.;
+
+const HORIZONTAL_TILES: isize = 4;
+const VERTICAL_TILES: isize = 3;
 
 #[derive(Component)]
-pub struct GameContainer {}
+pub struct GameContainer {
+    tiled_games: Vec<GameId>,
+    container_type: ContainerType,
+}
 
 #[derive(Bundle)]
 pub struct GameContainerBundle {
@@ -20,6 +31,15 @@ pub struct GameContainerBundle {
 pub struct LocalGameRoot {
     pub game_id: GameId,
     pub root_entity: Entity,
+}
+
+enum ContainerType {
+    StandAlone,
+    ServerTiles,
+}
+
+pub fn common_plugin(app: &mut App) {
+    app.add_systems(Update, respond_to_resize);
 }
 
 pub fn stand_alone_plugin(app: &mut App) {
@@ -38,15 +58,18 @@ pub fn server_plugin(app: &mut App) {
 
 fn setup_stand_alone(
     mut commands: Commands,
+    q_window: Query<&Window>,
     ra: Res<RenderAssets>,
     asset_server: Res<AssetServer>,
     time: Res<Time<Fixed>>,
 ) {
-    let container_entity = spawn_container(&mut commands, 1.0);
+    let container_entity =
+        spawn_container(&mut commands, ContainerType::StandAlone, q_window.single());
     let start_time = time.elapsed();
     let (_, game_id, root_entity) = root::create_new_root(
         &mut commands,
         container_entity,
+        active_game_transform(),
         &ra,
         &asset_server,
         start_time,
@@ -54,8 +77,8 @@ fn setup_stand_alone(
     set_local_game_root(&mut commands, game_id, root_entity);
 }
 
-fn setup_multiplayer_client(mut commands: Commands) {
-    spawn_container(&mut commands, 1.0);
+fn setup_multiplayer_client(mut commands: Commands, q_window: Query<&Window>) {
+    spawn_container(&mut commands, ContainerType::StandAlone, q_window.single());
 }
 
 fn accept_server_control_events(
@@ -73,6 +96,7 @@ fn accept_server_control_events(
                 let root_entity = root::create_root_from_snapshot(
                     &mut commands,
                     container_entity,
+                    active_game_transform(),
                     &ra,
                     &asset_server,
                     gs.clone(),
@@ -85,13 +109,13 @@ fn accept_server_control_events(
     }
 }
 
-fn setup_server(mut commands: Commands) {
-    spawn_container(&mut commands, 0.5);
+fn setup_server(mut commands: Commands, q_window: Query<&Window>) {
+    spawn_container(&mut commands, ContainerType::ServerTiles, q_window.single());
 }
 
 fn accept_client_control_events(
     mut commands: Commands,
-    q_container: Query<Entity, With<GameContainer>>,
+    mut q_container: Query<(Entity, &mut GameContainer)>,
     ra: Res<RenderAssets>,
     asset_server: Res<AssetServer>,
     mut control_event_reader: EventReader<ReceiveControlEventFromClient>,
@@ -104,14 +128,17 @@ fn accept_client_control_events(
                 event: ClientControlEvent::JoinRequest,
                 from_connection,
             } => {
-                let container_entity = q_container.single();
+                let (container_entity, mut container) = q_container.single_mut();
+                let new_idx = container.tiled_games.len();
                 let (game_state, game_id, _) = root::create_new_root(
                     &mut commands,
                     container_entity,
+                    tiled_game_transform(new_idx),
                     &ra,
                     &asset_server,
                     time.elapsed(),
                 );
+                container.tiled_games.push(game_id);
 
                 control_event_writer.send(SendControlEventToClient {
                     event: ServerControlEvent::SnapshotResponse(game_state, game_id),
@@ -122,14 +149,53 @@ fn accept_client_control_events(
     }
 }
 
-fn spawn_container(commands: &mut Commands, scaling_factor: f32) -> Entity {
+fn respond_to_resize(
+    mut q_container_xform: Query<(&mut Transform, &GameContainer)>,
+    mut resize_reader: EventReader<WindowResized>,
+) {
+    for e in resize_reader.read() {
+        let (mut xform, container) = q_container_xform.single_mut();
+        *xform = container.get_transform(e.width, e.height);
+    }
+}
+
+fn active_game_transform() -> Transform {
+    Transform::from_translation(
+        (Vec3::Y * PADDING_BLOCKS - 0.5 * Vec3::new(WIDTH_IN_BLOCKS, HEIGHT_IN_BLOCKS, 0.0))
+            * BLOCK_SIZE,
+    )
+}
+
+fn tiled_game_transform(game_index: usize) -> Transform {
+    let game_index = game_index as isize;
+    let tile_x = (game_index % HORIZONTAL_TILES) as f32;
+    let tile_y = (game_index / HORIZONTAL_TILES) as f32;
+
+    Transform::from_translation(
+        ((Vec3::new(tile_x, tile_y, 0.)
+            - 0.5 * Vec3::new(HORIZONTAL_TILES as f32, VERTICAL_TILES as f32, 0.))
+            * Vec3::new(WIDTH_IN_BLOCKS, HEIGHT_IN_BLOCKS, 0.)
+            + Vec3::Y * PADDING_BLOCKS)
+            * BLOCK_SIZE,
+    )
+}
+
+fn spawn_container(
+    commands: &mut Commands,
+    container_type: ContainerType,
+    window: &Window,
+) -> Entity {
+    let game_container = GameContainer {
+        tiled_games: default(),
+        container_type,
+    };
+    let transform =
+        game_container.get_transform(window.resolution.width(), window.resolution.height());
     commands.spawn(Camera2dBundle::default());
     commands
         .spawn(GameContainerBundle {
-            transform: SpatialBundle::from_transform(Transform::from_scale(Vec3::splat(
-                scaling_factor,
-            ))),
-            game_container: GameContainer {},
+            transform: SpatialBundle::from_transform(transform),
+            game_container,
         })
         .id()
 }
@@ -139,4 +205,20 @@ fn set_local_game_root(commands: &mut Commands, game_id: GameId, root_entity: En
         game_id,
         root_entity,
     });
+}
+
+impl GameContainer {
+    fn get_transform(&self, width_pixels: f32, height_pixels: f32) -> Transform {
+        let x_scale = width_pixels / (WIDTH_IN_BLOCKS * BLOCK_SIZE);
+        let y_scale = height_pixels / (HEIGHT_IN_BLOCKS * BLOCK_SIZE);
+
+        let scale = match self.container_type {
+            ContainerType::StandAlone => x_scale.min(y_scale),
+            ContainerType::ServerTiles => {
+                (x_scale / HORIZONTAL_TILES as f32).min(y_scale / VERTICAL_TILES as f32)
+            }
+        };
+
+        Transform::from_scale(Vec3::splat(scale))
+    }
 }
