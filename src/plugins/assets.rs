@@ -1,3 +1,4 @@
+use crate::field::OccupiedBlock;
 use crate::shapes::Shape;
 use bevy::prelude::*;
 use bevy::sprite::Mesh2dHandle;
@@ -12,7 +13,7 @@ pub fn plugin(app: &mut App) {
 
 #[derive(Resource)]
 pub struct RenderAssets {
-    pub occupied_materials: HashMap<Shape, Handle<ColorMaterial>>,
+    pub occupied_materials: HashMap<OccupiedBlock, Handle<ColorMaterial>>,
     pub shadow_materials: HashMap<Shape, Handle<ColorMaterial>>,
     pub empty_material: Handle<ColorMaterial>,
     pub invisible_material: Handle<ColorMaterial>,
@@ -36,10 +37,20 @@ impl FromWorld for RenderAssets {
             (Shape::T, 300.),
         ];
 
-        let occupied_materials = hue_pairs
+        let mut occupied_materials = hue_pairs
             .iter()
-            .map(|(shape, hue)| (*shape, materials.add(Color::hsl(*hue, 0.7, 0.7))))
-            .collect::<HashMap<Shape, Handle<ColorMaterial>>>();
+            .map(|(shape, hue)| {
+                (
+                    OccupiedBlock::FromShape(*shape),
+                    materials.add(Color::hsl(*hue, 0.7, 0.7)),
+                )
+            })
+            .collect::<HashMap<OccupiedBlock, Handle<ColorMaterial>>>();
+        occupied_materials.insert(
+            OccupiedBlock::FromGarbage,
+            materials.add(Color::hsl(0., 0., 0.7)),
+        );
+
         let shadow_materials = hue_pairs
             .iter()
             .map(|(shape, hue)| (*shape, materials.add(Color::hsl(*hue, 0.15, 0.7))))

@@ -1,10 +1,10 @@
-use std::fmt::{Debug, Display, Formatter};
-
 use serde::{Deserialize, Serialize};
+use std::collections::VecDeque;
+use std::fmt::{Debug, Display, Formatter};
 
 use crate::bot::compute_types::BitmapField;
 use crate::consts;
-use crate::field::{Field, Pos};
+use crate::field::{OccupiedBlock, Field, Pos};
 use crate::shapes::{Rot, Shape, Shift};
 use crate::tetromino::Tetromino;
 use crate::upcoming::UpcomingTetrominios;
@@ -14,6 +14,7 @@ pub struct GameState {
     field: Field,
     active: Tetromino,
     upcoming: UpcomingTetrominios,
+    garbage_queue: VecDeque<usize>,
 
     held: Option<Shape>,
     hold_used: bool,
@@ -21,7 +22,7 @@ pub struct GameState {
 
 pub enum BlockDisplayState {
     Empty,
-    Occupied(Shape),
+    Occupied(OccupiedBlock),
     Active(Shape),
     Shadow(Shape),
 }
@@ -49,6 +50,7 @@ pub enum TickMutation {
     HoldInput,
     EnqueueTetromino(Shape),
     JumpToBotStartPosition(Tetromino),
+    EnqueueGarbage(usize),
 }
 
 #[must_use]
@@ -62,13 +64,14 @@ impl GameState {
     pub fn new(inital_shapes: Vec<Shape>) -> GameState {
         let mut upcoming = UpcomingTetrominios::new(inital_shapes);
 
-        return GameState {
+        GameState {
             field: Field::new(),
             active: Tetromino::new(upcoming.take()),
+            garbage_queue: VecDeque::default(),
             held: None,
             hold_used: false,
             upcoming,
-        };
+        }
     }
 
     pub fn tick_mutation(&mut self, mutations: Vec<TickMutation>) -> Vec<TickResult> {
@@ -89,6 +92,10 @@ impl GameState {
                 }
                 JumpToBotStartPosition(new_tet) => {
                     self.active = new_tet;
+                    vec![]
+                }
+                EnqueueGarbage(lines) => {
+                    self.enqueue_garbage(lines);
                     vec![]
                 }
             });
@@ -138,13 +145,19 @@ impl GameState {
         Some(self.update_lock_timer_for_movement())
     }
 
+    fn enqueue_garbage(&mut self, num_lines: usize) {
+        for _ in 0..num_lines {
+            self.garbage_queue.push_back(consts::GARBAGE_TURN_COUNT)
+        }
+    }
+
     pub fn get_display_state(&self, p: &Pos) -> BlockDisplayState {
         if self.active.contains(p) {
             BlockDisplayState::Active(self.active.shape)
         } else if self.field.find_shadow(&self.active).contains(p) {
             BlockDisplayState::Shadow(self.active.shape)
-        } else if let Some(shape) = self.field.get_occupied_block(p) {
-            BlockDisplayState::Occupied(shape)
+        } else if let Some(color) = self.field.get_occupied_block(p) {
+            BlockDisplayState::Occupied(color)
         } else {
             BlockDisplayState::Empty
         }
@@ -207,6 +220,15 @@ impl GameState {
 
         let lines_cleared = self.field.apply_tetrominio(&self.active);
         let next_shape = self.upcoming.take();
+
+        while (!self.garbage_queue.is_empty()) && self.garbage_queue[0] == 1 {
+            self.field.apply_garbage();
+            self.garbage_queue.pop_front();
+        }
+
+        self.garbage_queue.iter_mut().for_each(|cnt| {
+            *cnt -= 1;
+        });
 
         result.push(TickResult::Lock(
             if self.replace_active_tetromino(next_shape) {

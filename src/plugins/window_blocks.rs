@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 use crate::consts;
-use crate::field::Pos;
+use crate::field::{OccupiedBlock, Pos};
 use crate::plugins::assets;
 use crate::plugins::assets::RenderAssets;
 use crate::plugins::block_render::{BlockBundle, BlockColor, BlockComponent};
@@ -102,7 +102,9 @@ fn update_child_block_colors(
     for child in children {
         if let Ok(mut block) = q_blocks.get_mut(*child) {
             block.color = match preview {
-                Some(t) if t.contains(&block.pos) => BlockColor::Occupied(t.shape),
+                Some(t) if t.contains(&block.pos) => {
+                    BlockColor::Occupied(OccupiedBlock::FromShape(t.shape))
+                }
                 _ => BlockColor::Invisible,
             };
         }

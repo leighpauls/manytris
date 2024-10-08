@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 use crate::consts;
-use crate::field::Pos;
+use crate::field::{OccupiedBlock, Pos};
 use crate::game_state::BlockDisplayState;
 use crate::plugins::assets::RenderAssets;
 use crate::plugins::block_render::{BlockBundle, BlockColor, BlockComponent};
@@ -64,7 +64,8 @@ fn update_field_blocks(
 
         use BlockDisplayState::*;
         block.color = match game_root.active_game.game.get_display_state(&block.pos) {
-            Active(s) | Occupied(s) => BlockColor::Occupied(s),
+            Occupied(ob) => BlockColor::Occupied(ob),
+            Active(s) => BlockColor::Occupied(OccupiedBlock::FromShape(s)),
             Shadow(s) => BlockColor::Shadow(s),
             Empty => {
                 if block.pos.y < consts::H - consts::PREVIEW_H {

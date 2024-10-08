@@ -27,6 +27,7 @@ pub enum InputType {
     HoldEvent,
     JumpToBotStartPositionEvent,
     PerformBotMoveEvent,
+    EnqueueGarbageEvent(usize),
 }
 
 #[derive(Resource)]
@@ -137,6 +138,13 @@ fn update_for_input(
     if keys.just_pressed(KeyCode::KeyW) {
         input_event_writer.send(InputEvent {
             input_type: InputType::PerformBotMoveEvent,
+            is_repeat: false,
+        });
+    }
+
+    if keys.just_pressed(KeyCode::KeyG) {
+        input_event_writer.send(InputEvent {
+            input_type: InputType::EnqueueGarbageEvent(1),
             is_repeat: false,
         });
     }

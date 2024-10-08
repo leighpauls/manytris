@@ -1,10 +1,11 @@
+use crate::bot::compute_types::BitmapField;
 use crate::consts;
 use crate::shapes::Shape;
 use crate::tetromino::Tetromino;
 use serde::{Deserialize, Serialize};
 use std::cmp::max;
 use std::collections::HashMap;
-use crate::bot::compute_types::BitmapField;
+use std::mem;
 
 #[derive(Clone, Eq, PartialEq, Hash, Debug, Deserialize, Serialize)]
 pub struct Pos {
@@ -14,12 +15,25 @@ pub struct Pos {
 
 #[derive(Clone, Deserialize, Serialize, Debug)]
 pub struct Field {
-    occupied: HashMap<Pos, Shape>,
+    occupied: HashMap<Pos, OccupiedBlock>,
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Deserialize, Serialize)]
+pub enum OccupiedBlock {
+    FromShape(Shape),
+    FromGarbage,
 }
 
 impl Pos {
     pub fn out_of_bounds(&self) -> bool {
         self.x < 0 || self.x >= consts::W || self.y < 0
+    }
+
+    fn up(&self) -> Self {
+        Self {
+            x: self.x,
+            y: self.y + 1,
+        }
     }
 }
 
@@ -33,7 +47,8 @@ impl Field {
     /// Apply the tetromino, return the number of lines cleared.
     pub fn apply_tetrominio(&mut self, t: &Tetromino) -> i32 {
         for block_pos in &t.get_blocks() {
-            self.occupied.insert(block_pos.clone(), t.shape);
+            self.occupied
+                .insert(block_pos.clone(), OccupiedBlock::FromShape(t.shape));
         }
 
         let mut blocks_by_line = HashMap::<i32, i32>::new();
@@ -89,7 +104,7 @@ impl Field {
         shadow
     }
 
-    pub fn get_occupied_block(&self, pos: &Pos) -> Option<Shape> {
+    pub fn get_occupied_block(&self, pos: &Pos) -> Option<OccupiedBlock> {
         Some(self.occupied.get(pos)?.clone())
     }
 
@@ -110,6 +125,20 @@ impl Field {
             }
         }
         false
+    }
+
+    pub fn apply_garbage(&mut self) {
+        // move all blocks up 1
+        self.occupied = mem::take(&mut self.occupied)
+            .into_iter()
+            .map(|(p, s)| (p.up(), s))
+            .collect();
+
+        // insert garbage at the bottom
+        for x in 0..(consts::W - 1) {
+            self.occupied
+                .insert(Pos { x, y: 0 }, OccupiedBlock::FromGarbage);
+        }
     }
 
     pub fn make_bitmap_field(&self) -> BitmapField {

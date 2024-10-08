@@ -227,6 +227,7 @@ fn produce_tick_events(
                     )]
                 }
                 PerformBotMoveEvent => make_bot_move_events(game, &sp.0),
+                EnqueueGarbageEvent(lines) => vec![EnqueueGarbage(lines)],
             })
             .flatten(),
     );

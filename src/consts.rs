@@ -24,3 +24,6 @@ pub const OUTPUTS_PER_INPUT_FIELD: usize = ROTATIONS_PER_SHAPE * SHIFTS_PER_ROTA
 pub const LOCK_TIMER_DURATION: Duration = Duration::from_millis(500);
 
 pub const BEST_BOT_KS: ScoringKs = [-2447.9722, 7782.121, -6099.498, -1970.1172];
+
+/// How many turns a unit of garbage stays in the queue before being applied to the field.
+pub const GARBAGE_TURN_COUNT: usize = 4;

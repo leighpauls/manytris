@@ -1,4 +1,4 @@
-use crate::field::Pos;
+use crate::field::{OccupiedBlock, Pos};
 use crate::plugins::assets;
 use crate::plugins::assets::RenderAssets;
 use crate::plugins::system_sets::UpdateSystems;
@@ -25,7 +25,7 @@ pub struct BlockComponent {
 pub enum BlockColor {
     Empty,
     Invisible,
-    Occupied(Shape),
+    Occupied(OccupiedBlock),
     Shadow(Shape),
 }
 
@@ -37,7 +37,7 @@ fn render_blocks(
         *material = match block.color {
             BlockColor::Empty => ra.empty_material.clone(),
             BlockColor::Invisible => ra.invisible_material.clone(),
-            BlockColor::Occupied(s) => ra.occupied_materials[&s].clone(),
+            BlockColor::Occupied(ob) => ra.occupied_materials[&ob].clone(),
             BlockColor::Shadow(s) => ra.shadow_materials[&s].clone(),
         };
     }
