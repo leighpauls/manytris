@@ -1,17 +1,16 @@
-use std::iter;
-
 use genetic_algorithm::strategy::evolve::prelude::*;
 
-use manytris::{bot_player, consts};
-use manytris::bot_player::ScoringKs;
-use manytris::bot_shader::BotShaderContext;
+use manytris::bot::bot_player;
+use manytris::bot::bot_player::ScoringKs;
+use manytris::bot::bot_shader::BotShaderContext;
+use manytris::consts;
 use manytris::game_state::{GameState, TickMutation};
+use manytris::plugins::root::GameId;
 use manytris::plugins::shape_producer::ShapeProducer;
 
 const SEARCH_DEPTH: usize = 3;
 
 pub fn main() {
-
     println!("Start test games...");
     for _ in 0..4 {
         println!("Game length {}", run_game(&consts::BEST_BOT_KS, 600));
@@ -99,9 +98,9 @@ fn evaluate_ks(ks: &ScoringKs) -> i32 {
 }
 
 fn run_game(ks: &ScoringKs, max_game_length: i32) -> i32 {
-    let mut sp = ShapeProducer::new();
-    let inital_shapes = iter::repeat_with(|| sp.take()).take(7).collect();
-    let mut gs = GameState::new(inital_shapes);
+    let mut sp = ShapeProducer::default();
+    let game_id = GameId::new();
+    let mut gs = GameState::new(sp.take_initial_state(&game_id));
 
     let bot_context = BotShaderContext::new().unwrap();
 
@@ -113,7 +112,7 @@ fn run_game(ks: &ScoringKs, max_game_length: i32) -> i32 {
         }
         // Evaluate 1 move on the best result.
         (gs, _) = bot_player::evaluate_moves_cpu(&gs, &mr.moves[0..1], &bot_context.sp);
-        gs.tick_mutation(vec![TickMutation::EnqueueTetromino(sp.take())]);
+        gs.tick_mutation(vec![TickMutation::EnqueueTetromino(sp.take(&game_id))]);
     }
     max_game_length
 }

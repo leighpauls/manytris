@@ -1,16 +1,19 @@
+use std::collections::BTreeMap;
+use std::iter;
+
+use crate::consts;
 use bevy::prelude::*;
 use rand::{thread_rng, RngCore};
 
-use crate::consts;
 use crate::game_state::{LockResult, TickMutation};
-use crate::plugins::root::{LockEvent, TickEvent, TickMutationMessage};
+use crate::plugins::root::{GameId, LockEvent, TickEvent, TickMutationMessage};
 use crate::plugins::system_sets::UpdateSystems;
 use crate::shapes::Shape;
 
-#[derive(Component)]
+#[derive(Component, Default)]
 pub struct ShapeProducer {
-    upcoming_blocks: Vec<Shape>,
-    bag_remaining: Vec<Shape>,
+    history_cursors: BTreeMap<GameId, usize>,
+    history: Vec<Shape>,
 }
 
 pub fn plugin(app: &mut App) {
@@ -18,8 +21,8 @@ pub fn plugin(app: &mut App) {
         .add_systems(Update, update.in_set(UpdateSystems::LocalEventProducers));
 }
 
-fn setup(mut commands: Commands) {
-    commands.spawn(ShapeProducer::new());
+pub fn setup(mut commands: Commands) {
+    commands.spawn(ShapeProducer::default());
 }
 
 fn update(
@@ -35,10 +38,9 @@ fn update(
             game_id,
         } = event
         {
-            // TODO: sp.take() needs to take the game ID to track multiple games.
             println!("Producing new tetromino");
             writer.send(TickEvent::new_local(TickMutationMessage {
-                mutation: TickMutation::EnqueueTetromino(sp.take()),
+                mutation: TickMutation::EnqueueTetromino(sp.take(game_id)),
                 game_id: game_id.clone(),
             }));
         }
@@ -46,29 +48,27 @@ fn update(
 }
 
 impl ShapeProducer {
-    pub fn new() -> Self {
-        let mut res = Self {
-            upcoming_blocks: vec![],
-            bag_remaining: vec![],
-        };
-        res.refill();
+    pub fn take(&mut self, game_id: &GameId) -> Shape {
+        let cursor = self.history_cursors.entry(game_id.clone()).or_insert(0);
+        while *cursor >= self.history.len() {
+            Self::refill(&mut self.history);
+        }
+        let res = self.history[*cursor];
+        *cursor += 1;
         res
     }
 
-    pub fn take(&mut self) -> Shape {
-        let res = self.upcoming_blocks.remove(0);
-        self.refill();
-        res
+    pub fn take_initial_state(&mut self, game_id: &GameId) -> Vec<Shape> {
+        iter::repeat_with(|| self.take(&game_id))
+            .take(consts::NUM_PREVIEWS * 2)
+            .collect()
     }
 
-    fn refill(&mut self) {
-        while self.upcoming_blocks.len() < consts::NUM_PREVIEWS * 2 {
-            if self.bag_remaining.is_empty() {
-                self.bag_remaining = enum_iterator::all::<Shape>().collect();
-            }
-            let next_idx = thread_rng().next_u32() as usize % self.bag_remaining.len();
-            self.upcoming_blocks
-                .push(self.bag_remaining.remove(next_idx));
+    fn refill(history: &mut Vec<Shape>) {
+        let mut bag: Vec<_> = enum_iterator::all::<Shape>().collect();
+        while !bag.is_empty() {
+            let next_idx = thread_rng().next_u32() as usize % bag.len();
+            history.push(bag.remove(next_idx))
         }
     }
 }

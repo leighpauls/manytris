@@ -13,6 +13,7 @@ use crate::game_state::{DownType, GameState, LockResult, TickMutation, TickResul
 use crate::plugins::assets::RenderAssets;
 use crate::plugins::game_container::LocalGameRoot;
 use crate::plugins::input::{InputEvent, InputType};
+use crate::plugins::shape_producer::ShapeProducer;
 use crate::plugins::system_sets::UpdateSystems;
 use crate::plugins::{field_blocks, scoreboard, window_blocks};
 use crate::shapes::Shape;
@@ -117,10 +118,16 @@ pub fn create_new_root(
     ra: &Res<RenderAssets>,
     asset_server: &Res<AssetServer>,
     cur_time: Duration,
+    shape_producer: &mut ShapeProducer,
 ) -> (GameState, GameId, Entity) {
-    let active_game = ActiveGame::new(cur_time);
-    let game_state = active_game.game.clone();
     let game_id = GameId::new();
+    let initial_shapes = (0..consts::NUM_PREVIEWS * 2)
+        .into_iter()
+        .map(|_| shape_producer.take(&game_id))
+        .collect();
+
+    let active_game = ActiveGame::new(cur_time, initial_shapes);
+    let game_state = active_game.game.clone();
     let entity = spawn_root(
         commands,
         container_entity,
@@ -297,12 +304,8 @@ fn update_root_tick(
 }
 
 impl ActiveGame {
-    fn new(start_time: Duration) -> Self {
-        // TODO: make this random
-        let initial_states = enum_iterator::all::<Shape>()
-            .chain(enum_iterator::all::<Shape>())
-            .collect();
-        Self::from_snapshot(GameState::new(initial_states), start_time)
+    fn new(start_time: Duration, initial_shapes: Vec<Shape>) -> Self {
+        Self::from_snapshot(GameState::new(initial_shapes), start_time)
     }
 
     fn from_snapshot(gs: GameState, start_time: Duration) -> Self {

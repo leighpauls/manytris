@@ -5,8 +5,9 @@ use crate::plugins::assets::{RenderAssets, BLOCK_SIZE};
 use crate::plugins::net_game_control_manager::{
     ClientControlEvent, ReceiveControlEventFromClient, SendControlEventToClient, ServerControlEvent,
 };
-use crate::plugins::root;
+use crate::plugins::{root, shape_producer};
 use crate::plugins::root::GameId;
+use crate::plugins::shape_producer::ShapeProducer;
 
 const HEIGHT_IN_BLOCKS: f32 = 26.;
 const PADDING_BLOCKS: f32 = 2.;
@@ -43,7 +44,7 @@ pub fn common_plugin(app: &mut App) {
 }
 
 pub fn stand_alone_plugin(app: &mut App) {
-    app.add_systems(Startup, setup_stand_alone);
+    app.add_systems(Startup, setup_stand_alone.after(shape_producer::setup));
 }
 
 pub fn multiplayer_client_plugin(app: &mut App) {
@@ -62,6 +63,7 @@ fn setup_stand_alone(
     ra: Res<RenderAssets>,
     asset_server: Res<AssetServer>,
     time: Res<Time<Fixed>>,
+    mut shape_producer: Query<&mut ShapeProducer>,
 ) {
     let container_entity =
         spawn_container(&mut commands, ContainerType::StandAlone, q_window.single());
@@ -73,6 +75,7 @@ fn setup_stand_alone(
         &ra,
         &asset_server,
         start_time,
+        shape_producer.single_mut().as_mut(),
     );
     set_local_game_root(&mut commands, game_id, root_entity);
 }
@@ -121,6 +124,7 @@ fn accept_client_control_events(
     mut control_event_reader: EventReader<ReceiveControlEventFromClient>,
     mut control_event_writer: EventWriter<SendControlEventToClient>,
     time: Res<Time<Fixed>>,
+    mut q_shape_producer: Query<&mut ShapeProducer>,
 ) {
     for rce in control_event_reader.read() {
         match rce {
@@ -137,6 +141,7 @@ fn accept_client_control_events(
                     &ra,
                     &asset_server,
                     time.elapsed(),
+                    q_shape_producer.single_mut().as_mut(),
                 );
                 container.tiled_games.push(game_id);
 
