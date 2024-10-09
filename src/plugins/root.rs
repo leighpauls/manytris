@@ -15,7 +15,7 @@ use crate::plugins::game_container::LocalGameRoot;
 use crate::plugins::input::{InputEvent, InputType};
 use crate::plugins::shape_producer::ShapeProducer;
 use crate::plugins::system_sets::UpdateSystems;
-use crate::plugins::{field_blocks, scoreboard, window_blocks};
+use crate::plugins::{field_blocks, garbage_counter, scoreboard, window_blocks};
 use crate::shapes::Shape;
 
 const LINES_PER_LEVEL: i32 = 10;
@@ -185,6 +185,7 @@ fn spawn_root(
     field_blocks::spawn_field(commands, ra, root_entitiy);
     scoreboard::spawn_scoreboard(commands, asset_server, root_entitiy);
     window_blocks::spawn_windows(commands, ra, root_entitiy);
+    garbage_counter::spawn_garbage_counters(commands, ra, root_entitiy);
 
     root_entitiy
 }

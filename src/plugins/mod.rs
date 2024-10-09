@@ -17,6 +17,7 @@ mod scoreboard;
 pub mod shape_producer;
 mod system_sets;
 mod window_blocks;
+mod garbage_counter;
 
 pub fn run(cfg: ExecCommand) {
     let mut app = App::new();
@@ -30,6 +31,7 @@ pub fn run(cfg: ExecCommand) {
         block_render::plugin,
         scoreboard::plugin,
         game_container::common_plugin,
+        garbage_counter::plugin,
     ));
 
     match cfg {

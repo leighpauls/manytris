@@ -4,7 +4,7 @@ use std::fmt::{Debug, Display, Formatter};
 
 use crate::bot::compute_types::BitmapField;
 use crate::consts;
-use crate::field::{OccupiedBlock, Field, Pos};
+use crate::field::{Field, OccupiedBlock, Pos};
 use crate::shapes::{Rot, Shape, Shift};
 use crate::tetromino::Tetromino;
 use crate::upcoming::UpcomingTetrominios;
@@ -149,6 +149,10 @@ impl GameState {
         for _ in 0..num_lines {
             self.garbage_queue.push_back(consts::GARBAGE_TURN_COUNT)
         }
+    }
+
+    pub fn get_garbage_element_countdown(&self, index: usize) -> Option<usize> {
+        return self.garbage_queue.get(index).copied();
     }
 
     pub fn get_display_state(&self, p: &Pos) -> BlockDisplayState {

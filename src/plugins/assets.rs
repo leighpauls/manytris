@@ -1,3 +1,4 @@
+use crate::consts;
 use crate::field::OccupiedBlock;
 use crate::shapes::Shape;
 use bevy::prelude::*;
@@ -18,6 +19,7 @@ pub struct RenderAssets {
     pub empty_material: Handle<ColorMaterial>,
     pub invisible_material: Handle<ColorMaterial>,
     pub block_mesh: Mesh2dHandle,
+    pub garbage_counter_materials: [Handle<ColorMaterial>; consts::GARBAGE_TURN_COUNT],
 }
 
 impl FromWorld for RenderAssets {
@@ -56,12 +58,17 @@ impl FromWorld for RenderAssets {
             .map(|(shape, hue)| (*shape, materials.add(Color::hsl(*hue, 0.15, 0.7))))
             .collect::<HashMap<Shape, Handle<ColorMaterial>>>();
 
+        let garbage_hue_sat = [(0., 1.), (60., 1.), (0., 0.), (0., 0.)];
+        let garbage_counter_materials =
+            garbage_hue_sat.map(|(hue, sat)| materials.add(Color::hsl(hue, sat, 0.5)));
+
         Self {
             occupied_materials,
             shadow_materials,
             empty_material: materials.add(Color::hsl(0., 0., 0.2)),
             invisible_material: materials.add(Color::hsla(0., 0., 0., 0.)),
             block_mesh,
+            garbage_counter_materials,
         }
     }
 }
