@@ -140,7 +140,6 @@ fn update_client_net_send(
 
     if let ClientNetComponent::Connected(sr_pair) = net.into_inner() {
         let send_func = |nm: NetMessage| {
-            println!("Sending {:?}", nm);
             let payload = rmp_serde::to_vec(&nm).unwrap();
             sr_pair.lock().unwrap().0.send(WsMessage::Binary(payload));
         };

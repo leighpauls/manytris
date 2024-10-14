@@ -201,7 +201,14 @@ fn produce_tick_events(
     let Some(local_game_root) = local_game_root_res else {
         return;
     };
-    let mut game_root = q_root.get_mut(local_game_root.root_entity).unwrap();
+    let Some(mut game_root) = q_root
+        .iter_mut()
+        .filter(|gr| gr.game_id == local_game_root.game_id)
+        .next()
+    else {
+        return;
+    };
+
     let game_id = local_game_root.game_id;
     let game = &mut game_root.active_game;
 
@@ -287,7 +294,6 @@ fn update_root_tick(
             use TickResult::*;
             match tick_result {
                 Lock(lr) => {
-                    println!("Lock result: {:?}", lr);
                     lock_event_writer.send(LockEvent {
                         game_id,
                         lock_result: lr.clone(),

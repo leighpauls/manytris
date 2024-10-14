@@ -3,11 +3,12 @@ use bevy::window::WindowResized;
 
 use crate::plugins::assets::{RenderAssets, BLOCK_SIZE};
 use crate::plugins::net_game_control_manager::{
-    ClientControlEvent, ReceiveControlEventFromClient, SendControlEventToClient, ServerControlEvent,
+    ClientControlEvent, ConnectionTarget, ReceiveControlEventFromClient, SendControlEventToClient,
+    ServerControlEvent,
 };
-use crate::plugins::{root, shape_producer};
-use crate::plugins::root::GameId;
+use crate::plugins::root::{GameId, GameRoot};
 use crate::plugins::shape_producer::ShapeProducer;
+use crate::plugins::{root, shape_producer};
 
 const HEIGHT_IN_BLOCKS: f32 = 26.;
 const PADDING_BLOCKS: f32 = 2.;
@@ -31,11 +32,11 @@ pub struct GameContainerBundle {
 #[derive(Resource)]
 pub struct LocalGameRoot {
     pub game_id: GameId,
-    pub root_entity: Entity,
 }
 
 enum ContainerType {
     StandAlone,
+    MultiplayerClient,
     ServerTiles,
 }
 
@@ -77,11 +78,15 @@ fn setup_stand_alone(
         start_time,
         shape_producer.single_mut().as_mut(),
     );
-    set_local_game_root(&mut commands, game_id, root_entity);
+    set_local_game_root(&mut commands, game_id);
 }
 
 fn setup_multiplayer_client(mut commands: Commands, q_window: Query<&Window>) {
-    spawn_container(&mut commands, ContainerType::StandAlone, q_window.single());
+    spawn_container(
+        &mut commands,
+        ContainerType::MultiplayerClient,
+        q_window.single(),
+    );
 }
 
 fn accept_server_control_events(
@@ -91,22 +96,37 @@ fn accept_server_control_events(
     ra: Res<RenderAssets>,
     asset_server: Res<AssetServer>,
     time: Res<Time<Fixed>>,
+    local_game_root_res: Option<Res<LocalGameRoot>>,
 ) {
+    let mut local_game_id = local_game_root_res.map(|lgr| lgr.game_id);
+
     for event in events.read() {
         match event {
+            ServerControlEvent::AssignGameId(game_id) => {
+                set_local_game_root(&mut commands, game_id.clone());
+                local_game_id = Some(game_id.clone());
+                println!("Assigned gameid {game_id:?}");
+            }
             ServerControlEvent::SnapshotResponse(gs, game_id) => {
                 let container_entity = q_container.single();
-                let root_entity = root::create_root_from_snapshot(
+                println!("Received snapshot for gameid {game_id:?}");
+                // TODO: better define multiplayer tiling
+                let transform = if Some(game_id) == local_game_id.as_ref() {
+                    active_game_transform()
+                } else {
+                    tiled_game_transform(1)
+                };
+
+                root::create_root_from_snapshot(
                     &mut commands,
                     container_entity,
-                    active_game_transform(),
+                    transform,
                     &ra,
                     &asset_server,
                     gs.clone(),
                     time.elapsed(),
                     game_id.clone(),
                 );
-                set_local_game_root(&mut commands, game_id.clone(), root_entity);
             }
         }
     }
@@ -125,6 +145,7 @@ fn accept_client_control_events(
     mut control_event_writer: EventWriter<SendControlEventToClient>,
     time: Res<Time<Fixed>>,
     mut q_shape_producer: Query<&mut ShapeProducer>,
+    q_roots: Query<&GameRoot>,
 ) {
     for rce in control_event_reader.read() {
         match rce {
@@ -146,8 +167,25 @@ fn accept_client_control_events(
                 container.tiled_games.push(game_id);
 
                 control_event_writer.send(SendControlEventToClient {
+                    event: ServerControlEvent::AssignGameId(game_id),
+                    to_connection: ConnectionTarget::To(from_connection.clone()),
+                });
+
+                // Send existing game snapshots to the current connection.
+                control_event_writer.send_batch(q_roots.iter().map(|gr| {
+                    SendControlEventToClient {
+                        event: ServerControlEvent::SnapshotResponse(
+                            gr.active_game.game.clone(),
+                            gr.game_id,
+                        ),
+                        to_connection: ConnectionTarget::To(from_connection.clone()),
+                    }
+                }));
+
+                // Inform all clients about the new game snapshot.
+                control_event_writer.send(SendControlEventToClient {
                     event: ServerControlEvent::SnapshotResponse(game_state, game_id),
-                    to_connection: from_connection.clone(),
+                    to_connection: ConnectionTarget::All,
                 });
             }
         }
@@ -205,11 +243,8 @@ fn spawn_container(
         .id()
 }
 
-fn set_local_game_root(commands: &mut Commands, game_id: GameId, root_entity: Entity) {
-    commands.insert_resource(LocalGameRoot {
-        game_id,
-        root_entity,
-    });
+fn set_local_game_root(commands: &mut Commands, game_id: GameId) {
+    commands.insert_resource(LocalGameRoot { game_id });
 }
 
 impl GameContainer {
@@ -218,7 +253,7 @@ impl GameContainer {
         let y_scale = height_pixels / (HEIGHT_IN_BLOCKS * BLOCK_SIZE);
 
         let scale = match self.container_type {
-            ContainerType::StandAlone => x_scale.min(y_scale),
+            ContainerType::StandAlone | ContainerType::MultiplayerClient => x_scale.min(y_scale),
             ContainerType::ServerTiles => {
                 (x_scale / HORIZONTAL_TILES as f32).min(y_scale / VERTICAL_TILES as f32)
             }

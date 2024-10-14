@@ -15,13 +15,19 @@ pub enum ClientControlEvent {
 
 #[derive(Clone, Deserialize, Serialize, Debug, Event)]
 pub enum ServerControlEvent {
+    AssignGameId(GameId),
     SnapshotResponse(GameState, GameId),
+}
+
+pub enum ConnectionTarget {
+    All,
+    To(ConnectionId),
 }
 
 #[derive(Event)]
 pub struct SendControlEventToClient {
     pub event: ServerControlEvent,
-    pub to_connection: ConnectionId,
+    pub to_connection: ConnectionTarget,
 }
 
 #[derive(Event)]

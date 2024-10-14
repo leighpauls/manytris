@@ -38,7 +38,6 @@ fn update(
             game_id,
         } = event
         {
-            println!("Producing new tetromino");
             writer.send(TickEvent::new_local(TickMutationMessage {
                 mutation: TickMutation::EnqueueTetromino(sp.take(game_id)),
                 game_id: game_id.clone(),

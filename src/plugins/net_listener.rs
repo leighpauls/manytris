@@ -8,7 +8,7 @@ use tungstenite::{Message, WebSocket};
 
 use crate::cli_options::HostConfig;
 use crate::plugins::net_game_control_manager::{
-    ConnectionId, ReceiveControlEventFromClient, SendControlEventToClient,
+    ConnectionId, ConnectionTarget, ReceiveControlEventFromClient, SendControlEventToClient,
 };
 use crate::plugins::net_listener::ListenResult::{DropSocket, NewMessage};
 use crate::plugins::net_protocol::NetMessage;
@@ -102,10 +102,19 @@ fn sender_system(
     let mut control_payloads_by_connection_id: BTreeMap<ConnectionId, Vec<Vec<u8>>> =
         BTreeMap::new();
     for ce in control_reader.read() {
-        let payload_list = control_payloads_by_connection_id
-            .entry(ce.to_connection)
-            .or_default();
-        payload_list.push(rmp_serde::to_vec(&NetMessage::ServerControl(ce.event.clone())).unwrap())
+        let payload = rmp_serde::to_vec(&NetMessage::ServerControl(ce.event.clone())).unwrap();
+        match ce.to_connection {
+            ConnectionTarget::All => listener.sockets.keys().for_each(|connection_id| {
+                control_payloads_by_connection_id
+                    .entry(connection_id.clone())
+                    .or_default()
+                    .push(payload.clone())
+            }),
+            ConnectionTarget::To(connection_id) => control_payloads_by_connection_id
+                .entry(connection_id)
+                .or_default()
+                .push(payload),
+        }
     }
 
     for (connection_id, socket) in &mut listener.sockets {
