@@ -91,7 +91,7 @@ fn setup_multiplayer_client(mut commands: Commands, q_window: Query<&Window>) {
 
 fn accept_server_control_events(
     mut commands: Commands,
-    q_container: Query<Entity, With<GameContainer>>,
+    mut q_container: Query<(Entity, &mut GameContainer)>,
     mut events: EventReader<ServerControlEvent>,
     ra: Res<RenderAssets>,
     asset_server: Res<AssetServer>,
@@ -108,14 +108,18 @@ fn accept_server_control_events(
                 println!("Assigned gameid {game_id:?}");
             }
             ServerControlEvent::SnapshotResponse(gs, game_id) => {
-                let container_entity = q_container.single();
+                let (container_entity, mut game_container) = q_container.single_mut();
                 println!("Received snapshot for gameid {game_id:?}");
                 // TODO: better define multiplayer tiling
                 let transform = if Some(game_id) == local_game_id.as_ref() {
                     active_game_transform()
                 } else {
-                    tiled_game_transform(1)
+                    client_opponent_game_transform(game_container.tiled_games.len())
                 };
+
+                game_container.tiled_games.push(game_id.clone());
+
+                println!("New transform: {transform:?}");
 
                 root::create_root_from_snapshot(
                     &mut commands,
@@ -220,6 +224,16 @@ fn tiled_game_transform(game_index: usize) -> Transform {
             * Vec3::new(WIDTH_IN_BLOCKS, HEIGHT_IN_BLOCKS, 0.)
             + Vec3::Y * PADDING_BLOCKS)
             * BLOCK_SIZE,
+    )
+}
+
+fn client_opponent_game_transform(opponent_index: usize) -> Transform {
+    let scale = 0.3;
+    let active = active_game_transform();
+    active.with_scale(Vec3::splat(scale)).with_translation(
+        active.translation
+            + Vec3::X * WIDTH_IN_BLOCKS * BLOCK_SIZE
+            + Vec3::Y * HEIGHT_IN_BLOCKS * BLOCK_SIZE * scale * (opponent_index as f32),
     )
 }
 
