@@ -1,14 +1,15 @@
-use bevy::prelude::*;
-use bevy::window::WindowResized;
-
+use crate::game_state::LockResult;
 use crate::plugins::assets::{RenderAssets, BLOCK_SIZE};
+use crate::plugins::input::{InputEvent, InputType};
 use crate::plugins::net_game_control_manager::{
     ClientControlEvent, ConnectionTarget, ReceiveControlEventFromClient, SendControlEventToClient,
     ServerControlEvent,
 };
-use crate::plugins::root::{GameId, GameRoot};
+use crate::plugins::root::{GameId, GameRoot, LockEvent};
 use crate::plugins::shape_producer::ShapeProducer;
 use crate::plugins::{root, shape_producer};
+use bevy::prelude::*;
+use bevy::window::WindowResized;
 
 const HEIGHT_IN_BLOCKS: f32 = 26.;
 const PADDING_BLOCKS: f32 = 2.;
@@ -55,7 +56,8 @@ pub fn multiplayer_client_plugin(app: &mut App) {
 
 pub fn server_plugin(app: &mut App) {
     app.add_systems(Startup, setup_server)
-        .add_systems(Update, accept_client_control_events);
+        .add_systems(Update, accept_client_control_events)
+        .add_systems(Update, deliver_garbage);
 }
 
 fn setup_stand_alone(
@@ -69,7 +71,7 @@ fn setup_stand_alone(
     let container_entity =
         spawn_container(&mut commands, ContainerType::StandAlone, q_window.single());
     let start_time = time.elapsed();
-    let (_, game_id, root_entity) = root::create_new_root(
+    let (_, game_id, _) = root::create_new_root(
         &mut commands,
         container_entity,
         active_game_transform(),
@@ -93,6 +95,7 @@ fn accept_server_control_events(
     mut commands: Commands,
     mut q_container: Query<(Entity, &mut GameContainer)>,
     mut events: EventReader<ServerControlEvent>,
+    mut input_writer: EventWriter<InputEvent>,
     ra: Res<RenderAssets>,
     asset_server: Res<AssetServer>,
     time: Res<Time<Fixed>>,
@@ -131,6 +134,17 @@ fn accept_server_control_events(
                     time.elapsed(),
                     game_id.clone(),
                 );
+            }
+            ServerControlEvent::DeliverGarbage {
+                from_game_id,
+                num_lines,
+            } => {
+                if local_game_id.is_some() && Some(from_game_id) != local_game_id.as_ref() {
+                    input_writer.send(InputEvent {
+                        input_type: InputType::EnqueueGarbageEvent(*num_lines),
+                        is_repeat: false,
+                    });
+                }
             }
         }
     }
@@ -192,6 +206,36 @@ fn accept_client_control_events(
                     to_connection: ConnectionTarget::All,
                 });
             }
+        }
+    }
+}
+
+fn deliver_garbage(
+    mut lock_events: EventReader<LockEvent>,
+    mut control_event_writer: EventWriter<SendControlEventToClient>,
+) {
+    for lock_event in lock_events.read() {
+        if let LockEvent {
+            game_id,
+            lock_result: LockResult::Ok { lines_cleared },
+        } = lock_event
+        {
+            if *lines_cleared <= 1 {
+                continue;
+            }
+            let num_lines: usize = match *lines_cleared {
+                n if n <= 1 => continue,
+                2 => 1,
+                3 => 2,
+                n => n as usize,
+            };
+            control_event_writer.send(SendControlEventToClient {
+                event: ServerControlEvent::DeliverGarbage {
+                    from_game_id: *game_id,
+                    num_lines,
+                },
+                to_connection: ConnectionTarget::All,
+            });
         }
     }
 }

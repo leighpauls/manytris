@@ -17,6 +17,10 @@ pub enum ClientControlEvent {
 pub enum ServerControlEvent {
     AssignGameId(GameId),
     SnapshotResponse(GameState, GameId),
+    DeliverGarbage{
+        from_game_id: GameId,
+        num_lines: usize,
+    }
 }
 
 pub enum ConnectionTarget {
