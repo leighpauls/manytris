@@ -1,15 +1,17 @@
-use crate::game_state::LockResult;
+use crate::game_state::{GameState, LockResult};
 use crate::plugins::assets::{RenderAssets, BLOCK_SIZE};
 use crate::plugins::input::{InputEvent, InputType};
 use crate::plugins::net_game_control_manager::{
-    ClientControlEvent, ConnectionTarget, ReceiveControlEventFromClient, SendControlEventToClient,
-    ServerControlEvent,
+    ClientControlEvent, ConnectionId, ConnectionTarget, ReceiveControlEventFromClient,
+    SendControlEventToClient, ServerControlEvent,
 };
-use crate::plugins::root::{GameId, GameRoot, LockEvent};
+use crate::plugins::root::{GameId, GameRoot, LockEvent, TickEvent};
 use crate::plugins::shape_producer::ShapeProducer;
 use crate::plugins::{root, shape_producer};
 use bevy::prelude::*;
 use bevy::window::WindowResized;
+use std::collections::BTreeMap;
+use std::time::Duration;
 
 const HEIGHT_IN_BLOCKS: f32 = 26.;
 const PADDING_BLOCKS: f32 = 2.;
@@ -21,6 +23,7 @@ const VERTICAL_TILES: isize = 3;
 #[derive(Component)]
 pub struct GameContainer {
     tiled_games: Vec<GameId>,
+    connection_map: BTreeMap<GameId, ConnectionId>,
     container_type: ContainerType,
 }
 
@@ -172,17 +175,15 @@ fn accept_client_control_events(
                 from_connection,
             } => {
                 let (container_entity, mut container) = q_container.single_mut();
-                let new_idx = container.tiled_games.len();
-                let (game_state, game_id, _) = root::create_new_root(
+                let (game_state, game_id) = container.create_server_game(
                     &mut commands,
                     container_entity,
-                    tiled_game_transform(new_idx),
                     &ra,
                     &asset_server,
                     time.elapsed(),
                     q_shape_producer.single_mut().as_mut(),
+                    *from_connection,
                 );
-                container.tiled_games.push(game_id);
 
                 control_event_writer.send(SendControlEventToClient {
                     event: ServerControlEvent::AssignGameId(game_id),
@@ -196,14 +197,14 @@ fn accept_client_control_events(
                             gr.active_game.game.clone(),
                             gr.game_id,
                         ),
-                        to_connection: ConnectionTarget::To(from_connection.clone()),
+                        to_connection: ConnectionTarget::To(*from_connection),
                     }
                 }));
 
                 // Inform all clients about the new game snapshot.
                 control_event_writer.send(SendControlEventToClient {
                     event: ServerControlEvent::SnapshotResponse(game_state, game_id),
-                    to_connection: ConnectionTarget::All,
+                    to_connection: ConnectionTarget::AllExcept(None),
                 });
             }
         }
@@ -213,7 +214,9 @@ fn accept_client_control_events(
 fn deliver_garbage(
     mut lock_events: EventReader<LockEvent>,
     mut control_event_writer: EventWriter<SendControlEventToClient>,
+    q_game_container: Query<&GameContainer>,
 ) {
+    let game_container = q_game_container.single();
     for lock_event in lock_events.read() {
         if let LockEvent {
             game_id,
@@ -234,7 +237,9 @@ fn deliver_garbage(
                     from_game_id: *game_id,
                     num_lines,
                 },
-                to_connection: ConnectionTarget::All,
+                to_connection: ConnectionTarget::AllExcept(Some(
+                    game_container.connection_for_game(game_id),
+                )),
             });
         }
     }
@@ -288,6 +293,7 @@ fn spawn_container(
 ) -> Entity {
     let game_container = GameContainer {
         tiled_games: default(),
+        connection_map: default(),
         container_type,
     };
     let transform =
@@ -318,5 +324,34 @@ impl GameContainer {
         };
 
         Transform::from_scale(Vec3::splat(scale))
+    }
+
+    fn create_server_game(
+        &mut self,
+        commands: &mut Commands,
+        container_entity: Entity,
+        ra: &Res<RenderAssets>,
+        asset_server: &Res<AssetServer>,
+        cur_time: Duration,
+        shape_producer: &mut ShapeProducer,
+        connection_id: ConnectionId,
+    ) -> (GameState, GameId) {
+        let new_idx = self.tiled_games.len();
+        let (game_state, game_id, _) = root::create_new_root(
+            commands,
+            container_entity,
+            tiled_game_transform(new_idx),
+            ra,
+            asset_server,
+            cur_time,
+            shape_producer,
+        );
+        self.tiled_games.push(game_id);
+        self.connection_map.insert(game_id, connection_id);
+        (game_state, game_id)
+    }
+
+    pub fn connection_for_game(&self, game_id: &GameId) -> ConnectionId {
+        *self.connection_map.get(game_id).unwrap()
     }
 }

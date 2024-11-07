@@ -7,6 +7,7 @@ use bevy::prelude::*;
 use tungstenite::{Message, WebSocket};
 
 use crate::cli_options::HostConfig;
+use crate::plugins::game_container::GameContainer;
 use crate::plugins::net_game_control_manager::{
     ConnectionId, ConnectionTarget, ReceiveControlEventFromClient, SendControlEventToClient,
 };
@@ -88,45 +89,51 @@ fn listener_system(
 
 fn sender_system(
     mut listener_q: Query<&mut ServerListenerComponent>,
-    mut event_reader: EventReader<TickEvent>,
-    mut control_reader: EventReader<SendControlEventToClient>,
+    mut tick_event_reader: EventReader<TickEvent>,
+    mut control_event_reader: EventReader<SendControlEventToClient>,
+    q_game_container: Query<&GameContainer>,
 ) {
     let mut listener = listener_q.single_mut();
+    let game_container = q_game_container.single();
 
-    let tick_event_payloads: Vec<Vec<u8>> = event_reader
-        .read()
-        .filter(|e| e.local)
-        .map(|e| rmp_serde::to_vec(&NetMessage::Tick(e.mutation.clone())).unwrap())
-        .collect();
+    let mut payloads: Vec<(ConnectionTarget, Vec<u8>)> = vec![];
+    payloads.extend(control_event_reader.read().map(|sce| {
+        (
+            sce.to_connection,
+            rmp_serde::to_vec(&NetMessage::ServerControl(sce.event.clone())).unwrap(),
+        )
+    }));
 
-    let mut control_payloads_by_connection_id: BTreeMap<ConnectionId, Vec<Vec<u8>>> =
-        BTreeMap::new();
-    for ce in control_reader.read() {
-        let payload = rmp_serde::to_vec(&NetMessage::ServerControl(ce.event.clone())).unwrap();
-        match ce.to_connection {
-            ConnectionTarget::All => listener.sockets.keys().for_each(|connection_id| {
-                control_payloads_by_connection_id
-                    .entry(connection_id.clone())
-                    .or_default()
-                    .push(payload.clone())
+    // Events made locally by the server go to all clients.
+    // Events made by a client go to all except the original client.
+    payloads.extend(tick_event_reader.read().map(|te| {
+        (
+            ConnectionTarget::AllExcept(if te.local {
+                None
+            } else {
+                Some(game_container.connection_for_game(&te.mutation.game_id))
             }),
-            ConnectionTarget::To(connection_id) => control_payloads_by_connection_id
-                .entry(connection_id)
-                .or_default()
-                .push(payload),
-        }
-    }
+            rmp_serde::to_vec(&NetMessage::Tick(te.mutation.clone())).unwrap(),
+        )
+    }));
 
-    for (connection_id, socket) in &mut listener.sockets {
-        for p in control_payloads_by_connection_id
-            .get(connection_id)
-            .unwrap_or(&vec![])
-        {
-            socket.send(Message::Binary(p.clone())).unwrap();
-        }
+    for (target, bytes) in payloads {
+        let sockets = match target {
+            ConnectionTarget::To(conn) => {
+                vec![listener.sockets.get_mut(&conn).unwrap()]
+            }
+            ConnectionTarget::AllExcept(None) => listener.sockets.values_mut().collect(),
+            ConnectionTarget::AllExcept(Some(except)) => listener
+                .sockets
+                .iter_mut()
+                .filter(|(conn, _)| **conn != except)
+                .map(|(_, soc)| soc)
+                .collect(),
+        };
 
-        for p in &tick_event_payloads {
-            socket.send(Message::Binary(p.clone())).unwrap();
+        let m = Message::Binary(bytes);
+        for s in sockets {
+            s.send(m.clone()).unwrap();
         }
     }
 }

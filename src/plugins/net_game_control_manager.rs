@@ -17,14 +17,15 @@ pub enum ClientControlEvent {
 pub enum ServerControlEvent {
     AssignGameId(GameId),
     SnapshotResponse(GameState, GameId),
-    DeliverGarbage{
+    DeliverGarbage {
         from_game_id: GameId,
         num_lines: usize,
-    }
+    },
 }
 
+#[derive(Copy, Clone)]
 pub enum ConnectionTarget {
-    All,
+    AllExcept(Option<ConnectionId>),
     To(ConnectionId),
 }
 
