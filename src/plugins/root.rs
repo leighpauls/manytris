@@ -23,6 +23,7 @@ const LINES_PER_LEVEL: i32 = 10;
 /// This plugin must be used for all executable variants.
 pub fn common_plugin(app: &mut App) {
     app.add_systems(Update, update_root_tick.in_set(UpdateSystems::RootTick))
+        .add_event::<InputEvent>()
         .add_event::<TickEvent>()
         .add_event::<LockEvent>()
         .insert_resource(StartPositionRes(StartPositions::new()));

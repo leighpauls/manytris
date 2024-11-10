@@ -5,7 +5,7 @@ use crate::plugins::net_game_control_manager::{
     ClientControlEvent, ConnectionId, ConnectionTarget, ReceiveControlEventFromClient,
     SendControlEventToClient, ServerControlEvent,
 };
-use crate::plugins::root::{GameId, GameRoot, LockEvent, TickEvent};
+use crate::plugins::root::{GameId, GameRoot, LockEvent};
 use crate::plugins::shape_producer::ShapeProducer;
 use crate::plugins::{root, shape_producer};
 use bevy::prelude::*;

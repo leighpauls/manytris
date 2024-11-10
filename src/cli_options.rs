@@ -1,4 +1,4 @@
-use clap::{Args, Parser, Subcommand};
+use clap::{Args, Parser, Subcommand, ValueEnum};
 use serde::Serialize;
 
 #[derive(Parser, Debug)]
@@ -11,7 +11,7 @@ pub struct GameArgs {
 #[derive(Subcommand, Clone, Debug)]
 pub enum ExecCommand {
     Server(HostConfig),
-    Client(HostConfig),
+    Client(ClientConfig),
     StandAlone,
 }
 
@@ -21,4 +21,18 @@ pub struct HostConfig {
     pub host: String,
     #[arg(long, default_value = "9989")]
     pub port: u16,
+}
+
+#[derive(Args, Clone, Debug, Serialize)]
+pub struct ClientConfig {
+    #[clap(flatten)]
+    pub server: HostConfig,
+    #[arg(long, default_value="human")]
+    pub client_type: ClientType,
+}
+
+#[derive(ValueEnum, Clone, Debug, Serialize)]
+pub enum ClientType {
+    Bot,
+    Human,
 }

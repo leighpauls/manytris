@@ -1,12 +1,14 @@
 use bevy::prelude::*;
 
 // use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
-use crate::cli_options::ExecCommand;
+use crate::cli_options::{ClientConfig, ClientType, ExecCommand};
 
 mod assets;
 mod block_render;
+mod bot_input;
 mod field_blocks;
 mod game_container;
+mod garbage_counter;
 mod input;
 mod net_client;
 mod net_game_control_manager;
@@ -17,7 +19,6 @@ mod scoreboard;
 pub mod shape_producer;
 mod system_sets;
 mod window_blocks;
-mod garbage_counter;
 
 pub fn run(cfg: ExecCommand) {
     let mut app = App::new();
@@ -35,15 +36,21 @@ pub fn run(cfg: ExecCommand) {
     ));
 
     match cfg {
-        ExecCommand::Client(hc) => {
-            app.insert_resource(net_client::NetClientConfig(hc))
+        ExecCommand::Client(ClientConfig {
+            server,
+            client_type,
+        }) => {
+            app.insert_resource(net_client::NetClientConfig(server))
                 .add_plugins((
                     game_container::multiplayer_client_plugin,
-                    input::plugin,
                     root::client_plugin,
                     net_client::plugin,
                     net_game_control_manager::client_plugin,
                 ));
+            match client_type {
+                ClientType::Human => app.add_plugins(input::plugin),
+                ClientType::Bot => app.add_plugins(bot_input::plugin),
+            };
         }
         ExecCommand::Server(hc) => {
             app.insert_resource(net_listener::NetListenerConfig(hc))

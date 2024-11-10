@@ -7,8 +7,7 @@ const INITIAL_REPEAT: Duration = Duration::from_millis(160);
 const REPEAT: Duration = Duration::from_millis(30);
 
 pub fn plugin(app: &mut App) {
-    app.add_event::<InputEvent>()
-        .init_resource::<RepeatTimes>()
+    app.init_resource::<RepeatTimes>()
         .add_systems(Update, update_for_input.in_set(UpdateSystems::Input));
 }
 
