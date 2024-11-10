@@ -27,8 +27,10 @@ pub struct HostConfig {
 pub struct ClientConfig {
     #[clap(flatten)]
     pub server: HostConfig,
-    #[arg(long, default_value="human")]
+    #[arg(long, default_value = "human")]
     pub client_type: ClientType,
+    #[arg(long, default_value = "700")]
+    pub bot_millis: u64,
 }
 
 #[derive(ValueEnum, Clone, Debug, Serialize)]

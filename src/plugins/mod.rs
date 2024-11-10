@@ -2,6 +2,7 @@ use bevy::prelude::*;
 
 // use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use crate::cli_options::{ClientConfig, ClientType, ExecCommand};
+use crate::plugins::bot_input::BotInputPlugin;
 
 mod assets;
 mod block_render;
@@ -39,6 +40,7 @@ pub fn run(cfg: ExecCommand) {
         ExecCommand::Client(ClientConfig {
             server,
             client_type,
+            bot_millis,
         }) => {
             app.insert_resource(net_client::NetClientConfig(server))
                 .add_plugins((
@@ -49,7 +51,9 @@ pub fn run(cfg: ExecCommand) {
                 ));
             match client_type {
                 ClientType::Human => app.add_plugins(input::plugin),
-                ClientType::Bot => app.add_plugins(bot_input::plugin),
+                ClientType::Bot => app.add_plugins(BotInputPlugin {
+                    bot_period_millis: bot_millis,
+                }),
             };
         }
         ExecCommand::Server(hc) => {

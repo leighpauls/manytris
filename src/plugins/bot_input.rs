@@ -3,9 +3,17 @@ use crate::plugins::system_sets::UpdateSystems;
 use bevy::prelude::*;
 use std::time::Duration;
 
-pub fn plugin(app: &mut App) {
-    app.add_systems(Startup, init_bot_input)
-        .add_systems(Update, apply_bot_input.in_set(UpdateSystems::Input));
+#[derive(Clone, Resource)]
+pub struct BotInputPlugin {
+    pub bot_period_millis: u64,
+}
+
+impl Plugin for BotInputPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(Startup, init_bot_input)
+            .add_systems(Update, apply_bot_input.in_set(UpdateSystems::Input))
+            .insert_resource(self.clone());
+    }
 }
 
 #[derive(Component)]
@@ -30,6 +38,7 @@ fn apply_bot_input(
     mut input_state: Query<&mut BotInputState>,
     mut input_writer: EventWriter<InputEvent>,
     time: Res<Time<Fixed>>,
+    input_config: Res<BotInputPlugin>,
 ) {
     let mut is = input_state.single_mut();
     let cur_time = time.elapsed();
@@ -37,7 +46,7 @@ fn apply_bot_input(
         is.prev_piece_time = Some(cur_time);
         return;
     };
-    let target_time = *prev_time + Duration::from_millis(500);
+    let target_time = *prev_time + Duration::from_millis(input_config.bot_period_millis);
     if target_time <= cur_time {
         input_writer.send(InputEvent {
             input_type: InputType::PerformBotMoveEvent,
