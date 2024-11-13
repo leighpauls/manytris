@@ -1,4 +1,3 @@
-use crate::bot::compute_types::BitmapField;
 use crate::consts;
 use crate::shapes::Shape;
 use crate::tetromino::Tetromino;
@@ -6,6 +5,9 @@ use serde::{Deserialize, Serialize};
 use std::cmp::max;
 use std::collections::HashMap;
 use std::mem;
+
+#[cfg(target_os = "macos")]
+use crate::bot::compute_types::BitmapField;
 
 #[derive(Clone, Eq, PartialEq, Hash, Debug, Deserialize, Serialize)]
 pub struct Pos {
@@ -141,6 +143,7 @@ impl Field {
         }
     }
 
+    #[cfg(target_os = "macos")]
     pub fn make_bitmap_field(&self) -> BitmapField {
         let mut bf = BitmapField::default();
         for p in self.occupied.keys() {

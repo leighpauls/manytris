@@ -13,7 +13,7 @@ const SEARCH_DEPTH: usize = 3;
 pub fn main() {
     println!("Start test games...");
     for _ in 0..4 {
-        println!("Game length {}", run_game(&consts::BEST_BOT_KS, 600));
+        println!("Game length {}", run_game(&bot_player::BEST_BOT_KS, 600));
     }
 
     println!("Start evolving...");

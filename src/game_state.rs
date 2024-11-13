@@ -2,12 +2,14 @@ use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 use std::fmt::{Debug, Display, Formatter};
 
-use crate::bot::compute_types::BitmapField;
 use crate::consts;
 use crate::field::{Field, OccupiedBlock, Pos};
 use crate::shapes::{Rot, Shape, Shift};
 use crate::tetromino::Tetromino;
 use crate::upcoming::UpcomingTetrominios;
+
+#[cfg(target_os = "macos")]
+use crate::bot::compute_types::BitmapField;
 
 #[derive(Clone, Deserialize, Serialize, Debug)]
 pub struct GameState {
@@ -177,6 +179,7 @@ impl GameState {
         Some(Tetromino::for_preview(self.held?))
     }
 
+    #[cfg(target_os = "macos")]
     pub fn make_bitmap_field(&self) -> BitmapField {
         self.field.make_bitmap_field()
     }

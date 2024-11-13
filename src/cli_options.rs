@@ -38,3 +38,16 @@ pub enum ClientType {
     Bot,
     Human,
 }
+
+pub fn web_client_args() -> GameArgs {
+    GameArgs {
+        exec_command: ExecCommand::Client(ClientConfig {
+            server: HostConfig {
+                host: String::from("localhost"),
+                port: 9989,
+            },
+            client_type: ClientType::Human,
+            bot_millis: 0,
+        }),
+    }
+}

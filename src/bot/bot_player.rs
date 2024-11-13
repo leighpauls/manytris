@@ -29,6 +29,8 @@ pub struct MovementDescriptor {
 
 pub type ScoringKs = [f32; 4];
 
+pub const BEST_BOT_KS: ScoringKs = [-2447.9722, 7782.121, -6099.498, -1970.1172];
+
 impl MovementDescriptor {
     pub fn as_tick_mutations(&self, bsp: &StartPositions) -> Vec<TickMutation> {
         let (dir, num_shifts) = if self.shifts_right >= 0 {

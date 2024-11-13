@@ -1,3 +1,4 @@
+use std::ops::Deref;
 use std::sync::{Arc, Mutex};
 
 use bevy::prelude::*;
@@ -9,7 +10,6 @@ use crate::plugins::net_protocol::NetMessage;
 use crate::plugins::root::TickEvent;
 use crate::plugins::system_sets::UpdateSystems;
 
-#[derive(Component)]
 pub enum ClientNetComponent {
     NotConnected,
     Connecting(Arc<Mutex<(WsSender, WsReceiver)>>),
@@ -30,20 +30,18 @@ pub fn plugin(app: &mut App) {
     );
 }
 
-fn init(mut commands: Commands) {
-    commands.spawn(ClientNetComponent::NotConnected);
+fn init(world: &mut World) {
+    world.insert_non_send_resource(ClientNetComponent::NotConnected);
 }
 
 fn update_client_connect(
-    mut net_q: Query<&mut ClientNetComponent>,
+    mut net: NonSendMut<ClientNetComponent>,
     mut virtual_time: ResMut<Time<Virtual>>,
     mut control_events: EventWriter<ClientControlEvent>,
     config: Res<NetClientConfig>,
 ) {
-    let net = net_q.single_mut().into_inner();
-
     let mut new_net = None;
-    match net {
+    match &net.as_ref() {
         ClientNetComponent::NotConnected => {
             virtual_time.pause();
 
@@ -78,20 +76,18 @@ fn update_client_connect(
     }
 
     if let Some(n) = new_net {
-        *net = n;
+        *(net.as_mut()) = n;
     }
 }
 
 fn update_client_net_receive(
-    mut net_q: Query<&mut ClientNetComponent>,
+    mut net: NonSendMut<ClientNetComponent>,
     mut tick_events: EventWriter<TickEvent>,
     mut control_events: EventWriter<ServerControlEvent>,
 ) {
-    let net = net_q.single_mut().into_inner();
-
     let mut disconnected = false;
 
-    if let ClientNetComponent::Connected(sr_pair) = net {
+    if let ClientNetComponent::Connected(sr_pair) = net.as_ref() {
         while let Some(event) = sr_pair.lock().unwrap().1.try_recv() {
             match event {
                 WsEvent::Opened => {
@@ -127,18 +123,16 @@ fn update_client_net_receive(
     }
 
     if disconnected {
-        *net = ClientNetComponent::NotConnected;
+        *(net.as_mut()) = ClientNetComponent::NotConnected;
     }
 }
 
 fn update_client_net_send(
-    mut net_q: Query<&mut ClientNetComponent>,
+    net: NonSend<ClientNetComponent>,
     mut tick_events: EventReader<TickEvent>,
     mut control_events: EventReader<ClientControlEvent>,
 ) {
-    let net = net_q.single_mut();
-
-    if let ClientNetComponent::Connected(sr_pair) = net.into_inner() {
+    if let ClientNetComponent::Connected(sr_pair) = &net.deref() {
         let send_func = |nm: NetMessage| {
             let payload = rmp_serde::to_vec(&nm).unwrap();
             sr_pair.lock().unwrap().0.send(WsMessage::Binary(payload));
