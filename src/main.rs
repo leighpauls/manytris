@@ -1,7 +1,4 @@
-use clap::Parser;
-
-use manytris::cli_options;
-use manytris::cli_options::{GameArgs};
+use manytris::cli_options::GameArgs;
 use manytris::plugins;
 
 fn main() {
@@ -13,10 +10,12 @@ fn main() {
 
 #[cfg(not(target_arch = "wasm32"))]
 fn get_args() -> GameArgs {
+    use clap::Parser;
     GameArgs::parse()
 }
 
 #[cfg(target_arch = "wasm32")]
 fn get_args() -> GameArgs {
+    use manytris::cli_options;
     cli_options::web_client_args()
 }

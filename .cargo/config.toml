@@ -1,2 +1,12 @@
 [target.wasm32-unknown-unknown]
 runner = "wasm-server-runner"
+
+[alias]
+web = "run --target wasm32-unknown-unknown --bin manytris"
+webopt = "run --target wasm32-unknown-unknown --bin manytris --profile=web-opt"
+
+[profile.web-opt]
+inherits = "release"
+lto = true
+codegen-units = 1
+opt-level = "z"
