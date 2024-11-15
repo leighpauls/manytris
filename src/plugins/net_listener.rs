@@ -14,6 +14,7 @@ use crate::plugins::net_game_control_manager::{
 use crate::plugins::net_listener::ListenResult::{DropSocket, NewMessage};
 use crate::plugins::net_protocol::NetMessage;
 use crate::plugins::root::TickEvent;
+use crate::plugins::states::PlayingState;
 use crate::plugins::system_sets::UpdateSystems;
 
 #[derive(Component)]
@@ -26,13 +27,15 @@ pub struct ServerListenerComponent {
 pub struct NetListenerConfig(pub HostConfig);
 
 pub fn plugin(app: &mut App) {
-    app.add_systems(Startup, init_listener).add_systems(
-        Update,
-        (
-            listener_system.in_set(UpdateSystems::LocalEventProducers),
-            sender_system.in_set(UpdateSystems::EventSenders),
-        ),
-    );
+    app.add_systems(OnEnter(PlayingState::Playing), init_listener)
+        .add_systems(
+            Update,
+            (
+                listener_system.in_set(UpdateSystems::LocalEventProducers),
+                sender_system.in_set(UpdateSystems::EventSenders),
+            )
+                .run_if(in_state(PlayingState::Playing)),
+        );
 }
 
 fn init_listener(mut commands: Commands, config: Res<NetListenerConfig>) {

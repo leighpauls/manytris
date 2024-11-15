@@ -8,6 +8,7 @@ use crate::game_state::{GameState, TickMutation};
 use crate::plugins::game_container::LocalGameRoot;
 use crate::plugins::input::{InputEvent, InputType};
 use crate::plugins::root::{GameRoot, TickEvent, TickMutationMessage};
+use crate::plugins::states::PlayingState;
 use crate::plugins::system_sets::UpdateSystems;
 use bevy::prelude::*;
 use std::time::Duration;
@@ -19,11 +20,18 @@ pub struct BotInputPlugin {
 
 impl Plugin for BotInputPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, init_bot_input)
-            .add_systems(Update, apply_bot_input.in_set(UpdateSystems::Input))
+        app.add_systems(OnEnter(PlayingState::Playing), init_bot_input)
             .add_systems(
                 Update,
-                apply_bot_tick_events.in_set(UpdateSystems::LocalEventProducers),
+                apply_bot_input
+                    .in_set(UpdateSystems::Input)
+                    .run_if(in_state(PlayingState::Playing)),
+            )
+            .add_systems(
+                Update,
+                apply_bot_tick_events
+                    .in_set(UpdateSystems::LocalEventProducers)
+                    .run_if(in_state(PlayingState::Playing)),
             )
             .insert_resource(self.clone())
             .insert_resource(StartPositionRes(StartPositions::new()));

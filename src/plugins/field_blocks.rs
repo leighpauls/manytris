@@ -6,10 +6,16 @@ use crate::game_state::BlockDisplayState;
 use crate::plugins::assets::RenderAssets;
 use crate::plugins::block_render::{BlockBundle, BlockColor, BlockComponent};
 use crate::plugins::root::GameRoot;
+use crate::plugins::states::PlayingState;
 use crate::plugins::system_sets::UpdateSystems;
 
 pub fn plugin(app: &mut App) {
-    app.add_systems(Update, update_field_blocks.in_set(UpdateSystems::PreRender));
+    app.add_systems(
+        Update,
+        update_field_blocks
+            .in_set(UpdateSystems::PreRender)
+            .run_if(in_state(PlayingState::Playing)),
+    );
 }
 
 #[derive(Bundle)]

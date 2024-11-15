@@ -2,6 +2,7 @@ use bevy::prelude::*;
 
 // use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use crate::cli_options::{ClientConfig, ClientType, ExecCommand};
+use crate::plugins::states::PlayingState;
 
 mod assets;
 mod block_render;
@@ -21,11 +22,15 @@ mod window_blocks;
 
 #[cfg(target_os = "macos")]
 mod bot_input;
+mod states;
 
 pub fn run(cfg: ExecCommand) {
     let mut app = App::new();
 
     app.add_plugins(DefaultPlugins).add_plugins((
+        states::StatesPlugin {
+            initial_state: PlayingState::Playing,
+        },
         root::common_plugin,
         window_blocks::plugin,
         field_blocks::plugin,

@@ -8,6 +8,7 @@ use crate::cli_options::HostConfig;
 use crate::plugins::net_game_control_manager::{ClientControlEvent, ServerControlEvent};
 use crate::plugins::net_protocol::NetMessage;
 use crate::plugins::root::TickEvent;
+use crate::plugins::states::PlayingState;
 use crate::plugins::system_sets::UpdateSystems;
 
 pub enum ClientNetComponent {
@@ -20,14 +21,15 @@ pub enum ClientNetComponent {
 pub struct NetClientConfig(pub HostConfig);
 
 pub fn plugin(app: &mut App) {
-    app.add_systems(Startup, init).add_systems(
-        Update,
-        (
-            update_client_connect.in_set(UpdateSystems::LocalEventProducers),
-            update_client_net_receive.in_set(UpdateSystems::LocalEventProducers),
-            update_client_net_send.in_set(UpdateSystems::EventSenders),
-        ),
-    );
+    app.add_systems(OnEnter(PlayingState::Playing), init)
+        .add_systems(
+            Update,
+            (
+                update_client_connect.in_set(UpdateSystems::LocalEventProducers),
+                update_client_net_receive.in_set(UpdateSystems::LocalEventProducers),
+                update_client_net_send.in_set(UpdateSystems::EventSenders),
+            ).run_if(in_state(PlayingState::Playing)),
+        );
 }
 
 fn init(world: &mut World) {

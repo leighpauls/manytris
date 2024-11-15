@@ -3,10 +3,16 @@ use bevy::sprite::Anchor;
 
 use crate::plugins::assets;
 use crate::plugins::root::GameRoot;
+use crate::plugins::states::PlayingState;
 use crate::plugins::system_sets::UpdateSystems;
 
 pub fn plugin(app: &mut App) {
-    app.add_systems(Update, update_scoreboard.in_set(UpdateSystems::Render));
+    app.add_systems(
+        Update,
+        update_scoreboard
+            .in_set(UpdateSystems::Render)
+            .run_if(in_state(PlayingState::Playing)),
+    );
 }
 
 #[derive(Component)]

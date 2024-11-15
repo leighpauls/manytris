@@ -1,3 +1,4 @@
+use crate::plugins::states::PlayingState;
 use crate::plugins::system_sets::UpdateSystems;
 use crate::shapes::{Rot, Shift};
 use bevy::prelude::*;
@@ -7,8 +8,12 @@ const INITIAL_REPEAT: Duration = Duration::from_millis(160);
 const REPEAT: Duration = Duration::from_millis(30);
 
 pub fn plugin(app: &mut App) {
-    app.init_resource::<RepeatTimes>()
-        .add_systems(Update, update_for_input.in_set(UpdateSystems::Input));
+    app.init_resource::<RepeatTimes>().add_systems(
+        Update,
+        update_for_input
+            .in_set(UpdateSystems::Input)
+            .run_if(in_state(PlayingState::Playing)),
+    );
 }
 
 #[derive(Event, Copy, Clone)]

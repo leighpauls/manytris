@@ -1,13 +1,19 @@
 use crate::field::{OccupiedBlock, Pos};
 use crate::plugins::assets;
 use crate::plugins::assets::RenderAssets;
+use crate::plugins::states::PlayingState;
 use crate::plugins::system_sets::UpdateSystems;
 use crate::shapes::Shape;
 use bevy::prelude::*;
 use bevy::sprite::MaterialMesh2dBundle;
 
 pub fn plugin(app: &mut App) {
-    app.add_systems(Update, render_blocks.in_set(UpdateSystems::Render));
+    app.add_systems(
+        Update,
+        render_blocks
+            .in_set(UpdateSystems::Render)
+            .run_if(in_state(PlayingState::Playing)),
+    );
 }
 
 #[derive(Bundle)]
