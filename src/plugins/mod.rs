@@ -22,25 +22,40 @@ mod window_blocks;
 
 #[cfg(target_os = "macos")]
 mod bot_input;
+mod main_menu;
 mod states;
 
 pub fn run(cfg: ExecCommand) {
     let mut app = App::new();
 
-    app.add_plugins(DefaultPlugins).add_plugins((
-        states::StatesPlugin {
-            initial_state: PlayingState::Playing,
-        },
-        root::common_plugin,
-        window_blocks::plugin,
-        field_blocks::plugin,
-        assets::plugin,
-        system_sets::plugin,
-        block_render::plugin,
-        scoreboard::plugin,
-        game_container::common_plugin,
-        garbage_counter::plugin,
-    ));
+    let initial_state = match cfg {
+        ExecCommand::Server(_)
+        | ExecCommand::Client(ClientConfig {
+            client_type: ClientType::Bot,
+            ..
+        }) => PlayingState::Playing,
+        ExecCommand::StandAlone
+        | ExecCommand::Client(ClientConfig {
+            client_type: ClientType::Human,
+            ..
+        }) => PlayingState::MainMenu,
+    };
+
+    app.add_plugins(DefaultPlugins)
+        .add_systems(Startup, spawn_camera)
+        .add_plugins((
+            states::StatesPlugin { initial_state },
+            main_menu::plugin,
+            root::common_plugin,
+            window_blocks::plugin,
+            field_blocks::plugin,
+            assets::plugin,
+            system_sets::plugin,
+            block_render::plugin,
+            scoreboard::plugin,
+            game_container::common_plugin,
+            garbage_counter::plugin,
+        ));
 
     match cfg {
         ExecCommand::Client(ClientConfig {
@@ -95,3 +110,7 @@ fn add_bot_input_plugin(app: &mut App, bot_millis: u64) {
 
 #[cfg(not(target_os = "macos"))]
 fn add_bot_input_plugin(_app: &mut App, _bot_millis: u64) {}
+
+fn spawn_camera(mut commands: Commands) {
+    commands.spawn(Camera2dBundle::default());
+}

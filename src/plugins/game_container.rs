@@ -310,7 +310,6 @@ fn spawn_container(
     };
     let transform =
         game_container.get_transform(window.resolution.width(), window.resolution.height());
-    commands.spawn(Camera2dBundle::default());
     commands
         .spawn(GameContainerBundle {
             transform: SpatialBundle::from_transform(transform),
