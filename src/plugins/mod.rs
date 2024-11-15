@@ -1,8 +1,7 @@
 use bevy::prelude::*;
 
 // use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
-use crate::cli_options::{ClientConfig, ClientType, ExecCommand};
-use crate::plugins::states::PlayingState;
+use crate::cli_options::{BotConfig, ExecCommand};
 
 mod assets;
 mod block_render;
@@ -48,14 +47,17 @@ pub fn run(cfg: ExecCommand) {
             shape_producer::plugin,
         ));
 
-    if let ExecCommand::Client(ClientConfig { bot_millis, .. }) = &cfg {
+    match &cfg {
+        ExecCommand::Server(hc) => {
+            app.insert_resource(net_listener::NetListenerConfig(hc.clone()));
+        }
+        ExecCommand::Client(server) | ExecCommand::Bot(BotConfig { server, .. }) => {
+            app.insert_resource(net_client::NetClientConfig(server.clone()));
+        }
+    }
+
+    if let ExecCommand::Bot(BotConfig { bot_millis, .. }) = &cfg {
         add_bot_input_plugin(&mut app, *bot_millis);
-    }
-    if let ExecCommand::Client(ClientConfig { server, .. }) = &cfg {
-        app.insert_resource(net_client::NetClientConfig(server.clone()));
-    }
-    if let ExecCommand::Server(hc) = &cfg {
-        app.insert_resource(net_listener::NetListenerConfig(hc.clone()));
     }
 
     app.run();
