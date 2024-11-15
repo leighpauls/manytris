@@ -7,6 +7,7 @@ use rand::{thread_rng, RngCore};
 
 use crate::game_state::{LockResult, TickMutation};
 use crate::plugins::root::{GameId, LockEvent, TickEvent, TickMutationMessage};
+use crate::plugins::states;
 use crate::plugins::states::PlayingState;
 use crate::plugins::system_sets::UpdateSystems;
 use crate::shapes::Shape;
@@ -18,12 +19,12 @@ pub struct ShapeProducer {
 }
 
 pub fn plugin(app: &mut App) {
-    app.add_systems(OnEnter(PlayingState::Playing), setup)
+    app.add_systems(OnEnter(PlayingState::Playing), setup.run_if(states::produces_shapes))
         .add_systems(
             Update,
             update
                 .in_set(UpdateSystems::LocalEventProducers)
-                .run_if(in_state(PlayingState::Playing)),
+                .run_if(in_state(PlayingState::Playing)).run_if(states::produces_shapes),
         );
 }
 

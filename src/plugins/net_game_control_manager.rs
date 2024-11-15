@@ -41,16 +41,6 @@ pub struct ReceiveControlEventFromClient {
     pub from_connection: ConnectionId,
 }
 
-pub fn server_plugin(app: &mut App) {
-    app.add_event::<SendControlEventToClient>()
-        .add_event::<ReceiveControlEventFromClient>();
-}
-
-pub fn client_plugin(app: &mut App) {
-    app.add_event::<ClientControlEvent>()
-        .add_event::<ServerControlEvent>();
-}
-
 impl ConnectionId {
     pub fn new() -> Self {
         Self(Uuid::new_v4())

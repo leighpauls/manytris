@@ -8,6 +8,7 @@ use crate::game_state::{GameState, TickMutation};
 use crate::plugins::game_container::LocalGameRoot;
 use crate::plugins::input::{InputEvent, InputType};
 use crate::plugins::root::{GameRoot, TickEvent, TickMutationMessage};
+use crate::plugins::states;
 use crate::plugins::states::PlayingState;
 use crate::plugins::system_sets::UpdateSystems;
 use bevy::prelude::*;
@@ -20,21 +21,21 @@ pub struct BotInputPlugin {
 
 impl Plugin for BotInputPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(PlayingState::Playing), init_bot_input)
-            .add_systems(
-                Update,
-                apply_bot_input
-                    .in_set(UpdateSystems::Input)
-                    .run_if(in_state(PlayingState::Playing)),
+        app.add_systems(
+            OnEnter(PlayingState::Playing),
+            init_bot_input.run_if(states::is_bot),
+        )
+        .add_systems(
+            Update,
+            (
+                apply_bot_input.in_set(UpdateSystems::Input),
+                apply_bot_tick_events.in_set(UpdateSystems::LocalEventProducers),
             )
-            .add_systems(
-                Update,
-                apply_bot_tick_events
-                    .in_set(UpdateSystems::LocalEventProducers)
-                    .run_if(in_state(PlayingState::Playing)),
-            )
-            .insert_resource(self.clone())
-            .insert_resource(StartPositionRes(StartPositions::new()));
+                .run_if(in_state(PlayingState::Playing))
+                .run_if(states::is_bot),
+        )
+        .insert_resource(self.clone())
+        .insert_resource(StartPositionRes(StartPositions::new()));
     }
 }
 
@@ -123,3 +124,4 @@ fn make_bot_move_events(game: &GameState, sp: &StartPositions) -> Vec<TickMutati
     let mr = bot_player::select_next_move(game, &bot_context, &bot_player::BEST_BOT_KS, 3).unwrap();
     mr.moves[0].as_tick_mutations(sp)
 }
+

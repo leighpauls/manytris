@@ -23,28 +23,15 @@ mod window_blocks;
 #[cfg(target_os = "macos")]
 mod bot_input;
 mod main_menu;
-mod states;
+pub mod states;
 
 pub fn run(cfg: ExecCommand) {
     let mut app = App::new();
 
-    let initial_state = match cfg {
-        ExecCommand::Server(_)
-        | ExecCommand::Client(ClientConfig {
-            client_type: ClientType::Bot,
-            ..
-        }) => PlayingState::Playing,
-        ExecCommand::StandAlone
-        | ExecCommand::Client(ClientConfig {
-            client_type: ClientType::Human,
-            ..
-        }) => PlayingState::MainMenu,
-    };
-
     app.add_plugins(DefaultPlugins)
         .add_systems(Startup, spawn_camera)
         .add_plugins((
-            states::StatesPlugin { initial_state },
+            cfg.configure_states_plugin(),
             main_menu::plugin,
             root::common_plugin,
             window_blocks::plugin,
@@ -55,47 +42,20 @@ pub fn run(cfg: ExecCommand) {
             scoreboard::plugin,
             game_container::common_plugin,
             garbage_counter::plugin,
+            net_client::plugin,
+            input::plugin,
+            net_listener::plugin,
+            shape_producer::plugin,
         ));
 
-    match cfg {
-        ExecCommand::Client(ClientConfig {
-            server,
-            client_type,
-            bot_millis,
-        }) => {
-            app.insert_resource(net_client::NetClientConfig(server))
-                .add_plugins((
-                    game_container::multiplayer_client_plugin,
-                    root::client_plugin,
-                    net_client::plugin,
-                    net_game_control_manager::client_plugin,
-                ));
-            match client_type {
-                ClientType::Human => {
-                    app.add_plugins(input::plugin);
-                }
-                ClientType::Bot => {
-                    add_bot_input_plugin(&mut app, bot_millis);
-                }
-            };
-        }
-        ExecCommand::Server(hc) => {
-            app.insert_resource(net_listener::NetListenerConfig(hc))
-                .add_plugins((
-                    game_container::server_plugin,
-                    net_listener::plugin,
-                    shape_producer::plugin,
-                    net_game_control_manager::server_plugin,
-                ));
-        }
-        ExecCommand::StandAlone => {
-            app.add_plugins((
-                game_container::stand_alone_plugin,
-                input::plugin,
-                root::stand_alone_plugin,
-                shape_producer::plugin,
-            ));
-        }
+    if let ExecCommand::Client(ClientConfig { bot_millis, .. }) = &cfg {
+        add_bot_input_plugin(&mut app, *bot_millis);
+    }
+    if let ExecCommand::Client(ClientConfig { server, .. }) = &cfg {
+        app.insert_resource(net_client::NetClientConfig(server.clone()));
+    }
+    if let ExecCommand::Server(hc) = &cfg {
+        app.insert_resource(net_listener::NetListenerConfig(hc.clone()));
     }
 
     app.run();

@@ -1,3 +1,4 @@
+use crate::plugins::states::{ExecType, MultiplayerType, PlayingState, StatesPlugin};
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use serde::Serialize;
 
@@ -49,5 +50,37 @@ pub fn web_client_args() -> GameArgs {
             client_type: ClientType::Human,
             bot_millis: 0,
         }),
+    }
+}
+
+impl ExecCommand {
+    pub fn configure_states_plugin(&self) -> StatesPlugin {
+        use ExecCommand::*;
+        let initial_play_state = match self {
+            Server(_)
+            | Client(ClientConfig {
+                client_type: ClientType::Bot,
+                ..
+            }) => PlayingState::Playing,
+            StandAlone
+            | Client(ClientConfig {
+                client_type: ClientType::Human,
+                ..
+            }) => PlayingState::MainMenu,
+        };
+
+        let initial_exec_type = match self {
+            Server(_) => ExecType::Server,
+            StandAlone => ExecType::StandAlone,
+            Client(ccfg) => ExecType::MultiplayerClient(match ccfg.client_type {
+                ClientType::Bot => MultiplayerType::Bot,
+                ClientType::Human => MultiplayerType::Human,
+            }),
+        };
+
+        StatesPlugin {
+            initial_play_state,
+            initial_exec_type,
+        }
     }
 }

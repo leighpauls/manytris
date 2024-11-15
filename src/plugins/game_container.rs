@@ -8,7 +8,7 @@ use crate::plugins::net_game_control_manager::{
 use crate::plugins::root::{GameId, GameRoot, LockEvent};
 use crate::plugins::shape_producer::ShapeProducer;
 use crate::plugins::states::PlayingState;
-use crate::plugins::{root, shape_producer};
+use crate::plugins::{root, shape_producer, states};
 use bevy::prelude::*;
 use bevy::window::WindowResized;
 use std::collections::BTreeMap;
@@ -49,30 +49,33 @@ pub fn common_plugin(app: &mut App) {
     app.add_systems(
         Update,
         respond_to_resize.run_if(in_state(PlayingState::Playing)),
-    );
-}
-
-pub fn stand_alone_plugin(app: &mut App) {
-    app.add_systems(
+    )
+    .add_systems(
         OnEnter(PlayingState::Playing),
-        setup_stand_alone.after(shape_producer::setup),
+        setup_stand_alone
+            .after(shape_producer::setup)
+            .run_if(states::is_stand_alone),
+    )
+    .add_systems(
+        OnEnter(PlayingState::Playing),
+        setup_multiplayer_client.run_if(states::is_multiplayer_client),
+    )
+    .add_systems(
+        Update,
+        accept_server_control_events
+            .run_if(in_state(PlayingState::Playing))
+            .run_if(states::is_multiplayer_client),
+    )
+    .add_systems(
+        OnEnter(PlayingState::Playing),
+        setup_server.run_if(states::is_server),
+    )
+    .add_systems(
+        Update,
+        (accept_client_control_events, deliver_garbage)
+            .run_if(in_state(PlayingState::Playing))
+            .run_if(states::is_server),
     );
-}
-
-pub fn multiplayer_client_plugin(app: &mut App) {
-    app.add_systems(OnEnter(PlayingState::Playing), setup_multiplayer_client)
-        .add_systems(
-            Update,
-            accept_server_control_events.run_if(in_state(PlayingState::Playing)),
-        );
-}
-
-pub fn server_plugin(app: &mut App) {
-    app.add_systems(OnEnter(PlayingState::Playing), setup_server)
-        .add_systems(
-            Update,
-            (accept_client_control_events, deliver_garbage).run_if(in_state(PlayingState::Playing)),
-        );
 }
 
 fn setup_stand_alone(

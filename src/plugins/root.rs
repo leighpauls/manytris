@@ -13,7 +13,7 @@ use crate::plugins::input::{InputEvent, InputType};
 use crate::plugins::shape_producer::ShapeProducer;
 use crate::plugins::states::PlayingState;
 use crate::plugins::system_sets::UpdateSystems;
-use crate::plugins::{field_blocks, garbage_counter, scoreboard, window_blocks};
+use crate::plugins::{field_blocks, garbage_counter, scoreboard, states, window_blocks};
 use crate::shapes::Shape;
 
 const LINES_PER_LEVEL: i32 = 10;
@@ -28,27 +28,14 @@ pub fn common_plugin(app: &mut App) {
     )
     .add_event::<InputEvent>()
     .add_event::<TickEvent>()
-    .add_event::<LockEvent>();
-}
-
-/// Use this plugin for the client of a multiplayer game.
-pub fn client_plugin(app: &mut App) {
-    app.add_systems(
-        Update,
-        produce_tick_events
-            .in_set(UpdateSystems::LocalEventProducers)
-            .run_if(in_state(PlayingState::Playing)),
-    );
-}
-
-/// Use this plugin for clients of single-player games.
-pub fn stand_alone_plugin(app: &mut App) {
-    app.add_systems(
-        Update,
-        produce_tick_events
-            .in_set(UpdateSystems::LocalEventProducers)
-            .run_if(in_state(PlayingState::Playing)),
-    );
+    .add_event::<LockEvent>()
+        .add_systems(
+            Update,
+            produce_tick_events
+                .in_set(UpdateSystems::LocalEventProducers)
+                .run_if(in_state(PlayingState::Playing))
+                .run_if(states::is_client),
+        );
 }
 
 #[derive(Component)]

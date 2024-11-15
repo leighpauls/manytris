@@ -1,3 +1,4 @@
+use crate::plugins::states;
 use crate::plugins::states::PlayingState;
 use crate::plugins::system_sets::UpdateSystems;
 use crate::shapes::{Rot, Shift};
@@ -12,7 +13,8 @@ pub fn plugin(app: &mut App) {
         Update,
         update_for_input
             .in_set(UpdateSystems::Input)
-            .run_if(in_state(PlayingState::Playing)),
+            .run_if(in_state(PlayingState::Playing))
+            .run_if(states::is_human),
     );
 }
 
