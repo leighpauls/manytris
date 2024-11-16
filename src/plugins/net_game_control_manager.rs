@@ -11,6 +11,7 @@ pub struct ConnectionId(Uuid);
 #[derive(Clone, Deserialize, Serialize, Debug, Event)]
 pub enum ClientControlEvent {
     JoinRequest,
+    ReconnectRequest(GameId),
 }
 
 #[derive(Clone, Deserialize, Serialize, Debug, Event)]
@@ -22,6 +23,7 @@ pub enum ServerControlEvent {
         num_lines: usize,
     },
     ClientGameOver(GameId),
+    RejectConnectionRequest,
 }
 
 #[derive(Copy, Clone)]

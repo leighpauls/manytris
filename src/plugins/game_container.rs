@@ -113,6 +113,7 @@ fn setup_stand_alone(
 
 fn tear_down_container(mut commands: Commands, container_q: Query<Entity, With<GameContainer>>) {
     commands.entity(container_q.single()).despawn_recursive();
+    commands.remove_resource::<LocalGameRoot>();
 }
 
 fn setup_multiplayer_client(mut commands: Commands, q_window: Query<&Window>) {
@@ -135,6 +136,7 @@ fn accept_server_control_events(
     mut play_state: ResMut<NextState<PlayingState>>,
     exec_type: Res<ExecType>,
     mut root_xforms_q: Query<&mut Transform>,
+    mut game_root_q: Query<&mut GameRoot>,
 ) {
     let mut local_game_id = local_game_root_res.map(|lgr| lgr.game_id);
     let (container_entity, mut game_container) = q_container.single_mut();
@@ -148,28 +150,40 @@ fn accept_server_control_events(
             }
             ServerControlEvent::SnapshotResponse(gs, game_id) => {
                 println!("Received snapshot for gameid {game_id:?}");
-                // TODO: better define multiplayer tiling
-                let transform = if Some(game_id) == local_game_id.as_ref() {
-                    active_game_transform()
+
+                // Check if I already have an entity for this game id.
+                if let Some(mut gr) = game_root_q
+                    .iter_mut()
+                    .filter(|gr| gr.game_id == *game_id)
+                    .next()
+                {
+                    println!("Directly assigning snapshot of gameid {game_id:?}");
+                    gr.active_game.game = gs.clone();
                 } else {
-                    client_opponent_game_transform(game_container.tiled_games.len())
-                };
+                    println!("Creating new game root for snapshot of gameid {game_id:?}");
+                    // TODO: better define multiplayer tiling
+                    let transform = if Some(game_id) == local_game_id.as_ref() {
+                        active_game_transform()
+                    } else {
+                        client_opponent_game_transform(game_container.tiled_games.len())
+                    };
 
-                println!("New transform: {transform:?}");
+                    println!("New transform: {transform:?}");
 
-                let entity = root::create_root_from_snapshot(
-                    &mut commands,
-                    container_entity,
-                    transform,
-                    &ra,
-                    &asset_server,
-                    gs.clone(),
-                    time.elapsed(),
-                    game_id.clone(),
-                );
+                    let entity = root::create_root_from_snapshot(
+                        &mut commands,
+                        container_entity,
+                        transform,
+                        &ra,
+                        &asset_server,
+                        gs.clone(),
+                        time.elapsed(),
+                        game_id.clone(),
+                    );
 
-                if Some(game_id) != local_game_id.as_ref() {
-                    game_container.tiled_games.push((*game_id, entity));
+                    if Some(game_id) != local_game_id.as_ref() {
+                        game_container.tiled_games.push((*game_id, entity));
+                    }
                 }
             }
             ServerControlEvent::DeliverGarbage {
@@ -185,18 +199,7 @@ fn accept_server_control_events(
             }
             ServerControlEvent::ClientGameOver(game_id) => {
                 if local_game_id == Some(*game_id) {
-                    println!("Game over!");
-                    match *exec_type {
-                        ExecType::MultiplayerClient(MultiplayerType::Bot) => {
-                            panic!("TODO: exit safely");
-                        }
-                        ExecType::MultiplayerClient(MultiplayerType::Human) => {
-                            play_state.set(PlayingState::MainMenu);
-                        }
-                        _ => {
-                            panic!("Unexpected");
-                        }
-                    }
+                    exit_game_safely(exec_type.as_ref(), &mut play_state);
                 } else {
                     game_container.remove_game(
                         &mut commands,
@@ -206,6 +209,24 @@ fn accept_server_control_events(
                     );
                 }
             }
+            ServerControlEvent::RejectConnectionRequest => {
+                exit_game_safely(exec_type.as_ref(), &mut play_state);
+            }
+        }
+    }
+}
+
+fn exit_game_safely(exec_type: &ExecType, play_state: &mut ResMut<NextState<PlayingState>>) {
+    println!("Game over!");
+    match *exec_type {
+        ExecType::MultiplayerClient(MultiplayerType::Bot) => {
+            panic!("TODO: exit safely");
+        }
+        ExecType::MultiplayerClient(MultiplayerType::Human) => {
+            play_state.set(PlayingState::MainMenu);
+        }
+        _ => {
+            panic!("Unexpected");
         }
     }
 }
@@ -225,13 +246,15 @@ fn accept_client_control_events(
     mut q_shape_producer: Query<&mut ShapeProducer>,
     q_roots: Query<&GameRoot>,
 ) {
+    let (container_entity, mut container) = q_container.single_mut();
+
     for rce in control_event_reader.read() {
-        match rce {
-            ReceiveControlEventFromClient {
-                event: ClientControlEvent::JoinRequest,
-                from_connection,
-            } => {
-                let (container_entity, mut container) = q_container.single_mut();
+        let ReceiveControlEventFromClient {
+            event,
+            from_connection,
+        } = rce;
+        match event {
+            ClientControlEvent::JoinRequest => {
                 let (game_state, game_id) = container.create_server_game(
                     &mut commands,
                     container_entity,
@@ -264,6 +287,34 @@ fn accept_client_control_events(
                     to_connection: ConnectionTarget::AllExcept(None),
                 });
             }
+            ClientControlEvent::ReconnectRequest(game_id) => {
+                let events_to_send = if container
+                    .transfer_game(*game_id, *from_connection)
+                    .is_some()
+                {
+                    // Send updated snapshots of every game.
+                    q_roots
+                        .iter()
+                        .map(|gr| {
+                            ServerControlEvent::SnapshotResponse(
+                                gr.active_game.game.clone(),
+                                gr.game_id,
+                            )
+                        })
+                        .collect()
+                } else {
+                    // We don't know this client, tell them to go away
+                    vec![ServerControlEvent::RejectConnectionRequest]
+                };
+
+                let to_connection = ConnectionTarget::To(*from_connection);
+                control_event_writer.send_batch(events_to_send.into_iter().map(|event| {
+                    SendControlEventToClient {
+                        event,
+                        to_connection,
+                    }
+                }));
+            }
         }
     }
 }
@@ -292,15 +343,15 @@ fn accept_server_lock_events(
                     3 => 2,
                     n => n as usize,
                 };
-                control_event_writer.send(SendControlEventToClient {
-                    event: ServerControlEvent::DeliverGarbage {
-                        from_game_id: *game_id,
-                        num_lines,
-                    },
-                    to_connection: ConnectionTarget::AllExcept(Some(
-                        game_container.connection_for_game(game_id),
-                    )),
-                });
+                if let Some(conn_id) = game_container.connection_for_game(game_id) {
+                    control_event_writer.send(SendControlEventToClient {
+                        event: ServerControlEvent::DeliverGarbage {
+                            from_game_id: *game_id,
+                            num_lines,
+                        },
+                        to_connection: ConnectionTarget::AllExcept(Some(conn_id)),
+                    });
+                }
             }
             LockResult::GameOver => {
                 control_event_writer.send(SendControlEventToClient {
@@ -425,8 +476,8 @@ impl GameContainer {
         (game_state, game_id)
     }
 
-    pub fn connection_for_game(&self, game_id: &GameId) -> ConnectionId {
-        *self.connection_map.get(game_id).unwrap()
+    pub fn connection_for_game(&self, game_id: &GameId) -> Option<ConnectionId> {
+        self.connection_map.get(game_id).copied()
     }
 
     pub fn remove_game(
@@ -452,5 +503,16 @@ impl GameContainer {
             let mut xform = root_xform_q.get_mut(*entity).unwrap();
             *xform = xform_function(i);
         }
+    }
+
+    pub fn transfer_game(
+        &mut self,
+        game_id: GameId,
+        new_connection_id: ConnectionId,
+    ) -> Option<Entity> {
+        let (_, entity) = self.tiled_games.iter().find(|(gid, _)| gid == &game_id)?;
+        let connection_id = self.connection_map.get_mut(&game_id)?;
+        *connection_id = new_connection_id;
+        Some(*entity)
     }
 }

@@ -5,6 +5,7 @@ use bevy::prelude::*;
 use ewebsock::{Options, WsEvent, WsMessage, WsReceiver, WsSender};
 
 use crate::cli_options::HostConfig;
+use crate::plugins::game_container::LocalGameRoot;
 use crate::plugins::net_game_control_manager::{ClientControlEvent, ServerControlEvent};
 use crate::plugins::net_protocol::NetMessage;
 use crate::plugins::root::TickEvent;
@@ -57,6 +58,7 @@ fn update_client_connect(
     mut virtual_time: ResMut<Time<Virtual>>,
     mut control_events: EventWriter<ClientControlEvent>,
     config: Res<NetClientConfig>,
+    local_game_root: Option<Res<LocalGameRoot>>,
 ) {
     let mut new_net = None;
     match &net.as_ref() {
@@ -79,7 +81,11 @@ fn update_client_connect(
                 Some(WsEvent::Opened) => {
                     println!("Connected!");
                     new_net = Some(ClientNetComponent::Connected(sr_pair.clone()));
-                    control_events.send(ClientControlEvent::JoinRequest);
+                    let request = match local_game_root {
+                        None => ClientControlEvent::JoinRequest,
+                        Some(game_root) => ClientControlEvent::ReconnectRequest(game_root.game_id),
+                    };
+                    control_events.send(request);
                 }
                 Some(e) => {
                     eprintln!("Unexpected connecting message: {:?}", e);

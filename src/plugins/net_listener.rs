@@ -127,15 +127,18 @@ fn sender_system(
 
     // Events made locally by the server go to all clients.
     // Events made by a client go to all except the original client.
-    payloads.extend(tick_event_reader.read().map(|te| {
-        (
+    payloads.extend(tick_event_reader.read().filter_map(|te| {
+        let Some(from_connection) = game_container.connection_for_game(&te.mutation.game_id) else {
+            return None;
+        };
+        Some((
             ConnectionTarget::AllExcept(if te.local {
                 None
             } else {
-                Some(game_container.connection_for_game(&te.mutation.game_id))
+                Some(from_connection)
             }),
             rmp_serde::to_vec(&NetMessage::Tick(te.mutation.clone())).unwrap(),
-        )
+        ))
     }));
 
     for (target, bytes) in payloads {
