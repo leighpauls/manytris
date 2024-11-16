@@ -21,6 +21,7 @@ pub enum ServerControlEvent {
         from_game_id: GameId,
         num_lines: usize,
     },
+    ClientGameOver(GameId),
 }
 
 #[derive(Copy, Clone)]

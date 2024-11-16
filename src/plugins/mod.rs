@@ -39,7 +39,7 @@ pub fn run(cfg: ExecCommand) {
             system_sets::plugin,
             block_render::plugin,
             scoreboard::plugin,
-            game_container::common_plugin,
+            game_container::plugin,
             garbage_counter::plugin,
             net_client::plugin,
             input::plugin,
