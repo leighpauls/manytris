@@ -36,11 +36,7 @@ pub fn is_stand_alone(et: Res<ExecType>) -> bool {
 }
 
 pub fn is_multiplayer_client(et: Res<ExecType>) -> bool {
-    if let ExecType::MultiplayerClient(_) = et.as_ref() {
-        true
-    } else {
-        false
-    }
+    matches!(*et, ExecType::MultiplayerClient(_))
 }
 
 pub fn is_server(et: Res<ExecType>) -> bool {
@@ -48,35 +44,20 @@ pub fn is_server(et: Res<ExecType>) -> bool {
 }
 
 pub fn is_client(et: Res<ExecType>) -> bool {
-    match et.as_ref() {
-        ExecType::StandAlone | ExecType::MultiplayerClient(_) => true,
-        ExecType::Server => false,
-    }
+    matches!(*et, ExecType::StandAlone | ExecType::MultiplayerClient(_))
 }
 
 pub fn is_human(et: Res<ExecType>) -> bool {
-    match et.as_ref() {
-        ExecType::StandAlone => true,
-        ExecType::Server => false,
-        ExecType::MultiplayerClient(ccfg) => match ccfg {
-            MultiplayerType::Human => true,
-            MultiplayerType::Bot => false,
-        },
-    }
+    matches!(
+        *et,
+        ExecType::StandAlone | ExecType::MultiplayerClient(MultiplayerType::Human)
+    )
 }
 
 pub fn is_bot(et: Res<ExecType>) -> bool {
-    match et.as_ref() {
-        ExecType::StandAlone | ExecType::Server => false,
-        ExecType::MultiplayerClient(ccfg) => match ccfg {
-            MultiplayerType::Human => false,
-            MultiplayerType::Bot => true,
-        },
-    }
+    matches!(*et, ExecType::MultiplayerClient(MultiplayerType::Bot))
 }
+
 pub fn produces_shapes(et: Res<ExecType>) -> bool {
-    match et.as_ref() {
-        ExecType::StandAlone | ExecType::Server => true,
-        ExecType::MultiplayerClient(_) => false,
-    }
+    matches!(*et, ExecType::StandAlone | ExecType::Server)
 }

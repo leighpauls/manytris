@@ -27,6 +27,10 @@ pub fn plugin(app: &mut App) {
         init.run_if(states::is_multiplayer_client),
     )
     .add_systems(
+        OnExit(PlayingState::Playing),
+        teardown.run_if(states::is_multiplayer_client),
+    )
+    .add_systems(
         Update,
         (
             update_client_connect.in_set(UpdateSystems::LocalEventProducers),
@@ -42,6 +46,10 @@ pub fn plugin(app: &mut App) {
 
 fn init(world: &mut World) {
     world.insert_non_send_resource(ClientNetComponent::NotConnected);
+}
+
+fn teardown(world: &mut World) {
+    world.remove_non_send_resource::<ClientNetComponent>();
 }
 
 fn update_client_connect(

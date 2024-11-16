@@ -33,6 +33,10 @@ pub fn plugin(app: &mut App) {
         init_listener.run_if(states::is_server),
     )
     .add_systems(
+        OnExit(PlayingState::Playing),
+        teardown_listener.run_if(states::is_server),
+    )
+    .add_systems(
         Update,
         (
             listener_system.in_set(UpdateSystems::LocalEventProducers),
@@ -53,6 +57,13 @@ fn init_listener(mut commands: Commands, config: Res<NetListenerConfig>) {
         listener,
         sockets: BTreeMap::new(),
     });
+}
+
+fn teardown_listener(
+    mut commands: Commands,
+    listener_q: Query<Entity, With<ServerListenerComponent>>,
+) {
+    commands.entity(listener_q.single()).despawn();
 }
 
 fn listener_system(

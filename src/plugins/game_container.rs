@@ -47,35 +47,45 @@ enum ContainerType {
 
 pub fn common_plugin(app: &mut App) {
     app.add_systems(
-        Update,
-        respond_to_resize.run_if(in_state(PlayingState::Playing)),
-    )
-    .add_systems(
         OnEnter(PlayingState::Playing),
-        setup_stand_alone
-            .after(shape_producer::setup)
-            .run_if(states::is_stand_alone),
+        (
+            setup_stand_alone
+                .after(shape_producer::setup)
+                .run_if(states::is_stand_alone),
+            setup_multiplayer_client.run_if(states::is_multiplayer_client),
+            setup_server.run_if(states::is_server),
+        ),
     )
-    .add_systems(
-        OnEnter(PlayingState::Playing),
-        setup_multiplayer_client.run_if(states::is_multiplayer_client),
-    )
+    .add_systems(OnExit(PlayingState::Playing), tear_down_container)
     .add_systems(
         Update,
-        accept_server_control_events
-            .run_if(in_state(PlayingState::Playing))
-            .run_if(states::is_multiplayer_client),
-    )
-    .add_systems(
-        OnEnter(PlayingState::Playing),
-        setup_server.run_if(states::is_server),
-    )
-    .add_systems(
-        Update,
-        (accept_client_control_events, deliver_garbage)
-            .run_if(in_state(PlayingState::Playing))
-            .run_if(states::is_server),
+        (
+            respond_to_resize.run_if(in_state(PlayingState::Playing)),
+            accept_server_control_events
+                .run_if(in_state(PlayingState::Playing))
+                .run_if(states::is_multiplayer_client),
+            (accept_client_control_events, deliver_garbage)
+                .run_if(in_state(PlayingState::Playing))
+                .run_if(states::is_server),
+            accept_standalone_loss
+                .run_if(in_state(PlayingState::Playing))
+                .run_if(states::is_stand_alone),
+        ),
     );
+}
+
+fn accept_standalone_loss(
+    mut lock_events: EventReader<LockEvent>,
+    mut play_state: ResMut<NextState<PlayingState>>,
+) {
+    let game_over_event = lock_events
+        .read()
+        .filter(|le| matches!(le.lock_result, LockResult::GameOver))
+        .next();
+
+    if game_over_event.is_some() {
+        play_state.set(PlayingState::MainMenu);
+    }
 }
 
 fn setup_stand_alone(
@@ -99,6 +109,10 @@ fn setup_stand_alone(
         shape_producer.single_mut().as_mut(),
     );
     set_local_game_root(&mut commands, game_id);
+}
+
+fn tear_down_container(mut commands: Commands, container_q: Query<Entity, With<GameContainer>>) {
+    commands.entity(container_q.single()).despawn_recursive();
 }
 
 fn setup_multiplayer_client(mut commands: Commands, q_window: Query<&Window>) {

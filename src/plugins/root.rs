@@ -307,7 +307,7 @@ impl ActiveGame {
 
     fn apply_lock_result(&mut self, lr: &LockResult) {
         match lr {
-            LockResult::GameOver => panic!("Game Over!!!"),
+            LockResult::GameOver => println!("Game Over!!!"),
             LockResult::Ok { lines_cleared } => {
                 self.lines_cleared += lines_cleared;
                 self.lines_to_next_level -= lines_cleared;

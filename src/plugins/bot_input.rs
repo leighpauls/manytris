@@ -26,6 +26,10 @@ impl Plugin for BotInputPlugin {
             init_bot_input.run_if(states::is_bot),
         )
         .add_systems(
+            OnExit(PlayingState::Playing),
+            teardown_bot_input.run_if(states::is_bot),
+        )
+        .add_systems(
             Update,
             (
                 apply_bot_input.in_set(UpdateSystems::Input),
@@ -58,6 +62,10 @@ fn init_bot_input(mut cmds: Commands) {
             prev_piece_time: None,
         },
     });
+}
+
+fn teardown_bot_input(mut cmds: Commands, bot_input_q: Query<Entity, With<BotInputState>>) {
+    cmds.entity(bot_input_q.single()).despawn();
 }
 
 fn apply_bot_input(
@@ -124,4 +132,3 @@ fn make_bot_move_events(game: &GameState, sp: &StartPositions) -> Vec<TickMutati
     let mr = bot_player::select_next_move(game, &bot_context, &bot_player::BEST_BOT_KS, 3).unwrap();
     mr.moves[0].as_tick_mutations(sp)
 }
-

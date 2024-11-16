@@ -19,17 +19,29 @@ pub struct ShapeProducer {
 }
 
 pub fn plugin(app: &mut App) {
-    app.add_systems(OnEnter(PlayingState::Playing), setup.run_if(states::produces_shapes))
-        .add_systems(
-            Update,
-            update
-                .in_set(UpdateSystems::LocalEventProducers)
-                .run_if(in_state(PlayingState::Playing)).run_if(states::produces_shapes),
-        );
+    app.add_systems(
+        OnEnter(PlayingState::Playing),
+        setup.run_if(states::produces_shapes),
+    )
+    .add_systems(
+        OnExit(PlayingState::Playing),
+        teardown.run_if(states::produces_shapes),
+    )
+    .add_systems(
+        Update,
+        update
+            .in_set(UpdateSystems::LocalEventProducers)
+            .run_if(in_state(PlayingState::Playing))
+            .run_if(states::produces_shapes),
+    );
 }
 
 pub fn setup(mut commands: Commands) {
     commands.spawn(ShapeProducer::default());
+}
+
+pub fn teardown(mut commands: Commands, producer_q: Query<Entity, With<ShapeProducer>>) {
+    commands.entity(producer_q.single()).despawn();
 }
 
 fn update(
