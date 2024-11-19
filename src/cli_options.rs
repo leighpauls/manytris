@@ -1,5 +1,5 @@
 use crate::plugins::states::{ExecType, MultiplayerType, PlayingState, StatesPlugin};
-use clap::{Args, Parser, Subcommand};
+use clap::{ArgAction, Args, Parser, Subcommand};
 use serde::Serialize;
 
 #[derive(Parser, Debug)]
@@ -11,7 +11,7 @@ pub struct GameArgs {
 
 #[derive(Subcommand, Clone, Debug)]
 pub enum ExecCommand {
-    Server(HostConfig),
+    Server(ServerConfig),
     Client(HostConfig),
     Bot(BotConfig),
 }
@@ -22,6 +22,14 @@ pub struct HostConfig {
     pub host: String,
     #[arg(long, default_value = "9989")]
     pub port: u16,
+}
+
+#[derive(Args, Clone, Debug, Serialize)]
+pub struct ServerConfig {
+    #[clap(flatten)]
+    pub server: HostConfig,
+    #[clap(long, action=ArgAction::SetTrue)]
+    pub headless: bool,
 }
 
 #[derive(Args, Clone, Debug, Serialize)]
@@ -56,9 +64,12 @@ impl ExecCommand {
             Client(_) => ExecType::StandAlone,
         };
 
+        let headless = matches!(self, Server(ServerConfig { headless: true, .. }));
+
         StatesPlugin {
             initial_play_state,
             initial_exec_type,
+            headless,
         }
     }
 }

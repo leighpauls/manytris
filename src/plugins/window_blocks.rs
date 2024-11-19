@@ -2,20 +2,25 @@ use bevy::prelude::*;
 
 use crate::consts;
 use crate::field::{OccupiedBlock, Pos};
-use crate::plugins::assets;
 use crate::plugins::assets::RenderAssets;
 use crate::plugins::block_render::{BlockBundle, BlockColor, BlockComponent};
 use crate::plugins::root::GameRoot;
 use crate::plugins::states::PlayingState;
 use crate::plugins::system_sets::UpdateSystems;
+use crate::plugins::{assets, states};
 use crate::tetromino::Tetromino;
 
 pub fn plugin(app: &mut App) {
     app.add_systems(
         Update,
-        (update_preview_window_blocks, update_hold_window_blocks)
+        (
+            add_windows_to_roots,
+            update_preview_window_blocks.after(add_windows_to_roots),
+            update_hold_window_blocks.after(add_windows_to_roots),
+        )
             .in_set(UpdateSystems::PreRender)
-            .run_if(in_state(PlayingState::Playing)),
+            .run_if(in_state(PlayingState::Playing))
+            .run_if(states::headed),
     );
 }
 
@@ -39,22 +44,28 @@ struct HoldWindowBundle {
 #[derive(Component)]
 struct HoldWindowComponent();
 
-pub fn spawn_windows(commands: &mut Commands, ra: &Res<RenderAssets>, root_entity: Entity) {
-    let spawn_blocks_fn = |parent: &mut ChildBuilder| {
-        spawn_window_block_children(parent, &ra);
-    };
+fn add_windows_to_roots(
+    mut commands: Commands,
+    ra: Res<RenderAssets>,
+    root_ent_q: Query<Entity, Added<GameRoot>>,
+) {
+    for root_entity in &root_ent_q {
+        let spawn_blocks_fn = |parent: &mut ChildBuilder| {
+            spawn_window_block_children(parent, &ra);
+        };
 
-    for i in 0..consts::NUM_PREVIEWS {
+        for i in 0..consts::NUM_PREVIEWS {
+            commands
+                .spawn(PreviewWindowBundle::new(i))
+                .set_parent(root_entity)
+                .with_children(spawn_blocks_fn);
+        }
+
         commands
-            .spawn(PreviewWindowBundle::new(i))
+            .spawn(HoldWindowBundle::new())
             .set_parent(root_entity)
             .with_children(spawn_blocks_fn);
     }
-
-    commands
-        .spawn(HoldWindowBundle::new())
-        .set_parent(root_entity)
-        .with_children(spawn_blocks_fn);
 }
 
 type BlockQuery<'world, 'state, 'a> = Query<'world, 'state, &'a mut BlockComponent>;

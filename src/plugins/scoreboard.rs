@@ -1,17 +1,20 @@
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
 
-use crate::plugins::assets;
 use crate::plugins::root::GameRoot;
 use crate::plugins::states::PlayingState;
 use crate::plugins::system_sets::UpdateSystems;
+use crate::plugins::{assets, states};
 
 pub fn plugin(app: &mut App) {
     app.add_systems(
         Update,
-        update_scoreboard
-            .in_set(UpdateSystems::Render)
-            .run_if(in_state(PlayingState::Playing)),
+        (
+            add_scoreboard_to_root.in_set(UpdateSystems::PreRender),
+            update_scoreboard.in_set(UpdateSystems::Render),
+        )
+            .run_if(in_state(PlayingState::Playing))
+            .run_if(states::headed),
     );
 }
 
@@ -24,29 +27,35 @@ struct ScoreboardBundle {
     text_bundle: Text2dBundle,
 }
 
-pub fn spawn_scoreboard(
-    commands: &mut Commands,
-    asset_server: &Res<AssetServer>,
-    root_entity: Entity,
+fn add_scoreboard_to_root(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    root_entity_q: Query<Entity, Added<GameRoot>>,
 ) {
-    let font = asset_server.load("fonts/white-rabbit.ttf");
-    let text_style = TextStyle {
-        font: font.clone(),
-        font_size: 15.,
-        color: Color::WHITE,
-    };
+    for root_entity in &root_entity_q {
+        let font = asset_server.load("fonts/white-rabbit.ttf");
+        let text_style = TextStyle {
+            font: font.clone(),
+            font_size: 15.,
+            color: Color::WHITE,
+        };
 
-    commands
-        .spawn(ScoreboardBundle {
-            scoreboard: ScoreboardComponent(),
-            text_bundle: Text2dBundle {
-                text: Text::from_section(get_score_text(0, 0), text_style),
-                transform: Transform::from_xyz(-assets::BLOCK_SIZE * 5., assets::BLOCK_SIZE, 0.),
-                text_anchor: Anchor::BottomLeft,
-                ..default()
-            },
-        })
-        .set_parent(root_entity);
+        commands
+            .spawn(ScoreboardBundle {
+                scoreboard: ScoreboardComponent(),
+                text_bundle: Text2dBundle {
+                    text: Text::from_section(get_score_text(0, 0), text_style),
+                    transform: Transform::from_xyz(
+                        -assets::BLOCK_SIZE * 5.,
+                        assets::BLOCK_SIZE,
+                        0.,
+                    ),
+                    text_anchor: Anchor::BottomLeft,
+                    ..default()
+                },
+            })
+            .set_parent(root_entity);
+    }
 }
 
 fn update_scoreboard(

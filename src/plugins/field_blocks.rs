@@ -6,14 +6,20 @@ use crate::game_state::BlockDisplayState;
 use crate::plugins::assets::RenderAssets;
 use crate::plugins::block_render::{BlockBundle, BlockColor, BlockComponent};
 use crate::plugins::root::GameRoot;
+use crate::plugins::states;
 use crate::plugins::states::PlayingState;
 use crate::plugins::system_sets::UpdateSystems;
 
 pub fn plugin(app: &mut App) {
     app.add_systems(
         Update,
-        update_field_blocks
-            .in_set(UpdateSystems::PreRender)
+        (
+            add_field_to_roots.in_set(UpdateSystems::PreRender),
+            update_field_blocks
+                .in_set(UpdateSystems::PreRender)
+                .after(add_field_to_roots),
+        )
+            .run_if(states::headed)
             .run_if(in_state(PlayingState::Playing)),
     );
 }
@@ -36,17 +42,23 @@ impl FieldBundle {
     }
 }
 
-pub fn spawn_field(commands: &mut Commands, ra: &Res<RenderAssets>, root_entity: Entity) {
-    commands
-        .spawn(FieldBundle::new())
-        .set_parent(root_entity)
-        .with_children(|parent| {
-            for y in 0..consts::H {
-                for x in 0..consts::W {
-                    parent.spawn(BlockBundle::new(Pos { x, y }, ra));
+fn add_field_to_roots(
+    mut commands: Commands,
+    root_ent_q: Query<Entity, Added<GameRoot>>,
+    ra: Res<RenderAssets>,
+) {
+    for ent in &root_ent_q {
+        commands
+            .spawn(FieldBundle::new())
+            .set_parent(ent)
+            .with_children(|parent| {
+                for y in 0..consts::H {
+                    for x in 0..consts::W {
+                        parent.spawn(BlockBundle::new(Pos { x, y }, &ra));
+                    }
                 }
-            }
-        });
+            });
+    }
 }
 
 fn update_field_blocks(

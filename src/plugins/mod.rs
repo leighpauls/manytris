@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 // use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
-use crate::cli_options::{BotConfig, ExecCommand};
+use crate::cli_options::{BotConfig, ExecCommand, ServerConfig};
 
 mod assets;
 mod block_render;
@@ -27,29 +27,38 @@ pub mod states;
 pub fn run(cfg: ExecCommand) {
     let mut app = App::new();
 
-    app.add_plugins(DefaultPlugins)
-        .add_systems(Startup, spawn_camera)
-        .add_plugins((
-            cfg.configure_states_plugin(),
-            main_menu::plugin,
-            root::common_plugin,
-            window_blocks::plugin,
-            field_blocks::plugin,
-            assets::plugin,
-            system_sets::plugin,
-            block_render::plugin,
-            scoreboard::plugin,
-            game_container::plugin,
-            garbage_counter::plugin,
-            net_client::plugin,
-            input::plugin,
-            net_listener::plugin,
-            shape_producer::plugin,
-        ));
+    let headless = matches!(
+        cfg,
+        ExecCommand::Server(ServerConfig { headless: true, .. })
+    );
+
+    if headless {
+        app.add_plugins(MinimalPlugins);
+    } else {
+        app.add_plugins((DefaultPlugins, assets::plugin))
+            .add_systems(Startup, spawn_camera);
+    }
+
+    app.add_plugins((
+        cfg.configure_states_plugin(),
+        main_menu::plugin,
+        root::common_plugin,
+        window_blocks::plugin,
+        field_blocks::plugin,
+        system_sets::plugin,
+        block_render::plugin,
+        scoreboard::plugin,
+        game_container::plugin,
+        garbage_counter::plugin,
+        net_client::plugin,
+        input::plugin,
+        net_listener::plugin,
+        shape_producer::plugin,
+    ));
 
     match &cfg {
-        ExecCommand::Server(hc) => {
-            app.insert_resource(net_listener::NetListenerConfig(hc.clone()));
+        ExecCommand::Server(ServerConfig { server, .. }) => {
+            app.insert_resource(net_listener::NetListenerConfig(server.clone()));
         }
         ExecCommand::Client(server) | ExecCommand::Bot(BotConfig { server, .. }) => {
             app.insert_resource(net_client::NetClientConfig(server.clone()));

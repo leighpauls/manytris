@@ -1,5 +1,5 @@
 use crate::game_state::{GameState, LockResult};
-use crate::plugins::assets::{RenderAssets, BLOCK_SIZE};
+use crate::plugins::assets::BLOCK_SIZE;
 use crate::plugins::input::{InputEvent, InputType};
 use crate::plugins::net_game_control_manager::{
     ClientControlEvent, ConnectionId, ConnectionTarget, ReceiveControlEventFromClient,
@@ -10,7 +10,7 @@ use crate::plugins::shape_producer::ShapeProducer;
 use crate::plugins::states::{ExecType, MultiplayerType, PlayingState};
 use crate::plugins::{root, shape_producer, states};
 use bevy::prelude::*;
-use bevy::window::WindowResized;
+use bevy::window::{WindowResized, WindowResolution};
 use std::collections::BTreeMap;
 use std::time::Duration;
 
@@ -60,17 +60,12 @@ pub fn plugin(app: &mut App) {
     .add_systems(
         Update,
         (
-            respond_to_resize.run_if(in_state(PlayingState::Playing)),
-            accept_server_control_events
-                .run_if(in_state(PlayingState::Playing))
-                .run_if(states::is_multiplayer_client),
-            (accept_client_control_events, accept_server_lock_events)
-                .run_if(in_state(PlayingState::Playing))
-                .run_if(states::is_server),
-            accept_standalone_loss
-                .run_if(in_state(PlayingState::Playing))
-                .run_if(states::is_stand_alone),
-        ),
+            respond_to_resize.run_if(states::headed),
+            accept_server_control_events.run_if(states::is_multiplayer_client),
+            (accept_client_control_events, accept_server_lock_events).run_if(states::is_server),
+            accept_standalone_loss.run_if(states::is_stand_alone),
+        )
+            .run_if(in_state(PlayingState::Playing)),
     );
 }
 
@@ -91,20 +86,19 @@ fn accept_standalone_loss(
 fn setup_stand_alone(
     mut commands: Commands,
     q_window: Query<&Window>,
-    ra: Res<RenderAssets>,
-    asset_server: Res<AssetServer>,
     time: Res<Time<Fixed>>,
     mut shape_producer: Query<&mut ShapeProducer>,
 ) {
-    let container_entity =
-        spawn_container(&mut commands, ContainerType::StandAlone, q_window.single());
+    let container_entity = spawn_container(
+        &mut commands,
+        ContainerType::StandAlone,
+        q_window.get_single().ok().map(|w| w.resolution.clone()),
+    );
     let start_time = time.elapsed();
     let (_, game_id, _) = root::create_new_root(
         &mut commands,
         container_entity,
         active_game_transform(),
-        &ra,
-        &asset_server,
         start_time,
         shape_producer.single_mut().as_mut(),
     );
@@ -120,7 +114,7 @@ fn setup_multiplayer_client(mut commands: Commands, q_window: Query<&Window>) {
     spawn_container(
         &mut commands,
         ContainerType::MultiplayerClient,
-        q_window.single(),
+        q_window.get_single().ok().map(|w| w.resolution.clone()),
     );
 }
 
@@ -129,8 +123,6 @@ fn accept_server_control_events(
     mut q_container: Query<(Entity, &mut GameContainer)>,
     mut events: EventReader<ServerControlEvent>,
     mut input_writer: EventWriter<InputEvent>,
-    ra: Res<RenderAssets>,
-    asset_server: Res<AssetServer>,
     time: Res<Time<Fixed>>,
     local_game_root_res: Option<Res<LocalGameRoot>>,
     mut play_state: ResMut<NextState<PlayingState>>,
@@ -174,8 +166,6 @@ fn accept_server_control_events(
                         &mut commands,
                         container_entity,
                         transform,
-                        &ra,
-                        &asset_server,
                         gs.clone(),
                         time.elapsed(),
                         game_id.clone(),
@@ -232,14 +222,16 @@ fn exit_game_safely(exec_type: &ExecType, play_state: &mut ResMut<NextState<Play
 }
 
 fn setup_server(mut commands: Commands, q_window: Query<&Window>) {
-    spawn_container(&mut commands, ContainerType::ServerTiles, q_window.single());
+    spawn_container(
+        &mut commands,
+        ContainerType::ServerTiles,
+        q_window.get_single().ok().map(|w| w.resolution.clone()),
+    );
 }
 
 fn accept_client_control_events(
     mut commands: Commands,
     mut q_container: Query<(Entity, &mut GameContainer)>,
-    ra: Res<RenderAssets>,
-    asset_server: Res<AssetServer>,
     mut control_event_reader: EventReader<ReceiveControlEventFromClient>,
     mut control_event_writer: EventWriter<SendControlEventToClient>,
     time: Res<Time<Fixed>>,
@@ -258,8 +250,6 @@ fn accept_client_control_events(
                 let (game_state, game_id) = container.create_server_game(
                     &mut commands,
                     container_entity,
-                    &ra,
-                    &asset_server,
                     time.elapsed(),
                     q_shape_producer.single_mut().as_mut(),
                     *from_connection,
@@ -415,15 +405,19 @@ fn client_opponent_game_transform(opponent_index: usize) -> Transform {
 fn spawn_container(
     commands: &mut Commands,
     container_type: ContainerType,
-    window: &Window,
+    resolution: Option<WindowResolution>,
 ) -> Entity {
     let game_container = GameContainer {
         tiled_games: default(),
         connection_map: default(),
         container_type,
     };
-    let transform =
-        game_container.get_transform(window.resolution.width(), window.resolution.height());
+    let transform = if let Some(r) = resolution {
+        game_container.get_transform(r.width(), r.height())
+    } else {
+        Transform::from_scale(Vec3::splat(1.0))
+    };
+
     commands
         .spawn(GameContainerBundle {
             transform: SpatialBundle::from_transform(transform),
@@ -455,8 +449,6 @@ impl GameContainer {
         &mut self,
         commands: &mut Commands,
         container_entity: Entity,
-        ra: &Res<RenderAssets>,
-        asset_server: &Res<AssetServer>,
         cur_time: Duration,
         shape_producer: &mut ShapeProducer,
         connection_id: ConnectionId,
@@ -466,8 +458,6 @@ impl GameContainer {
             commands,
             container_entity,
             tiled_game_transform(new_idx),
-            ra,
-            asset_server,
             cur_time,
             shape_producer,
         );

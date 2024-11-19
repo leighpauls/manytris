@@ -3,12 +3,16 @@ use bevy::prelude::*;
 pub struct StatesPlugin {
     pub initial_play_state: PlayingState,
     pub initial_exec_type: ExecType,
+    pub headless: bool
 }
 
 impl Plugin for StatesPlugin {
     fn build(&self, app: &mut App) {
         app.insert_state(self.initial_play_state);
         app.insert_resource(self.initial_exec_type);
+        if self.headless {
+            app.insert_resource(Headless);
+        }
     }
 }
 
@@ -24,6 +28,9 @@ pub enum ExecType {
     Server,
     MultiplayerClient(MultiplayerType),
 }
+
+#[derive(Resource, Debug, Copy, Clone)]
+pub struct Headless;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum MultiplayerType {
@@ -60,4 +67,12 @@ pub fn is_bot(et: Res<ExecType>) -> bool {
 
 pub fn produces_shapes(et: Res<ExecType>) -> bool {
     matches!(*et, ExecType::StandAlone | ExecType::Server)
+}
+
+pub fn headed(headless: Option<Res<Headless>>) -> bool {
+    headless.is_none()
+}
+
+pub fn headless(headless: Option<Res<Headless>>) -> bool {
+    headless.is_some()
 }

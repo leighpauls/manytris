@@ -7,13 +7,12 @@ use uuid::Uuid;
 
 use crate::consts;
 use crate::game_state::{DownType, GameState, LockResult, TickMutation, TickResult};
-use crate::plugins::assets::RenderAssets;
 use crate::plugins::game_container::LocalGameRoot;
 use crate::plugins::input::{InputEvent, InputType};
 use crate::plugins::shape_producer::ShapeProducer;
+use crate::plugins::states;
 use crate::plugins::states::PlayingState;
 use crate::plugins::system_sets::UpdateSystems;
-use crate::plugins::{field_blocks, garbage_counter, scoreboard, states, window_blocks};
 use crate::shapes::Shape;
 
 const LINES_PER_LEVEL: i32 = 10;
@@ -29,13 +28,13 @@ pub fn common_plugin(app: &mut App) {
     .add_event::<InputEvent>()
     .add_event::<TickEvent>()
     .add_event::<LockEvent>()
-        .add_systems(
-            Update,
-            produce_tick_events
-                .in_set(UpdateSystems::LocalEventProducers)
-                .run_if(in_state(PlayingState::Playing))
-                .run_if(states::is_client),
-        );
+    .add_systems(
+        Update,
+        produce_tick_events
+            .in_set(UpdateSystems::LocalEventProducers)
+            .run_if(in_state(PlayingState::Playing))
+            .run_if(states::is_client),
+    );
 }
 
 #[derive(Component)]
@@ -106,8 +105,6 @@ pub fn create_new_root(
     commands: &mut Commands,
     container_entity: Entity,
     transform: Transform,
-    ra: &Res<RenderAssets>,
-    asset_server: &Res<AssetServer>,
     cur_time: Duration,
     shape_producer: &mut ShapeProducer,
 ) -> (GameState, GameId, Entity) {
@@ -119,15 +116,7 @@ pub fn create_new_root(
 
     let active_game = ActiveGame::new(cur_time, initial_shapes);
     let game_state = active_game.game.clone();
-    let entity = spawn_root(
-        commands,
-        container_entity,
-        transform,
-        ra,
-        asset_server,
-        active_game,
-        game_id,
-    );
+    let entity = spawn_root(commands, container_entity, transform, active_game, game_id);
     (game_state, game_id, entity)
 }
 
@@ -135,30 +124,18 @@ pub fn create_root_from_snapshot(
     commands: &mut Commands,
     container_entity: Entity,
     transform: Transform,
-    ra: &Res<RenderAssets>,
-    asset_server: &Res<AssetServer>,
     gs: GameState,
     cur_time: Duration,
     game_id: GameId,
 ) -> Entity {
     let active_game = ActiveGame::from_snapshot(gs, cur_time);
-    spawn_root(
-        commands,
-        container_entity,
-        transform,
-        ra,
-        asset_server,
-        active_game,
-        game_id,
-    )
+    spawn_root(commands, container_entity, transform, active_game, game_id)
 }
 
 fn spawn_root(
     commands: &mut Commands,
     container_entitiy: Entity,
     transform: Transform,
-    ra: &Res<RenderAssets>,
-    asset_server: &Res<AssetServer>,
     active_game: ActiveGame,
     game_id: GameId,
 ) -> Entity {
@@ -172,11 +149,6 @@ fn spawn_root(
         })
         .set_parent(container_entitiy)
         .id();
-
-    field_blocks::spawn_field(commands, ra, root_entitiy);
-    scoreboard::spawn_scoreboard(commands, asset_server, root_entitiy);
-    window_blocks::spawn_windows(commands, ra, root_entitiy);
-    garbage_counter::spawn_garbage_counters(commands, ra, root_entitiy);
 
     root_entitiy
 }
