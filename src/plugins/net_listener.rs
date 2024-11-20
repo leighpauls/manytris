@@ -50,7 +50,8 @@ pub fn plugin(app: &mut App) {
 }
 
 fn init_listener(mut commands: Commands, config: Res<NetListenerConfig>) {
-    let listener = TcpListener::bind(format!("{}:{}", config.0.host, config.0.port)).unwrap();
+    let NetListenerConfig(HostConfig { host, port }) = config.as_ref();
+    let listener = TcpListener::bind(format!("{host}:{port}")).unwrap();
     listener.set_nonblocking(true).unwrap();
 
     commands.spawn(ServerListenerComponent {
@@ -74,7 +75,7 @@ fn listener_system(
     let listener = listener_q.single_mut().into_inner();
 
     if let Err(e) = accept_new_connections(&listener.listener, &mut listener.sockets) {
-        eprintln!("Error while accepting new sockets: {}", e);
+        eprintln!("Error while accepting new sockets: {e}");
     }
 
     let mut remove_connections = vec![];
@@ -169,6 +170,7 @@ fn accept_new_connections(
     for stream in listener.incoming() {
         match stream {
             Ok(s) => {
+                println!("New incomming connection.");
                 s.set_nonblocking(true)?;
                 sockets.insert(ConnectionId::new(), tungstenite::accept(s)?);
             }
@@ -194,19 +196,19 @@ fn listen_to_socket(web_socket: &mut WebSocket<TcpStream>) -> ListenResult {
                 break;
             }
             Err(e) => {
-                eprintln!("Error reading from websocket, dropping thread: {}", e);
+                eprintln!("Error reading from websocket, dropping thread: {e}");
                 return DropSocket;
             }
             Ok(Message::Binary(buf)) => match rmp_serde::from_slice(&buf) {
                 Ok(nm) => result.push(nm),
-                Err(e) => eprintln!("Unable to read message: {}", e),
+                Err(e) => eprintln!("Unable to read message: {e}"),
             },
             Ok(Message::Close(cf)) => {
-                println!("Connection closed, reason: {:?}", cf);
+                println!("Connection closed, reason: {cf:?}");
                 return DropSocket;
             }
             Ok(m) => {
-                eprintln!("Unexpected message: {:?}", m);
+                eprintln!("Unexpected message: {m:?}");
             }
         }
     }

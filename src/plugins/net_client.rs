@@ -87,11 +87,20 @@ fn update_client_connect(
                     };
                     control_events.send(request);
                 }
-                Some(e) => {
-                    eprintln!("Unexpected connecting message: {:?}", e);
+                Some(WsEvent::Error(err_msg)) => {
+                    eprintln!("Unexpected connecting message: {err_msg}");
                     new_net = Some(ClientNetComponent::NotConnected);
                 }
-                None => {}
+                Some(WsEvent::Closed) => {
+                    eprintln!("Connection closed while trying to connect.");
+                    new_net = Some(ClientNetComponent::NotConnected);
+                }
+                Some(WsEvent::Message(msg)) => {
+                    eprintln!("Unexpected message before open: {msg:?}");
+                }
+                None => {
+                    println!("Nothing to receive.");
+                }
             }
         }
         ClientNetComponent::Connected(_) => {
