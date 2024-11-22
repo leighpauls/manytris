@@ -99,7 +99,6 @@ fn update_client_connect(
                     eprintln!("Unexpected message before open: {msg:?}");
                 }
                 None => {
-                    println!("Nothing to receive.");
                 }
             }
         }
