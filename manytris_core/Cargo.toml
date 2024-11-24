@@ -1,0 +1,9 @@
+[package]
+name = "manytris_core"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde = {workspace = true}
+enum-map = {workspace = true}
+enum-iterator = {workspace = true}

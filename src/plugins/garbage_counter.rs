@@ -1,4 +1,4 @@
-use crate::consts;
+use manytris_core::consts;
 use crate::plugins::assets::RenderAssets;
 use crate::plugins::root::GameRoot;
 use crate::plugins::states::PlayingState;

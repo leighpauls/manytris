@@ -12,10 +12,12 @@ use ordered_float::OrderedFloat;
 use crate::bot::bot_player::{MoveResult, MovementDescriptor};
 use crate::bot::bot_start_positions::StartPositions;
 use crate::bot::compute_types::{
-    BitmapField, ComputedDropConfig, MoveResultScore, SearchParams, ShapePositionConfig,
+    ComputedDropConfig, MoveResultScore, SearchParams, ShapePositionConfig,
 };
-use crate::consts;
-use crate::shapes::Shape;
+use manytris_core::consts;
+use manytris_core::shapes::Shape;
+
+use manytris_core::bitmap_field::BitmapField;
 
 pub struct BotShaderContext {
     kc: KernalConfig,
@@ -270,9 +272,10 @@ fn write_to_buffer<T: Clone>(buffer: &mut Buffer, index: usize, value: &T) {
 mod test {
     use std::cmp::max;
 
-    use crate::bot_shader::BotShaderContext;
-    use crate::compute_types::{BitmapField, ComputedDropConfig};
-    use crate::shapes::Shape;
+    use crate::bot::bot_shader::BotShaderContext;
+    use crate::bot::compute_types::ComputedDropConfig;
+    use manytris_core::bitmap_field::BitmapField;
+    use manytris_core::shapes::Shape;
 
     #[test]
     fn verify_computed_configs() {

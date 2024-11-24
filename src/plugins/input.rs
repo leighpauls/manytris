@@ -1,7 +1,7 @@
 use crate::plugins::states;
 use crate::plugins::states::PlayingState;
 use crate::plugins::system_sets::UpdateSystems;
-use crate::shapes::{Rot, Shift};
+use manytris_core::shapes::{Rot, Shift};
 use bevy::prelude::*;
 use bevy::utils::Duration;
 

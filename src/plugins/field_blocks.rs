@@ -1,8 +1,8 @@
 use bevy::prelude::*;
 
-use crate::consts;
-use crate::field::{OccupiedBlock, Pos};
-use crate::game_state::BlockDisplayState;
+use manytris_core::consts;
+use manytris_core::field::{OccupiedBlock, Pos};
+use manytris_core::game_state::BlockDisplayState;
 use crate::plugins::assets::RenderAssets;
 use crate::plugins::block_render::{BlockBundle, BlockColor, BlockComponent};
 use crate::plugins::root::GameRoot;
@@ -81,6 +81,7 @@ fn update_field_blocks(
         let mut block = q_blocks.get_mut(block_entity.clone()).unwrap();
 
         use BlockDisplayState::*;
+        use manytris_core::consts;
         block.color = match game_root.active_game.game.get_display_state(&block.pos) {
             Occupied(ob) => BlockColor::Occupied(ob),
             Active(s) => BlockColor::Occupied(OccupiedBlock::FromShape(s)),

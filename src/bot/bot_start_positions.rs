@@ -3,9 +3,9 @@ use enum_iterator::all;
 use enum_map::EnumMap;
 
 use crate::bot::compute_types::{ShapePositionConfig, ShapeStartingPositions, TetrominoPositions};
-use crate::consts;
-use crate::shapes::{Rot, Shape};
-use crate::tetromino::Tetromino;
+use manytris_core::consts;
+use manytris_core::shapes::{Rot, Shape};
+use manytris_core::tetromino::Tetromino;
 
 pub struct StartPositions {
     bot_positions: EnumMap<Shape, [Tetromino; 4]>,

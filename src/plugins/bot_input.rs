@@ -3,8 +3,8 @@
 use crate::bot::bot_player;
 use crate::bot::bot_shader::BotShaderContext;
 use crate::bot::bot_start_positions::StartPositions;
-use crate::game_state::TickMutation::JumpToBotStartPosition;
-use crate::game_state::{GameState, TickMutation};
+use manytris_core::game_state::TickMutation::JumpToBotStartPosition;
+use manytris_core::game_state::{GameState, TickMutation};
 use crate::plugins::game_container::LocalGameRoot;
 use crate::plugins::input::{InputEvent, InputType};
 use crate::plugins::root::{GameRoot, TickEvent, TickMutationMessage};

@@ -16,7 +16,7 @@ mod internal {
     use manytris::bot::bot_player;
     use manytris::bot::bot_player::ScoringKs;
     use manytris::bot::bot_shader::BotShaderContext;
-    use manytris::game_state::{GameState, TickMutation};
+    use manytris_core::game_state::{GameState, TickMutation};
     use manytris::plugins::root::GameId;
     use manytris::plugins::shape_producer::ShapeProducer;
 

@@ -1,4 +1,4 @@
-use crate::game_state::{GameState, LockResult};
+use manytris_core::game_state::{GameState, LockResult};
 use crate::plugins::assets::BLOCK_SIZE;
 use crate::plugins::input::{InputEvent, InputType};
 use crate::plugins::net_game_control_manager::{

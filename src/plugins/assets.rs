@@ -1,6 +1,6 @@
-use crate::consts;
-use crate::field::OccupiedBlock;
-use crate::shapes::Shape;
+use manytris_core::consts;
+use manytris_core::field::OccupiedBlock;
+use manytris_core::shapes::Shape;
 use bevy::prelude::*;
 use bevy::sprite::Mesh2dHandle;
 use std::collections::HashMap;

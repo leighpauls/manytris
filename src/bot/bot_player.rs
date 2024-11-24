@@ -6,11 +6,12 @@ use ordered_float::OrderedFloat;
 
 use crate::bot::bot_shader::{BotShaderContext, UpcomingShapes};
 use crate::bot::bot_start_positions::StartPositions;
-use crate::bot::compute_types::{BitmapField, MoveResultScore};
-use crate::consts;
-use crate::field::Pos;
-use crate::game_state::{GameState, LockResult, TickMutation, TickResult};
-use crate::shapes::{Shape, Shift};
+use crate::bot::compute_types::MoveResultScore;
+use manytris_core::bitmap_field::BitmapField;
+use manytris_core::consts;
+use manytris_core::field::Pos;
+use manytris_core::game_state::{GameState, LockResult, TickMutation, TickResult};
+use manytris_core::shapes::{Shape, Shift};
 
 const VALIDATE_GPU_MOVES: bool = false;
 

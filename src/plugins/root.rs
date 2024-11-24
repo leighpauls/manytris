@@ -5,15 +5,15 @@ use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::consts;
-use crate::game_state::{DownType, GameState, LockResult, TickMutation, TickResult};
+use manytris_core::consts;
+use manytris_core::game_state::{DownType, GameState, LockResult, TickMutation, TickResult};
 use crate::plugins::game_container::LocalGameRoot;
 use crate::plugins::input::{InputEvent, InputType};
 use crate::plugins::shape_producer::ShapeProducer;
 use crate::plugins::states;
 use crate::plugins::states::PlayingState;
 use crate::plugins::system_sets::UpdateSystems;
-use crate::shapes::Shape;
+use manytris_core::shapes::Shape;
 
 const LINES_PER_LEVEL: i32 = 10;
 
@@ -241,6 +241,7 @@ fn update_root_tick(
 
         // TODO: get game by game_id
         for tick_result in active_game.game.tick_mutation(mutations.clone()) {
+            use manytris_core::consts;
             use TickResult::*;
             match tick_result {
                 Lock(lr) => {

@@ -1,14 +1,14 @@
 use bevy::prelude::*;
 
-use crate::consts;
-use crate::field::{OccupiedBlock, Pos};
+use manytris_core::consts;
+use manytris_core::field::{OccupiedBlock, Pos};
 use crate::plugins::assets::RenderAssets;
 use crate::plugins::block_render::{BlockBundle, BlockColor, BlockComponent};
 use crate::plugins::root::GameRoot;
 use crate::plugins::states::PlayingState;
 use crate::plugins::system_sets::UpdateSystems;
 use crate::plugins::{assets, states};
-use crate::tetromino::Tetromino;
+use manytris_core::tetromino::Tetromino;
 
 pub fn plugin(app: &mut App) {
     app.add_systems(

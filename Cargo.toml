@@ -1,11 +1,7 @@
-[package]
-name = "manytris"
-version = "0.1.0"
-edition = "2021"
+[workspace]
+members = ["manytris_core"]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[dependencies]
+[workspace.dependencies]
 bevy = "0.13.1"
 enum-iterator = "2.0.0"
 ewebsock = "0.5.0"
@@ -19,6 +15,34 @@ ordered-float = "4.2.2"
 enum-map = "2.7.3"
 uuid = { version = "1.10.0", features = ["js", "v4"] }
 
-[target.'cfg(target_os = "macos")'.dependencies]
+# Mac-specific dependencies
 metal = "0.29.0"
 genetic_algorithm = "0.8.2"
+
+
+[package]
+name = "manytris"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+manytris_core = {path = "manytris_core"}
+
+bevy = {workspace = true}
+enum-iterator = {workspace = true}
+ewebsock = {workspace = true}
+rand = {workspace = true}
+tungstenite = {workspace = true}
+serde = {workspace = true}
+rmp-serde = {workspace = true}
+url = {workspace = true}
+clap = {workspace = true}
+ordered-float = {workspace = true}
+enum-map = {workspace = true}
+uuid = {workspace = true}
+
+[target.'cfg(target_os = "macos")'.dependencies]
+metal = {workspace = true}
+genetic_algorithm = {workspace = true}
