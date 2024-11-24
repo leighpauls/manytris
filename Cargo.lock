@@ -2762,9 +2762,8 @@ dependencies = [
  "enum-iterator",
  "enum-map",
  "ewebsock",
- "genetic_algorithm",
+ "manytris_bot",
  "manytris_core",
- "metal 0.29.0",
  "ordered-float",
  "rand",
  "rmp-serde",
@@ -2772,6 +2771,18 @@ dependencies = [
  "tungstenite",
  "url",
  "uuid",
+]
+
+[[package]]
+name = "manytris_bot"
+version = "0.1.0"
+dependencies = [
+ "enum-iterator",
+ "enum-map",
+ "genetic_algorithm",
+ "manytris_core",
+ "metal 0.29.0",
+ "ordered-float",
 ]
 
 [[package]]

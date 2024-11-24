@@ -1,5 +1,5 @@
 [workspace]
-members = ["manytris_core"]
+members = [ "manytris_bot","manytris_core"]
 
 [workspace.dependencies]
 bevy = "0.13.1"
@@ -44,5 +44,4 @@ enum-map = {workspace = true}
 uuid = {workspace = true}
 
 [target.'cfg(target_os = "macos")'.dependencies]
-metal = {workspace = true}
-genetic_algorithm = {workspace = true}
+manytris_bot = {path = "manytris_bot"}

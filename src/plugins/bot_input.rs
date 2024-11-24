@@ -1,10 +1,5 @@
 #![cfg(target_os = "macos")]
 
-use crate::bot::bot_player;
-use crate::bot::bot_shader::BotShaderContext;
-use crate::bot::bot_start_positions::StartPositions;
-use manytris_core::game_state::TickMutation::JumpToBotStartPosition;
-use manytris_core::game_state::{GameState, TickMutation};
 use crate::plugins::game_container::LocalGameRoot;
 use crate::plugins::input::{InputEvent, InputType};
 use crate::plugins::root::{GameRoot, TickEvent, TickMutationMessage};
@@ -12,6 +7,11 @@ use crate::plugins::states;
 use crate::plugins::states::PlayingState;
 use crate::plugins::system_sets::UpdateSystems;
 use bevy::prelude::*;
+use manytris_bot::bot_player;
+use manytris_bot::bot_shader::BotShaderContext;
+use manytris_bot::bot_start_positions::StartPositions;
+use manytris_core::game_state::TickMutation::JumpToBotStartPosition;
+use manytris_core::game_state::{GameState, TickMutation};
 use std::time::Duration;
 
 #[derive(Clone, Resource)]

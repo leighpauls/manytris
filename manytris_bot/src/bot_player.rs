@@ -4,9 +4,9 @@ use std::iter;
 
 use ordered_float::OrderedFloat;
 
-use crate::bot::bot_shader::{BotShaderContext, UpcomingShapes};
-use crate::bot::bot_start_positions::StartPositions;
-use crate::bot::compute_types::MoveResultScore;
+use crate::bot_shader::{BotShaderContext, UpcomingShapes};
+use crate::bot_start_positions::StartPositions;
+use crate::compute_types::MoveResultScore;
 use manytris_core::bitmap_field::BitmapField;
 use manytris_core::consts;
 use manytris_core::field::Pos;

@@ -1,0 +1,14 @@
+[package]
+name = "manytris_bot"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+manytris_core = {path = "../manytris_core"}
+
+ordered-float = {workspace = true}
+enum-iterator = {workspace = true}
+enum-map = {workspace = true}
+
+metal = {workspace = true}
+genetic_algorithm = {workspace = true}
