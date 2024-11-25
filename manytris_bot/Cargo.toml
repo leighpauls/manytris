@@ -9,6 +9,7 @@ manytris_core = {path = "../manytris_core"}
 ordered-float = {workspace = true}
 enum-iterator = {workspace = true}
 enum-map = {workspace = true}
+rand = {workspace = true}
 
 metal = {workspace = true}
 genetic_algorithm = {workspace = true}

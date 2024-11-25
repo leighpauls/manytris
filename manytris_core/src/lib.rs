@@ -5,3 +5,4 @@ pub mod shapes;
 pub mod tetromino;
 pub mod upcoming;
 pub mod bitmap_field;
+pub mod shape_bag;

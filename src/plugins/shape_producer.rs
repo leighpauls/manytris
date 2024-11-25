@@ -1,21 +1,22 @@
 use std::collections::BTreeMap;
 use std::iter;
 
-use manytris_core::consts;
 use bevy::prelude::*;
-use rand::{thread_rng, RngCore};
+use manytris_core::consts;
 
-use manytris_core::game_state::{LockResult, TickMutation};
 use crate::plugins::root::{GameId, LockEvent, TickEvent, TickMutationMessage};
 use crate::plugins::states;
 use crate::plugins::states::PlayingState;
 use crate::plugins::system_sets::UpdateSystems;
+use manytris_core::game_state::{LockResult, TickMutation};
+use manytris_core::shape_bag::ShapeBag;
 use manytris_core::shapes::Shape;
 
 #[derive(Component, Default)]
 pub struct ShapeProducer {
     history_cursors: BTreeMap<GameId, usize>,
     history: Vec<Shape>,
+    shape_bag: ShapeBag,
 }
 
 pub fn plugin(app: &mut App) {
@@ -69,7 +70,7 @@ impl ShapeProducer {
     pub fn take(&mut self, game_id: &GameId) -> Shape {
         let cursor = self.history_cursors.entry(game_id.clone()).or_insert(0);
         while *cursor >= self.history.len() {
-            Self::refill(&mut self.history);
+            self.history.push(self.shape_bag.next().unwrap());
         }
         let res = self.history[*cursor];
         *cursor += 1;
@@ -80,13 +81,5 @@ impl ShapeProducer {
         iter::repeat_with(|| self.take(&game_id))
             .take(consts::NUM_PREVIEWS * 2)
             .collect()
-    }
-
-    fn refill(history: &mut Vec<Shape>) {
-        let mut bag: Vec<_> = enum_iterator::all::<Shape>().collect();
-        while !bag.is_empty() {
-            let next_idx = thread_rng().next_u32() as usize % bag.len();
-            history.push(bag.remove(next_idx))
-        }
     }
 }

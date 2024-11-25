@@ -2783,6 +2783,7 @@ dependencies = [
  "manytris_core",
  "metal 0.29.0",
  "ordered-float",
+ "rand",
 ]
 
 [[package]]
@@ -2791,6 +2792,7 @@ version = "0.1.0"
 dependencies = [
  "enum-iterator",
  "enum-map",
+ "rand",
  "serde",
 ]
 
