@@ -1,4 +1,4 @@
-use crate::plugins::states::{ExecType, MultiplayerType, PlayingState, StatesPlugin};
+use crate::states::{ExecType, MultiplayerType, PlayingState, StatesPlugin};
 use clap::{ArgAction, Args, Parser, Subcommand};
 use serde::Serialize;
 

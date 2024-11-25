@@ -1,16 +1,16 @@
-use manytris_core::game_state::{GameState, LockResult};
-use crate::plugins::assets::BLOCK_SIZE;
-use crate::plugins::input::{InputEvent, InputType};
-use crate::plugins::net_game_control_manager::{
+use crate::assets::BLOCK_SIZE;
+use crate::input::{InputEvent, InputType};
+use crate::net_game_control_manager::{
     ClientControlEvent, ConnectionId, ConnectionTarget, ReceiveControlEventFromClient,
     SendControlEventToClient, ServerControlEvent,
 };
-use crate::plugins::root::{GameId, GameRoot, LockEvent};
-use crate::plugins::shape_producer::ShapeProducer;
-use crate::plugins::states::{ExecType, MultiplayerType, PlayingState};
-use crate::plugins::{root, shape_producer, states};
+use crate::root::{GameId, GameRoot, LockEvent};
+use crate::shape_producer::ShapeProducer;
+use crate::states::{ExecType, MultiplayerType, PlayingState};
+use crate::{root, shape_producer, states};
 use bevy::prelude::*;
 use bevy::window::{WindowResized, WindowResolution};
+use manytris_core::game_state::{GameState, LockResult};
 use std::collections::BTreeMap;
 use std::time::Duration;
 

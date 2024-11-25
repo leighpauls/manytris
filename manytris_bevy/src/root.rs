@@ -1,19 +1,17 @@
-use std::collections::BTreeMap;
-use std::time::Duration;
-
+use crate::game_container::LocalGameRoot;
+use crate::input::{InputEvent, InputType};
+use crate::shape_producer::ShapeProducer;
+use crate::states;
+use crate::states::PlayingState;
+use crate::system_sets::UpdateSystems;
 use bevy::prelude::*;
-use serde::{Deserialize, Serialize};
-use uuid::Uuid;
-
 use manytris_core::consts;
 use manytris_core::game_state::{DownType, GameState, LockResult, TickMutation, TickResult};
-use crate::plugins::game_container::LocalGameRoot;
-use crate::plugins::input::{InputEvent, InputType};
-use crate::plugins::shape_producer::ShapeProducer;
-use crate::plugins::states;
-use crate::plugins::states::PlayingState;
-use crate::plugins::system_sets::UpdateSystems;
 use manytris_core::shapes::Shape;
+use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
+use std::time::Duration;
+use uuid::Uuid;
 
 const LINES_PER_LEVEL: i32 = 10;
 

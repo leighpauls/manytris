@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use manytris_core::game_state::GameState;
-use crate::plugins::root::GameId;
+use crate::root::GameId;
 
 #[derive(Deserialize, Serialize, Copy, Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct ConnectionId(Uuid);

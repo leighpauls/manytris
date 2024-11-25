@@ -1,11 +1,11 @@
 #![cfg(target_os = "macos")]
 
-use crate::plugins::game_container::LocalGameRoot;
-use crate::plugins::input::{InputEvent, InputType};
-use crate::plugins::root::{GameRoot, TickEvent, TickMutationMessage};
-use crate::plugins::states;
-use crate::plugins::states::PlayingState;
-use crate::plugins::system_sets::UpdateSystems;
+use crate::game_container::LocalGameRoot;
+use crate::input::{InputEvent, InputType};
+use crate::root::{GameRoot, TickEvent, TickMutationMessage};
+use crate::states;
+use crate::states::PlayingState;
+use crate::system_sets::UpdateSystems;
 use bevy::prelude::*;
 use manytris_bot::bot_player;
 use manytris_bot::bot_shader::BotShaderContext;

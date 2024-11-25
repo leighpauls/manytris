@@ -1,28 +1,10 @@
-use bevy::prelude::*;
-
-// use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use crate::cli_options::{BotConfig, ExecCommand, ServerConfig};
-
-mod assets;
-mod block_render;
-mod field_blocks;
-mod game_container;
-mod garbage_counter;
-mod input;
-mod net_client;
-mod net_game_control_manager;
-mod net_listener;
-mod net_protocol;
-pub mod root;
-mod scoreboard;
-pub mod shape_producer;
-mod system_sets;
-mod window_blocks;
-
-#[cfg(target_os = "macos")]
-mod bot_input;
-mod main_menu;
-pub mod states;
+use crate::{
+    assets, block_render, bot_input, field_blocks, game_container, garbage_counter, input,
+    main_menu, net_client, net_listener, root, scoreboard, shape_producer, system_sets,
+    window_blocks,
+};
+use bevy::prelude::*;
 
 pub fn run(cfg: ExecCommand) {
     let mut app = App::new();

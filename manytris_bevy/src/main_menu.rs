@@ -1,4 +1,4 @@
-use crate::plugins::states::{ExecType, MultiplayerType, PlayingState};
+use crate::states::{ExecType, MultiplayerType, PlayingState};
 use bevy::prelude::*;
 
 pub fn plugin(app: &mut App) {

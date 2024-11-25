@@ -1,17 +1,15 @@
-use std::ops::Deref;
-use std::sync::{Arc, Mutex};
-
+use crate::cli_options::HostConfig;
+use crate::game_container::LocalGameRoot;
+use crate::net_game_control_manager::{ClientControlEvent, ServerControlEvent};
+use crate::net_protocol::NetMessage;
+use crate::root::TickEvent;
+use crate::states;
+use crate::states::PlayingState;
+use crate::system_sets::UpdateSystems;
 use bevy::prelude::*;
 use ewebsock::{Options, WsEvent, WsMessage, WsReceiver, WsSender};
-
-use crate::cli_options::HostConfig;
-use crate::plugins::game_container::LocalGameRoot;
-use crate::plugins::net_game_control_manager::{ClientControlEvent, ServerControlEvent};
-use crate::plugins::net_protocol::NetMessage;
-use crate::plugins::root::TickEvent;
-use crate::plugins::states;
-use crate::plugins::states::PlayingState;
-use crate::plugins::system_sets::UpdateSystems;
+use std::ops::Deref;
+use std::sync::{Arc, Mutex};
 
 pub enum ClientNetComponent {
     NotConnected,
@@ -98,8 +96,7 @@ fn update_client_connect(
                 Some(WsEvent::Message(msg)) => {
                     eprintln!("Unexpected message before open: {msg:?}");
                 }
-                None => {
-                }
+                None => {}
             }
         }
         ClientNetComponent::Connected(_) => {

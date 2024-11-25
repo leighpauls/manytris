@@ -1,16 +1,14 @@
-use std::collections::BTreeMap;
-use std::iter;
-
+use crate::root::{GameId, LockEvent, TickEvent, TickMutationMessage};
+use crate::states;
+use crate::states::PlayingState;
+use crate::system_sets::UpdateSystems;
 use bevy::prelude::*;
 use manytris_core::consts;
-
-use crate::plugins::root::{GameId, LockEvent, TickEvent, TickMutationMessage};
-use crate::plugins::states;
-use crate::plugins::states::PlayingState;
-use crate::plugins::system_sets::UpdateSystems;
 use manytris_core::game_state::{LockResult, TickMutation};
 use manytris_core::shape_bag::ShapeBag;
 use manytris_core::shapes::Shape;
+use std::collections::BTreeMap;
+use std::iter;
 
 #[derive(Component, Default)]
 pub struct ShapeProducer {

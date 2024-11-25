@@ -1,5 +1,5 @@
-use manytris::cli_options::GameArgs;
-use manytris::plugins;
+use manytris_bevy::cli_options::GameArgs;
+use manytris_bevy::plugins;
 
 fn main() {
     let args = get_args();
@@ -16,6 +16,6 @@ fn get_args() -> GameArgs {
 
 #[cfg(target_arch = "wasm32")]
 fn get_args() -> GameArgs {
-    use manytris::cli_options;
+    use manytris_bevy::cli_options;
     cli_options::web_client_args()
 }

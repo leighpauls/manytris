@@ -3,12 +3,12 @@ use bevy::prelude::*;
 use manytris_core::consts;
 use manytris_core::field::{OccupiedBlock, Pos};
 use manytris_core::game_state::BlockDisplayState;
-use crate::plugins::assets::RenderAssets;
-use crate::plugins::block_render::{BlockBundle, BlockColor, BlockComponent};
-use crate::plugins::root::GameRoot;
-use crate::plugins::states;
-use crate::plugins::states::PlayingState;
-use crate::plugins::system_sets::UpdateSystems;
+use crate::assets::RenderAssets;
+use crate::block_render::{BlockBundle, BlockColor, BlockComponent};
+use crate::root::GameRoot;
+use crate::states;
+use crate::states::PlayingState;
+use crate::system_sets::UpdateSystems;
 
 pub fn plugin(app: &mut App) {
     app.add_systems(

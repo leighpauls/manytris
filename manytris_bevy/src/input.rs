@@ -1,9 +1,9 @@
-use crate::plugins::states;
-use crate::plugins::states::PlayingState;
-use crate::plugins::system_sets::UpdateSystems;
-use manytris_core::shapes::{Rot, Shift};
+use crate::states;
+use crate::states::PlayingState;
+use crate::system_sets::UpdateSystems;
 use bevy::prelude::*;
 use bevy::utils::Duration;
+use manytris_core::shapes::{Rot, Shift};
 
 const INITIAL_REPEAT: Duration = Duration::from_millis(160);
 const REPEAT: Duration = Duration::from_millis(30);

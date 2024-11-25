@@ -1,11 +1,11 @@
-use manytris_core::field::{OccupiedBlock, Pos};
-use crate::plugins::assets::RenderAssets;
-use crate::plugins::states::PlayingState;
-use crate::plugins::system_sets::UpdateSystems;
-use crate::plugins::{assets, states};
-use manytris_core::shapes::Shape;
+use crate::assets::RenderAssets;
+use crate::states::PlayingState;
+use crate::system_sets::UpdateSystems;
+use crate::{assets, states};
 use bevy::prelude::*;
 use bevy::sprite::MaterialMesh2dBundle;
+use manytris_core::field::{OccupiedBlock, Pos};
+use manytris_core::shapes::Shape;
 
 pub fn plugin(app: &mut App) {
     app.add_systems(

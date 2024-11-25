@@ -1,10 +1,9 @@
+use crate::root::GameRoot;
+use crate::states::PlayingState;
+use crate::system_sets::UpdateSystems;
+use crate::{assets, states};
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
-
-use crate::plugins::root::GameRoot;
-use crate::plugins::states::PlayingState;
-use crate::plugins::system_sets::UpdateSystems;
-use crate::plugins::{assets, states};
 
 pub fn plugin(app: &mut App) {
     app.add_systems(
