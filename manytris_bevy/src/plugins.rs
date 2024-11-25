@@ -1,8 +1,7 @@
 use crate::cli_options::{BotConfig, ExecCommand, ServerConfig};
 use crate::{
-    assets, block_render, bot_input, field_blocks, game_container, garbage_counter, input,
-    main_menu, net_client, net_listener, root, scoreboard, shape_producer, system_sets,
-    window_blocks,
+    assets, block_render, field_blocks, game_container, garbage_counter, input, main_menu,
+    net_client, net_listener, root, scoreboard, shape_producer, system_sets, window_blocks,
 };
 use bevy::prelude::*;
 
@@ -56,6 +55,8 @@ pub fn run(cfg: ExecCommand) {
 
 #[cfg(target_os = "macos")]
 fn add_bot_input_plugin(app: &mut App, bot_millis: u64) {
+    use crate::bot_input;
+
     app.add_plugins(bot_input::BotInputPlugin {
         bot_period_millis: bot_millis,
     });

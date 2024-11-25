@@ -141,7 +141,6 @@ impl Field {
         }
     }
 
-    #[cfg(target_os = "macos")]
     pub fn make_bitmap_field(&self) -> BitmapField {
         let mut bf = BitmapField::default();
         for p in self.occupied.keys() {

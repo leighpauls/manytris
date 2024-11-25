@@ -1,4 +1,7 @@
+
 FROM rust:1.82-slim-bullseye AS builder
+
+ARG BUILD_PROFILE=dev
 
 # Set environment variables for Rust
 ENV RUST_BACKTRACE=1
@@ -13,9 +16,11 @@ RUN apt-get update && apt-get install -y \
 
 # Copy application files into the container
 COPY . .
-RUN cargo build --release
+RUN cargo build --profile=$BUILD_PROFILE
 
 FROM ubuntu:20.04 AS final
+
+ARG TARGET_DIR=debug
 
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y \
@@ -24,7 +29,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy the built application from the builder stage
-COPY --from=builder /app/target/release/manytris /usr/local/bin/manytris
+COPY --from=builder /app/target/$TARGET_DIR/manytris /usr/local/bin/manytris
 
 # Expose the port that the application listens on.
 EXPOSE 9989
