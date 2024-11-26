@@ -53,7 +53,7 @@ pub fn run(cfg: ExecCommand) {
     app.run();
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(feature = "bot")]
 fn add_bot_input_plugin(app: &mut App, bot_millis: u64) {
     use crate::bot_input;
 
@@ -62,7 +62,7 @@ fn add_bot_input_plugin(app: &mut App, bot_millis: u64) {
     });
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(feature = "bot"))]
 fn add_bot_input_plugin(_app: &mut App, _bot_millis: u64) {}
 
 fn spawn_camera(mut commands: Commands) {

@@ -13,9 +13,10 @@ pub mod scoreboard;
 pub mod shape_producer;
 pub mod system_sets;
 pub mod window_blocks;
-#[cfg(target_os = "macos")]
-pub mod bot_input;
 pub mod main_menu;
 pub mod states;
 pub mod plugins;
 pub mod cli_options;
+
+#[cfg(feature = "bot")]
+pub mod bot_input;

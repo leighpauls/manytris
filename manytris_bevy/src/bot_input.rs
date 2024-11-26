@@ -1,4 +1,4 @@
-#![cfg(target_os = "macos")]
+#![cfg(feature = "bot")]
 
 use crate::game_container::LocalGameRoot;
 use crate::input::{InputEvent, InputType};
