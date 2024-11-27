@@ -10,7 +10,7 @@ use tokio;
 const NAMESPACE: &str = "manytris";
 const GAME_POD_NAME: &str = "game-pod";
 const SERVER_CONTAINER_NAME: &str = "server";
-const IMAGE_NAME: &str = "registry.hub.docker.com/leighpauls/manytris:v0.3";
+const IMAGE_NAME: &str = "registry.hub.docker.com/leighpauls/manytris:v0.4";
 const SERVER_GAME_PORT_NAME: &str = "game-port";
 
 #[derive(Parser, Debug)]
