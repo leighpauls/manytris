@@ -7,9 +7,10 @@ metadata:
 spec:
   containers:
   - name: server
-    image: registry.hub.docker.com/leighpauls/manytris:v0.2
+    image: registry.hub.docker.com/leighpauls/manytris:v0.3
     ports:
-    - containerPort: 9989
+    - name: game-port
+      containerPort: 9989
       hostPort: 7001
       protocol: TCP
       hostIP: 0.0.0.0
