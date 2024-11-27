@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use clap::{Parser, Subcommand};
 use k8s_openapi::api::core::v1::{Node, Pod};
 use kube::api::ListParams;
 use kube::{Api, Client, ResourceExt};
@@ -6,12 +7,35 @@ use tokio;
 
 const NAMESPACE: &str = "manytris";
 
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+pub struct ManagerArgs {
+    #[command(subcommand)]
+    pub cmd: ManagementCommand,
+}
+
+#[derive(Subcommand, Clone, Debug)]
+pub enum ManagementCommand {
+    Get,
+    Create,
+    Delete,
+}
+
 fn main() -> Result<()> {
+    let manager_args = ManagerArgs::parse();
+
     tokio::runtime::Builder::new_current_thread()
         .enable_all()
-        .build()
-        .unwrap()
-        .block_on(read_state())
+        .build()?
+        .block_on(handle_cmd(manager_args))
+}
+
+async fn handle_cmd(manager_args: ManagerArgs) -> Result<()> {
+    match manager_args.cmd {
+        ManagementCommand::Get => read_state().await,
+        ManagementCommand::Create => create().await,
+        ManagementCommand::Delete => delete().await,
+    }
 }
 
 async fn read_state() -> Result<()> {
@@ -94,4 +118,12 @@ async fn get_server_address(nodes: &Api<Node>, pod: &Pod) -> Result<(String, i32
         .with_context(|| "Could not find host port for game-port")?;
 
     Ok((host, port))
+}
+
+async fn create() -> Result<()> {
+    Err(anyhow::anyhow!("Not implemented"))
+}
+
+async fn delete() -> Result<()> {
+    Err(anyhow::anyhow!("Not implemented"))
 }
