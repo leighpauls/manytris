@@ -14,10 +14,11 @@ clap = { version = "4.5.7", features = ["derive"] }
 ordered-float = "4.2.2"
 enum-map = "2.7.3"
 uuid = { version = "1.10.0", features = ["js", "v4"] }
-tokio = "1.41.1"
+tokio = { version = "1.41.1", features = ["full"] }
 anyhow = "1.0.93"
 kube = "0.97.0"
 k8s-openapi = { version = "0.23.0", features = ["latest"] }
+axum = "0.7.9"
 
 # Mac-specific dependencies
 metal = "0.29.0"

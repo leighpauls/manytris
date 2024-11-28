@@ -9,3 +9,5 @@ k8s-openapi = {workspace = true}
 tokio = {workspace = true}
 clap = {workspace = true}
 anyhow = {workspace = true}
+axum = {workspace = true}
+serde = { version = "1.0.215", features = ["derive"] }
