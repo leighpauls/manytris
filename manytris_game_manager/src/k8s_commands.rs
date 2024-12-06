@@ -4,7 +4,7 @@ use crate::k8s_commands::GetAddressResponse::NoServer;
 use anyhow::{Context, Result};
 use k8s_openapi::api::core::v1::{Container, ContainerPort, Node, Pod, PodSpec};
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta;
-use kube::api::{DeleteParams, PostParams};
+use kube::api::{DeleteParams, ListParams, PostParams};
 use kube::{Api, Client, ResourceExt};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -109,7 +109,10 @@ async fn get_server_address(nodes: &Api<Node>, pod: &Pod) -> Result<(String, u16
         .as_ref()
         .context("Missing node name")?;
 
-    let node = nodes.get(node_name).await.context("Name not available")?;
+    let node = nodes
+        .get(node_name)
+        .await
+        .with_context(|| format!("Name not available: {node_name}"))?;
 
     let host = node
         .status

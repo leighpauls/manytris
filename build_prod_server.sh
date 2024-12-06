@@ -11,5 +11,6 @@ docker buildx build \
        --progress=plain \
        --build-arg BUILD_PROFILE=release \
        --build-arg TARGET_DIR=release \
+       -f Dockerfile.game \
        . \
        --push
