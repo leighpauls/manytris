@@ -27,10 +27,10 @@ FROM ubuntu:20.04 AS final
 ARG TARGET_DIR=debug
 
 # Install runtime dependencies
-# RUN apt-get update && apt-get install -y \
-#     libx11-6 \
-#     && apt-get clean \
-#     && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy the built application from the builder stage
 COPY --from=builder /app/target/$TARGET_DIR/manytris_game_manager /usr/local/bin/manytris_game_manager

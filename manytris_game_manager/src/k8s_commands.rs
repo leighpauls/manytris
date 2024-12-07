@@ -2,12 +2,15 @@ use crate::k8s_commands::CreateResponse::AlreadyExists;
 use crate::k8s_commands::DeleteResponse::{Deleting, NotFound};
 use crate::k8s_commands::GetAddressResponse::NoServer;
 use anyhow::{Context, Result};
+use axum::http::Uri;
+use gcp_auth;
 use k8s_openapi::api::core::v1::{Container, ContainerPort, Node, Pod, PodSpec};
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta;
-use kube::api::{DeleteParams, ListParams, PostParams};
-use kube::{Api, Client, ResourceExt};
+use kube::api::{DeleteParams, PostParams};
+use kube::{Api, Client, Config};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
+use std::env;
 
 const NAMESPACE: &str = "manytris";
 const GAME_POD_NAME: &str = "game-pod";
@@ -97,7 +100,23 @@ pub async fn delete() -> Result<DeleteResponse> {
 }
 
 async fn get_client() -> Result<Client> {
-    Ok(Client::try_default().await?)
+    if let Ok(api_server) = env::var("KUBE_API_SERVER") {
+        println!("Use GCP auth");
+        let token = gcp_auth::provider()
+            .await?
+            .token(&["https://www.googleapis.com/auth/cloud-platform"])
+            .await?;
+
+        let mut kube_config = Config::new(Uri::try_from(api_server)?);
+        kube_config.headers.push((
+            "Authorization".try_into()?,
+            format!("Bearer {}", token.as_str()).try_into()?,
+        ));
+        Ok(Client::try_from(kube_config)?)
+    } else {
+        println!("Use default auth");
+        Ok(Client::try_default().await?)
+    }
 }
 
 async fn get_server_address(nodes: &Api<Node>, pod: &Pod) -> Result<(String, u16)> {
