@@ -4,7 +4,7 @@ members = [ "manytris_bevy", "manytris_bot","manytris_core", "manytris_game_mana
 [workspace.dependencies]
 anyhow = "1.0.93"
 axum = "0.7.9"
-bevy = "0.13.0"
+bevy = "0.15.0"
 bevy_mod_reqwest = "0.18.0"
 clap = { version = "4.5.7", features = ["derive"] }
 enum-iterator = "2.0.0"

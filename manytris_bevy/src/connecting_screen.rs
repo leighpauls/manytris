@@ -1,4 +1,5 @@
 use crate::states::PlayingState;
+use bevy::color::palettes::basic::BLACK;
 use bevy::prelude::*;
 use bevy_mod_reqwest::ReqwestPlugin;
 
@@ -17,7 +18,7 @@ pub struct TextMarker;
 fn setup(mut commands: Commands) {
     let ui_container = commands
         .spawn(NodeBundle {
-            style: Style {
+            node: Node {
                 width: Val::Percent(100.0),
                 height: Val::Percent(100.0),
                 justify_content: JustifyContent::Center,
@@ -28,23 +29,22 @@ fn setup(mut commands: Commands) {
         .insert(ConnectingMarker)
         .id();
 
-    let text_style = TextStyle {
+    let text_font = TextFont {
         font_size: 40.0,
-        color: Color::BLACK,
         ..default()
     };
+    let text_color = TextColor(BLACK.into());
 
     let progress_text = commands
-        .spawn(TextBundle::from_section(
-            "...",
-            text_style,
-        ))
+        .spawn(Text("...".into()))
+        .insert(text_font)
+        .insert(text_color)
         .insert(TextMarker)
         .id();
 
     commands
         .entity(ui_container)
-        .push_children(&[progress_text]);
+        .add_children(&[progress_text]);
 }
 
 fn teardown(mut commands: Commands, marker_q: Query<Entity, With<ConnectingMarker>>) {
@@ -53,6 +53,5 @@ fn teardown(mut commands: Commands, marker_q: Query<Entity, With<ConnectingMarke
 
 fn update(mut text_q: Query<&mut Text, With<TextMarker>>) {
     let mut text = text_q.single_mut();
-    text.sections[0].value = "Retrieving server info...".into();
-    
+    text.0 = "Retrieving server info...".into();
 }

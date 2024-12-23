@@ -2,7 +2,6 @@ use manytris_core::consts;
 use manytris_core::field::OccupiedBlock;
 use manytris_core::shapes::Shape;
 use bevy::prelude::*;
-use bevy::sprite::Mesh2dHandle;
 use std::collections::HashMap;
 
 pub const BLOCK_SIZE: f32 = 30.0;
@@ -18,14 +17,14 @@ pub struct RenderAssets {
     pub shadow_materials: HashMap<Shape, Handle<ColorMaterial>>,
     pub empty_material: Handle<ColorMaterial>,
     pub invisible_material: Handle<ColorMaterial>,
-    pub block_mesh: Mesh2dHandle,
+    pub block_mesh: Mesh2d,
     pub garbage_counter_materials: [Handle<ColorMaterial>; consts::GARBAGE_TURN_COUNT],
 }
 
 impl FromWorld for RenderAssets {
     fn from_world(world: &mut World) -> Self {
         let rect = Rectangle::new(BLOCK_SIZE - BLOCK_BORDER, BLOCK_SIZE - BLOCK_BORDER);
-        let block_mesh = Mesh2dHandle(world.resource_mut::<Assets<Mesh>>().add(rect));
+        let block_mesh = Mesh2d(world.resource_mut::<Assets<Mesh>>().add(rect));
 
         let mut materials = world.resource_mut::<Assets<ColorMaterial>>();
 

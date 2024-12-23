@@ -37,11 +37,11 @@ pub enum BlockColor {
 }
 
 fn render_blocks(
-    mut q_blocks: Query<(&mut Handle<ColorMaterial>, &BlockComponent)>,
+    mut q_blocks: Query<(&mut MeshMaterial2d<ColorMaterial>, &BlockComponent)>,
     ra: Res<RenderAssets>,
 ) {
     for (mut material, block) in q_blocks.iter_mut() {
-        *material = match block.color {
+        material.0 = match block.color {
             BlockColor::Empty => ra.empty_material.clone(),
             BlockColor::Invisible => ra.invisible_material.clone(),
             BlockColor::Occupied(ob) => ra.occupied_materials[&ob].clone(),
@@ -60,7 +60,7 @@ impl BlockBundle {
                     assets::BLOCK_SIZE * (pos.y as f32 + 0.5),
                     0.,
                 ),
-                material: ra.empty_material.clone(),
+                material: MeshMaterial2d(ra.empty_material.clone()),
                 ..Default::default()
             },
             block: BlockComponent {

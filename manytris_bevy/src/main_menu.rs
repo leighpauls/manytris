@@ -1,4 +1,5 @@
 use crate::states::{ExecType, MultiplayerType, PlayingState};
+use bevy::color::palettes::basic::*;
 use bevy::prelude::*;
 
 pub fn plugin(app: &mut App) {
@@ -18,20 +19,17 @@ pub struct MainMenu;
 
 fn setup(mut commands: Commands) {
     let main_menu_container = commands
-        .spawn(NodeBundle {
-            style: Style {
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
-                justify_content: JustifyContent::Center,
-                ..default()
-            },
+        .spawn(Node {
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            justify_content: JustifyContent::Center,
             ..default()
         })
         .insert(MainMenu)
         .id();
 
     let button_template = ButtonBundle {
-        style: Style {
+        node: Node {
             width: Val::Px(300.0),
             height: Val::Px(100.0),
             border: UiRect::all(Val::Px(5.0)),
@@ -39,24 +37,25 @@ fn setup(mut commands: Commands) {
             align_items: AlignItems::Center,
             ..default()
         },
-        border_color: Color::GRAY.into(),
+        border_color: GRAY.into(),
         background_color: Color::WHITE.into(),
         ..default()
     };
-    let button_text_style = TextStyle {
+    let button_text_font = TextFont {
         font_size: 40.0,
-        color: Color::BLACK,
         ..default()
     };
+    let button_text_color = TextColor(BLACK.into());
 
     let start_stand_alone_button = commands
         .spawn(button_template.clone())
         .insert(MainMenuButtons::StartStandAloneButton)
         .id();
     let start_stand_alone_text = commands
-        .spawn(TextBundle::from_section(
-            "Start Single Player",
-            button_text_style.clone(),
+        .spawn((
+            Text("Start Single Player".into()),
+            button_text_font.clone(),
+            button_text_color,
         ))
         .id();
 
@@ -65,21 +64,22 @@ fn setup(mut commands: Commands) {
         .insert(MainMenuButtons::StartMultiplayerButton)
         .id();
     let start_multiplayer_text = commands
-        .spawn(TextBundle::from_section(
-            "Start Multiplayer",
-            button_text_style,
+        .spawn((
+            Text("Start Multiplayer".into()),
+            button_text_font,
+            button_text_color,
         ))
         .id();
 
     commands
         .entity(main_menu_container)
-        .push_children(&[start_stand_alone_button, start_multiplayer_button]);
+        .add_children(&[start_stand_alone_button, start_multiplayer_button]);
     commands
         .entity(start_stand_alone_button)
-        .push_children(&[start_stand_alone_text]);
+        .add_children(&[start_stand_alone_text]);
     commands
         .entity(start_multiplayer_button)
-        .push_children(&[start_multiplayer_text]);
+        .add_children(&[start_multiplayer_text]);
 }
 
 fn update(

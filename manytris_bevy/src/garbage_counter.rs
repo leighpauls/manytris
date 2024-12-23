@@ -47,7 +47,7 @@ fn add_garbage_counters_to_root(
                             assets::BLOCK_SIZE * (i as f32 + 0.5),
                             0.,
                         ),
-                        material: ra.empty_material.clone(),
+                        material: MeshMaterial2d(ra.empty_material.clone()),
                         ..default()
                     },
                 })
@@ -59,7 +59,7 @@ fn add_garbage_counters_to_root(
 fn render_garbage_counter(
     q_root: Query<&GameRoot>,
     mut q_garbage_elements: Query<(
-        &mut Handle<ColorMaterial>,
+        &mut MeshMaterial2d<ColorMaterial>,
         &GarbageCountElementComponent,
         &Parent,
     )>,
@@ -69,7 +69,7 @@ fn render_garbage_counter(
         let gr = q_root.get(parent.get()).unwrap();
         let count_value = gr.active_game.game.get_garbage_element_countdown(ge.index);
 
-        *material = if let Some(count) = count_value {
+        material.0 = if let Some(count) = count_value {
             ra.garbage_counter_materials[count - 1].clone()
         } else {
             ra.empty_material.clone()
