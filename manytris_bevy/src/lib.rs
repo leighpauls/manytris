@@ -17,6 +17,7 @@ pub mod main_menu;
 pub mod states;
 pub mod plugins;
 pub mod cli_options;
+pub mod connecting_screen;
 
 #[cfg(feature = "bot")]
 pub mod bot_input;

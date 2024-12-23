@@ -97,12 +97,13 @@ fn update(
         match button {
             MainMenuButtons::StartStandAloneButton => {
                 *exec_type = ExecType::StandAlone;
+                next_play_state.set(PlayingState::Playing);
             }
             MainMenuButtons::StartMultiplayerButton => {
                 *exec_type = ExecType::MultiplayerClient(MultiplayerType::Human);
+                next_play_state.set(PlayingState::Connecting);
             }
         }
-        next_play_state.set(PlayingState::Playing);
         return;
     }
 }

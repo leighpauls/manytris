@@ -1,7 +1,8 @@
-use crate::cli_options::{BotConfig, ExecCommand, ServerConfig};
+use crate::cli_options::{BotConfig, ClientConfig, ExecCommand, ServerConfig};
 use crate::{
-    assets, block_render, field_blocks, game_container, garbage_counter, input, main_menu,
-    net_client, net_listener, root, scoreboard, shape_producer, system_sets, window_blocks,
+    assets, block_render, connecting_screen, field_blocks, game_container, garbage_counter, input,
+    main_menu, net_client, net_listener, root, scoreboard, shape_producer, system_sets,
+    window_blocks,
 };
 use bevy::prelude::*;
 
@@ -23,6 +24,7 @@ pub fn run(cfg: ExecCommand) {
     app.add_plugins((
         cfg.configure_states_plugin(),
         main_menu::plugin,
+        connecting_screen::plugin,
         root::common_plugin,
         window_blocks::plugin,
         field_blocks::plugin,
@@ -41,7 +43,8 @@ pub fn run(cfg: ExecCommand) {
         ExecCommand::Server(ServerConfig { server, .. }) => {
             app.insert_resource(net_listener::NetListenerConfig(server.clone()));
         }
-        ExecCommand::Client(server) | ExecCommand::Bot(BotConfig { server, .. }) => {
+        ExecCommand::Client(ClientConfig { server, .. })
+        | ExecCommand::Bot(BotConfig { server, .. }) => {
             app.insert_resource(net_client::NetClientConfig(server.clone()));
         }
     }

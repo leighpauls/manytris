@@ -12,8 +12,22 @@ pub struct GameArgs {
 #[derive(Subcommand, Clone, Debug)]
 pub enum ExecCommand {
     Server(ServerConfig),
-    Client(HostConfig),
+    Client(ClientConfig),
     Bot(BotConfig),
+}
+
+#[derive(Args, Clone, Debug, Serialize)]
+pub struct ClientConfig {
+    #[clap(flatten)]
+    pub server: HostConfig,
+    #[clap(flatten)]
+    pub manager_server: ManagerServerConfig,
+}
+
+#[derive(Args, Clone, Debug, Serialize)]
+pub struct ManagerServerConfig {
+    #[arg(long, short = 'm', default_value = "http://localhost:3000")]
+    pub manager_server: String,
 }
 
 #[derive(Args, Clone, Debug, Serialize)]
@@ -43,9 +57,14 @@ pub struct BotConfig {
 
 pub fn web_client_args() -> GameArgs {
     GameArgs {
-        exec_command: ExecCommand::Client(HostConfig {
-            host: String::from("localhost"),
-            port: 9989,
+        exec_command: ExecCommand::Client(ClientConfig {
+            server: HostConfig {
+                host: String::from("localhost"),
+                port: 9989,
+            },
+            manager_server: ManagerServerConfig {
+                manager_server: String::from("http://localhost:3000"),
+            }
         }),
     }
 }

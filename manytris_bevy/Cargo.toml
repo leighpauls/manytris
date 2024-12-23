@@ -8,13 +8,14 @@ manytris_core = {path = "../manytris_core"}
 manytris_bot = {path = "../manytris_bot", optional = true}
 
 bevy = {workspace = true}
+bevy_mod_reqwest = {workspace = true}
+clap = {workspace = true}
 ewebsock = {workspace = true}
+rmp-serde = {workspace = true}
+serde = {workspace = true}
 tungstenite = {workspace = true}
 url = {workspace = true}
-clap = {workspace = true}
 uuid = {workspace = true}
-serde = {workspace = true}
-rmp-serde = {workspace = true}
 
 [features]
 bot = ["dep:manytris_bot"]

@@ -19,6 +19,7 @@ impl Plugin for StatesPlugin {
 #[derive(States, Copy, Clone, Debug, Hash, PartialEq, Eq)]
 pub enum PlayingState {
     MainMenu,
+    Connecting,
     Playing,
 }
 
