@@ -22,16 +22,11 @@ const HORIZONTAL_TILES: isize = 4;
 const VERTICAL_TILES: isize = 3;
 
 #[derive(Component)]
+#[require(Transform, Visibility)]
 pub struct GameContainer {
     tiled_games: Vec<(GameId, Entity)>,
     connection_map: BTreeMap<GameId, ConnectionId>,
     container_type: ContainerType,
-}
-
-#[derive(Bundle)]
-pub struct GameContainerBundle {
-    transform: SpatialBundle,
-    game_container: GameContainer,
 }
 
 #[derive(Resource)]
@@ -418,12 +413,7 @@ fn spawn_container(
         Transform::from_scale(Vec3::splat(1.0))
     };
 
-    commands
-        .spawn(GameContainerBundle {
-            transform: SpatialBundle::from_transform(transform),
-            game_container,
-        })
-        .id()
+    commands.spawn((transform, game_container)).id()
 }
 
 fn set_local_game_root(commands: &mut Commands, game_id: GameId) {

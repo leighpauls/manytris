@@ -1,5 +1,5 @@
 use crate::assets::RenderAssets;
-use crate::block_render::{BlockBundle, BlockColor, BlockComponent};
+use crate::block_render::{self, BlockColor, BlockComponent};
 use crate::root::GameRoot;
 use crate::states::PlayingState;
 use crate::system_sets::UpdateSystems;
@@ -23,25 +23,15 @@ pub fn plugin(app: &mut App) {
     );
 }
 
-#[derive(Bundle)]
-struct PreviewWindowBundle {
-    transforms: SpatialBundle,
-    preview: PreviewWindowComponent,
-}
-
 #[derive(Component)]
+#[require(Transform, Visibility)]
 struct PreviewWindowComponent {
     preview_idx: usize,
 }
 
-#[derive(Bundle)]
-struct HoldWindowBundle {
-    transforms: SpatialBundle,
-    hold: HoldWindowComponent,
-}
-
 #[derive(Component)]
-struct HoldWindowComponent();
+#[require(Transform, Visibility)]
+struct HoldWindowComponent;
 
 fn add_windows_to_roots(
     mut commands: Commands,
@@ -55,13 +45,13 @@ fn add_windows_to_roots(
 
         for i in 0..consts::NUM_PREVIEWS {
             commands
-                .spawn(PreviewWindowBundle::new(i))
+                .spawn(new_preview_window(i))
                 .set_parent(root_entity)
                 .with_children(spawn_blocks_fn);
         }
 
         commands
-            .spawn(HoldWindowBundle::new())
+            .spawn(new_hold_window())
             .set_parent(root_entity)
             .with_children(spawn_blocks_fn);
     }
@@ -102,7 +92,7 @@ fn update_hold_window_blocks(
 fn spawn_window_block_children(parent: &mut ChildBuilder, ra: &RenderAssets) {
     for y in 0..3 {
         for x in 0..4 {
-            parent.spawn(BlockBundle::new(Pos { x, y }, &ra));
+            parent.spawn(block_render::block_bundle(Pos { x, y }, &ra));
         }
     }
 }
@@ -124,28 +114,24 @@ fn update_child_block_colors(
     }
 }
 
-impl PreviewWindowBundle {
-    fn new(preview_idx: usize) -> Self {
-        Self {
-            transforms: SpatialBundle::from_transform(Transform::from_xyz(
-                assets::BLOCK_SIZE * (consts::W + 1) as f32,
-                assets::BLOCK_SIZE * (consts::H - 3 - 4 * preview_idx as i32) as f32,
-                0.,
-            )),
-            preview: PreviewWindowComponent { preview_idx },
-        }
-    }
+fn new_preview_window(preview_idx: usize) -> impl Bundle {
+    (
+        Transform::from_xyz(
+            assets::BLOCK_SIZE * (consts::W + 1) as f32,
+            assets::BLOCK_SIZE * (consts::H - 3 - 4 * preview_idx as i32) as f32,
+            0.,
+        ),
+        PreviewWindowComponent { preview_idx },
+    )
 }
 
-impl HoldWindowBundle {
-    fn new() -> Self {
-        Self {
-            transforms: SpatialBundle::from_transform(Transform::from_xyz(
-                -assets::BLOCK_SIZE * 5.,
-                assets::BLOCK_SIZE * (consts::H - 3) as f32,
-                0.,
-            )),
-            hold: HoldWindowComponent(),
-        }
-    }
+fn new_hold_window() -> impl Bundle {
+    (
+        Transform::from_xyz(
+            -assets::BLOCK_SIZE * 5.,
+            assets::BLOCK_SIZE * (consts::H - 3) as f32,
+            0.,
+        ),
+        HoldWindowComponent,
+    )
 }

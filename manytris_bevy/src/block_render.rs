@@ -3,7 +3,6 @@ use crate::states::PlayingState;
 use crate::system_sets::UpdateSystems;
 use crate::{assets, states};
 use bevy::prelude::*;
-use bevy::sprite::MaterialMesh2dBundle;
 use manytris_core::field::{OccupiedBlock, Pos};
 use manytris_core::shapes::Shape;
 
@@ -17,13 +16,8 @@ pub fn plugin(app: &mut App) {
     );
 }
 
-#[derive(Bundle)]
-pub struct BlockBundle {
-    mesh: MaterialMesh2dBundle<ColorMaterial>,
-    block: BlockComponent,
-}
-
 #[derive(Component)]
+#[require(Mesh2d, MeshMaterial2d::<ColorMaterial>)]
 pub struct BlockComponent {
     pub pos: Pos,
     pub color: BlockColor,
@@ -50,23 +44,18 @@ fn render_blocks(
     }
 }
 
-impl BlockBundle {
-    pub fn new(pos: Pos, ra: &RenderAssets) -> Self {
-        Self {
-            mesh: MaterialMesh2dBundle {
-                mesh: ra.block_mesh.clone(),
-                transform: Transform::from_xyz(
-                    assets::BLOCK_SIZE * (pos.x as f32 + 0.5),
-                    assets::BLOCK_SIZE * (pos.y as f32 + 0.5),
-                    0.,
-                ),
-                material: MeshMaterial2d(ra.empty_material.clone()),
-                ..Default::default()
-            },
-            block: BlockComponent {
-                pos,
-                color: BlockColor::Empty,
-            },
-        }
-    }
+pub fn block_bundle(pos: Pos, ra: &RenderAssets) -> impl Bundle {
+    (
+        ra.block_mesh.clone(),
+        Transform::from_xyz(
+            assets::BLOCK_SIZE * (pos.x as f32 + 0.5),
+            assets::BLOCK_SIZE * (pos.y as f32 + 0.5),
+            0.,
+        ),
+        MeshMaterial2d(ra.empty_material.clone()),
+        BlockComponent {
+            pos,
+            color: BlockColor::Empty,
+        },
+    )
 }

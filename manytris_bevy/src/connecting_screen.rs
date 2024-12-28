@@ -1,7 +1,6 @@
 use crate::states::PlayingState;
 use bevy::color::palettes::basic::BLACK;
 use bevy::prelude::*;
-use bevy_mod_reqwest::ReqwestPlugin;
 
 pub fn plugin(app: &mut App) {
     app.add_systems(OnEnter(PlayingState::Connecting), setup)
@@ -17,16 +16,15 @@ pub struct TextMarker;
 
 fn setup(mut commands: Commands) {
     let ui_container = commands
-        .spawn(NodeBundle {
-            node: Node {
+        .spawn((
+            Node {
                 width: Val::Percent(100.0),
                 height: Val::Percent(100.0),
                 justify_content: JustifyContent::Center,
                 ..default()
             },
-            ..default()
-        })
-        .insert(ConnectingMarker)
+            ConnectingMarker,
+        ))
         .id();
 
     let text_font = TextFont {
@@ -42,9 +40,7 @@ fn setup(mut commands: Commands) {
         .insert(TextMarker)
         .id();
 
-    commands
-        .entity(ui_container)
-        .add_children(&[progress_text]);
+    commands.entity(ui_container).add_children(&[progress_text]);
 }
 
 fn teardown(mut commands: Commands, marker_q: Query<Entity, With<ConnectingMarker>>) {

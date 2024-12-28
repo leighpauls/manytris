@@ -5,6 +5,7 @@ use crate::{
     window_blocks,
 };
 use bevy::prelude::*;
+use bevy_mod_reqwest::ReqwestPlugin;
 
 pub fn run(cfg: ExecCommand) {
     let mut app = App::new();
@@ -39,6 +40,8 @@ pub fn run(cfg: ExecCommand) {
         shape_producer::plugin,
     ));
 
+    app.add_plugins(ReqwestPlugin::default());
+
     match &cfg {
         ExecCommand::Server(ServerConfig { server, .. }) => {
             app.insert_resource(net_listener::NetListenerConfig(server.clone()));
@@ -69,5 +72,5 @@ fn add_bot_input_plugin(app: &mut App, bot_millis: u64) {
 fn add_bot_input_plugin(_app: &mut App, _bot_millis: u64) {}
 
 fn spawn_camera(mut commands: Commands) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 }

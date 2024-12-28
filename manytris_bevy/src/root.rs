@@ -36,6 +36,7 @@ pub fn common_plugin(app: &mut App) {
 }
 
 #[derive(Component)]
+#[require(Transform, Visibility)]
 pub struct GameRoot {
     pub game_id: GameId,
     pub active_game: ActiveGame,
@@ -48,12 +49,6 @@ pub struct ActiveGame {
     lines_to_next_level: i32,
     next_drop_time: Duration,
     lock_timer_target: Option<Duration>,
-}
-
-#[derive(Bundle)]
-struct RootTransformBundle {
-    transform: SpatialBundle,
-    marker: GameRoot,
 }
 
 #[derive(Clone, Deserialize, Serialize, Debug)]
@@ -138,13 +133,13 @@ fn spawn_root(
     game_id: GameId,
 ) -> Entity {
     let root_entitiy = commands
-        .spawn(RootTransformBundle {
-            transform: SpatialBundle::from_transform(transform),
-            marker: GameRoot {
+        .spawn((
+            transform,
+            GameRoot {
                 active_game,
                 game_id: game_id,
             },
-        })
+        ))
         .set_parent(container_entitiy)
         .id();
 

@@ -4,7 +4,6 @@ use crate::states::PlayingState;
 use crate::system_sets::UpdateSystems;
 use crate::{assets, states};
 use bevy::prelude::*;
-use bevy::sprite::MaterialMesh2dBundle;
 use manytris_core::consts;
 
 pub fn plugin(app: &mut App) {
@@ -20,14 +19,9 @@ pub fn plugin(app: &mut App) {
 }
 
 #[derive(Component)]
+#[require(Mesh2d, MeshMaterial2d::<ColorMaterial>)]
 pub struct GarbageCountElementComponent {
     index: usize,
-}
-
-#[derive(Bundle)]
-pub struct GarbageCountElementBundle {
-    mesh: MaterialMesh2dBundle<ColorMaterial>,
-    element: GarbageCountElementComponent,
 }
 
 fn add_garbage_counters_to_root(
@@ -38,19 +32,16 @@ fn add_garbage_counters_to_root(
     for root_entity in &root_ent_q {
         for i in 0..(consts::H as usize - 2) {
             commands
-                .spawn(GarbageCountElementBundle {
-                    element: GarbageCountElementComponent { index: i },
-                    mesh: MaterialMesh2dBundle {
-                        mesh: ra.block_mesh.clone(),
-                        transform: Transform::from_xyz(
-                            -assets::BLOCK_SIZE,
-                            assets::BLOCK_SIZE * (i as f32 + 0.5),
-                            0.,
-                        ),
-                        material: MeshMaterial2d(ra.empty_material.clone()),
-                        ..default()
-                    },
-                })
+                .spawn((
+                    GarbageCountElementComponent { index: i },
+                    ra.block_mesh.clone(),
+                    Transform::from_xyz(
+                        -assets::BLOCK_SIZE,
+                        assets::BLOCK_SIZE * (i as f32 + 0.5),
+                        0.,
+                    ),
+                    MeshMaterial2d(ra.empty_material.clone()),
+                ))
                 .set_parent(root_entity);
         }
     }

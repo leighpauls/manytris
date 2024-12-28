@@ -28,8 +28,9 @@ fn setup(mut commands: Commands) {
         .insert(MainMenu)
         .id();
 
-    let button_template = ButtonBundle {
-        node: Node {
+    let button_template = (
+        Button,
+        Node {
             width: Val::Px(300.0),
             height: Val::Px(100.0),
             border: UiRect::all(Val::Px(5.0)),
@@ -37,12 +38,11 @@ fn setup(mut commands: Commands) {
             align_items: AlignItems::Center,
             ..default()
         },
-        border_color: GRAY.into(),
-        background_color: Color::WHITE.into(),
-        ..default()
-    };
+        BorderColor(GRAY.into()),
+        BackgroundColor(WHITE.into()),
+    );
     let button_text_font = TextFont {
-        font_size: 40.0,
+        font_size: 20.0,
         ..default()
     };
     let button_text_color = TextColor(BLACK.into());
