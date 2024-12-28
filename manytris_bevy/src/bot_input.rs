@@ -57,10 +57,8 @@ struct BotInputBundle {
 }
 
 fn init_bot_input(mut cmds: Commands) {
-    cmds.spawn(BotInputBundle {
-        state: BotInputState {
-            prev_piece_time: None,
-        },
+    cmds.spawn(BotInputState {
+        prev_piece_time: None,
     });
 }
 

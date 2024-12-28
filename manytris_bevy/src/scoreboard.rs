@@ -19,13 +19,8 @@ pub fn plugin(app: &mut App) {
 }
 
 #[derive(Component)]
-struct ScoreboardComponent();
-
-#[derive(Bundle)]
-struct ScoreboardBundle {
-    scoreboard: ScoreboardComponent,
-    text: Text2d,
-}
+#[require(Text2d)]
+struct ScoreboardComponent;
 
 fn add_scoreboard_to_root(
     mut commands: Commands,
@@ -36,10 +31,7 @@ fn add_scoreboard_to_root(
         let font = asset_server.load("fonts/white-rabbit.ttf");
 
         commands
-            .spawn(ScoreboardBundle {
-                scoreboard: ScoreboardComponent(),
-                text: Text2d(get_score_text(0, 0)),
-            })
+            .spawn((ScoreboardComponent, Text2d(get_score_text(0, 0))))
             .insert(TextFont {
                 font: font.clone(),
                 font_size: 15.,
