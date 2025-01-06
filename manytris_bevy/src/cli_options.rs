@@ -1,4 +1,5 @@
 use crate::states::{ExecType, MultiplayerType, PlayingState, StatesPlugin};
+use bevy::prelude::*;
 use clap::{ArgAction, Args, Parser, Subcommand};
 use serde::Serialize;
 
@@ -24,8 +25,9 @@ pub struct ClientConfig {
     pub manager_server: ManagerServerConfig,
 }
 
-#[derive(Args, Clone, Debug, Serialize)]
+#[derive(Args, Clone, Debug, Serialize, Resource)]
 pub struct ManagerServerConfig {
+    // TODO: replace with "https://manytris-manager-265251374100.us-west1.run.app"
     #[arg(long, short = 'm', default_value = "http://localhost:3000")]
     pub manager_server: String,
 }
@@ -64,7 +66,7 @@ pub fn web_client_args() -> GameArgs {
             },
             manager_server: ManagerServerConfig {
                 manager_server: String::from("http://localhost:3000"),
-            }
+            },
         }),
     }
 }

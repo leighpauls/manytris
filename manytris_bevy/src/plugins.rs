@@ -42,14 +42,18 @@ pub fn run(cfg: ExecCommand) {
 
     app.add_plugins(ReqwestPlugin::default());
 
-    match &cfg {
-        ExecCommand::Server(ServerConfig { server, .. }) => {
-            app.insert_resource(net_listener::NetListenerConfig(server.clone()));
-        }
-        ExecCommand::Client(ClientConfig { server, .. })
-        | ExecCommand::Bot(BotConfig { server, .. }) => {
-            app.insert_resource(net_client::NetClientConfig(server.clone()));
-        }
+    if let ExecCommand::Client(ClientConfig { manager_server, .. }) = &cfg {
+        app.insert_resource(manager_server.clone());
+    }
+
+    if let ExecCommand::Client(ClientConfig { server, .. })
+    | ExecCommand::Bot(BotConfig { server, .. }) = &cfg
+    {
+        app.insert_resource(net_client::NetClientConfig(server.clone()));
+    }
+
+    if let ExecCommand::Server(ServerConfig { server, .. }) = &cfg {
+        app.insert_resource(net_listener::NetListenerConfig(server.clone()));
     }
 
     if let ExecCommand::Bot(BotConfig { bot_millis, .. }) = &cfg {

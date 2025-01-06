@@ -35,7 +35,7 @@ impl CommandClient {
         };
 
         let (host, port) = self.get_server_address(&pod).await?;
-        Ok(GetAddressResponse::Ok { host, port })
+        Ok(GetAddressResponse::Ready { host, port })
     }
 
     pub async fn create(&self) -> Result<CreateResponse> {
