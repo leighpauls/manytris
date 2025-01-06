@@ -1,7 +1,11 @@
 use crate::states::PlayingState;
+use anyhow;
 use bevy::color::palettes::basic::BLACK;
 use bevy::prelude::*;
 use bevy_mod_reqwest::*;
+use manytris_game_manager_proto::GetAddressResponse;
+use serde::de::DeserializeOwned;
+use serde_json;
 use std::time::Duration;
 
 pub fn plugin(app: &mut App) {
@@ -100,16 +104,29 @@ fn response_handler(
     mut text_q: Query<&mut Text, With<TextMarker>>,
     time: Res<Time<Fixed>>,
 ) {
-    let response = trigger.event();
-    let status = response.status();
+    use GetAddressResponse::*;
+    match extract_response::<GetAddressResponse>(trigger.event()) {
+        Ok(NoServer) => {
+            text_q.single_mut().0 = format!("No server available...");
+            state.on_error(time.elapsed());
+        }
+        Ok(Ready { host, port }) => {
+            text_q.single_mut().0 = format!("server at: {host}:{port}");
+        }
+        Err(e) => {
+            text_q.single_mut().0 = format!("error: {e:?}. Retrying...");
+            state.on_error(time.elapsed());
+        }
+    }
+}
+
+fn extract_response<T: DeserializeOwned>(rr: &ReqwestResponseEvent) -> anyhow::Result<T> {
+    let status = rr.status();
     if !status.is_success() {
-        text_q.single_mut().0 = format!("Error: status code: {status}");
-        state.on_error(time.elapsed());
-        return;
+        return Err(anyhow::Error::msg(format!("Error: status code: {status}")));
     }
 
-    let data = response.as_str().unwrap();
-    text_q.single_mut().0 = format!("Success: {data}");
+    Ok(serde_json::from_str::<T>(rr.as_str()?)?)
 }
 
 fn error_handler(

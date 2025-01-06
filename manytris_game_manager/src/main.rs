@@ -1,10 +1,10 @@
-use anyhow;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::routing::{get, post};
 use axum::{Json, Router};
-use manytris_game_manager::k8s_commands;
-use manytris_game_manager::k8s_commands::{CreateResponse, DeleteResponse, GetAddressResponse};
+use manytris_game_manager::CommandClient;
+use manytris_game_manager_proto::{CreateResponse, DeleteResponse, GetAddressResponse};
+
 use std::env;
 
 struct AppError(anyhow::Error);
@@ -28,15 +28,15 @@ async fn main() -> anyhow::Result<()> {
 }
 
 async fn get_address() -> Result<Json<GetAddressResponse>, AppError> {
-    Ok(Json(k8s_commands::read_state().await?))
+    Ok(Json(CommandClient::new().await?.read_state().await?))
 }
 
 async fn create() -> Result<Json<CreateResponse>, AppError> {
-    Ok(Json(k8s_commands::create().await?))
+    Ok(Json(CommandClient::new().await?.create().await?))
 }
 
 async fn delete() -> Result<Json<DeleteResponse>, AppError> {
-    Ok(Json(k8s_commands::delete().await?))
+    Ok(Json(CommandClient::new().await?.delete().await?))
 }
 
 impl<E> From<E> for AppError

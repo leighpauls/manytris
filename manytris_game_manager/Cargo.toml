@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+manytris_game_manager_proto = {path = "../manytris_game_manager_proto"}
+
 kube = {workspace = true}
 k8s-openapi = {workspace = true}
 tokio = {workspace = true}

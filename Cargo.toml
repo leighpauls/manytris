@@ -1,5 +1,5 @@
 [workspace]
-members = [ "manytris_bevy", "manytris_bot","manytris_core", "manytris_game_manager"]
+members = [ "manytris_bevy", "manytris_bot","manytris_core", "manytris_game_manager", "manytris_game_manager_proto"]
 
 [workspace.dependencies]
 anyhow = "1.0.93"
@@ -17,6 +17,7 @@ ordered-float = "4.2.2"
 rand = "0.8.5"
 rmp-serde = "1.2.0"
 serde = { version = "1.0.197", features = ["derive"] }
+serde_json = "1.0.134"
 tokio = { version = "1.41.1", features = ["full"] }
 tungstenite = "0.21.0"
 url = "2.5.0"

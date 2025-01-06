@@ -5,14 +5,17 @@ edition = "2021"
 
 [dependencies]
 manytris_core = {path = "../manytris_core"}
+manytris_game_manager_proto = {path = "../manytris_game_manager_proto"}
 manytris_bot = {path = "../manytris_bot", optional = true}
 
+anyhow = {workspace = true}
 bevy = {workspace = true}
 bevy_mod_reqwest = {workspace = true}
 clap = {workspace = true}
 ewebsock = {workspace = true}
 rmp-serde = {workspace = true}
 serde = {workspace = true}
+serde_json = {workspace = true}
 tungstenite = {workspace = true}
 url = {workspace = true}
 uuid = {workspace = true}
