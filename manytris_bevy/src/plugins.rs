@@ -46,8 +46,7 @@ pub fn run(cfg: ExecCommand) {
         app.insert_resource(manager_server.clone());
     }
 
-    if let ExecCommand::Client(ClientConfig { server, .. })
-    | ExecCommand::Bot(BotConfig { server, .. }) = &cfg
+    if let ExecCommand::Bot(BotConfig { server, .. }) = &cfg
     {
         app.insert_resource(net_client::NetClientConfig(server.clone()));
     }

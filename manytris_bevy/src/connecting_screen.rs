@@ -1,5 +1,6 @@
-use crate::cli_options::ManagerServerConfig;
+use crate::cli_options::HostConfig;
 use crate::states::PlayingState;
+use crate::{cli_options::ManagerServerConfig, net_client::NetClientConfig};
 use anyhow;
 use bevy::color::palettes::basic::BLACK;
 use bevy::prelude::*;
@@ -64,6 +65,7 @@ fn setup(mut commands: Commands) {
     commands.entity(ui_container).add_children(&[progress_text]);
 
     commands.init_resource::<ConnectingState>();
+    commands.remove_resource::<NetClientConfig>();
 }
 
 fn teardown(mut commands: Commands, marker_q: Query<Entity, With<ConnectingMarker>>) {
@@ -107,6 +109,8 @@ fn get_address_response_handler(
     time: Res<Time<Fixed>>,
     mut client: BevyReqwest,
     manager_cfg: Res<ManagerServerConfig>,
+    mut commands: Commands,
+    mut next_play_state: ResMut<NextState<PlayingState>>,
 ) {
     use GetAddressResponse::*;
     let msg = match extract_response::<GetAddressResponse>(trigger.event()) {
@@ -123,7 +127,14 @@ fn get_address_response_handler(
 
             "Requesting New Server...".into()
         }
-        Ok(Ready { host, port }) => format!("server at: {host}:{port}"),
+        Ok(Ready { host, port }) => {
+            commands.insert_resource(NetClientConfig(HostConfig {
+                host: host.clone(),
+                port,
+            }));
+            next_play_state.set(PlayingState::Playing);
+            format!("server at: {host}:{port}")
+        }
         Err(e) => {
             state.on_error(time.elapsed());
             format!("error: {e:?}. Retrying...")

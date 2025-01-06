@@ -3,6 +3,9 @@ use bevy::prelude::*;
 use clap::{ArgAction, Args, Parser, Subcommand};
 use serde::Serialize;
 
+// TODO: replace with "https://manytris-manager-265251374100.us-west1.run.app"
+const DEFAULT_MANAGER_SERVER: &'static str = "http://localhost:3000";
+
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 pub struct GameArgs {
@@ -20,15 +23,12 @@ pub enum ExecCommand {
 #[derive(Args, Clone, Debug, Serialize)]
 pub struct ClientConfig {
     #[clap(flatten)]
-    pub server: HostConfig,
-    #[clap(flatten)]
     pub manager_server: ManagerServerConfig,
 }
 
 #[derive(Args, Clone, Debug, Serialize, Resource)]
 pub struct ManagerServerConfig {
-    // TODO: replace with "https://manytris-manager-265251374100.us-west1.run.app"
-    #[arg(long, short = 'm', default_value = "http://localhost:3000")]
+    #[arg(long, short = 'm', default_value = DEFAULT_MANAGER_SERVER)]
     pub manager_server: String,
 }
 
@@ -60,12 +60,8 @@ pub struct BotConfig {
 pub fn web_client_args() -> GameArgs {
     GameArgs {
         exec_command: ExecCommand::Client(ClientConfig {
-            server: HostConfig {
-                host: String::from("localhost"),
-                port: 9989,
-            },
             manager_server: ManagerServerConfig {
-                manager_server: String::from("http://localhost:3000"),
+                manager_server: DEFAULT_MANAGER_SERVER.into(),
             },
         }),
     }
