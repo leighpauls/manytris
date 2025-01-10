@@ -1,8 +1,9 @@
+use std::cmp::Ordering;
 use std::fmt::Debug;
+use std::fmt::{Display, Formatter};
 
-use crate::bot_player::MovementDescriptor;
-use crate::bot_start_positions::StartPositions;
 use manytris_core::consts;
+use manytris_core::shapes::Shape;
 use manytris_core::tetromino::Tetromino;
 
 #[repr(C)]
@@ -64,20 +65,49 @@ pub struct ComputedDropConfig {
     pub right_shifts: u8,
 }
 
-impl ComputedDropConfig {
-    pub fn as_move_descriptor(&self, sp: &StartPositions) -> MovementDescriptor {
-        MovementDescriptor {
-            shape: sp.idx_to_shape.get(&self.shape_idx).unwrap().clone(),
-            cw_rotations: self.cw_rotations as usize,
-            shifts_right: self.right_shifts as isize - (self.left_shifts as isize),
-        }
-    }
-}
+pub type UpcomingShapes = [Shape; consts::MAX_SEARCH_DEPTH + 1];
 
 impl From<Tetromino> for TetrominoPositions {
     fn from(value: Tetromino) -> Self {
         Self {
             pos: value.get_blocks().map(|p| [p.x as u8, p.y as u8]),
+        }
+    }
+}
+
+impl Display for MoveResultScore {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!(
+            "Lost: {}, Cleared: {}, covered: {}, Height: {}",
+            self.game_over, self.lines_cleared, self.covered, self.height
+        ))
+    }
+}
+
+impl PartialOrd<Self> for MoveResultScore {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for MoveResultScore {
+    fn cmp(&self, other: &Self) -> Ordering {
+        if self.game_over != other.game_over {
+            // Not game over is better
+            if self.game_over {
+                Ordering::Less
+            } else {
+                Ordering::Greater
+            }
+        } else if self.lines_cleared != other.lines_cleared {
+            // More lines cleared is better
+            self.lines_cleared.cmp(&other.lines_cleared)
+        } else if self.covered != other.covered {
+            // less coverage is better
+            other.covered.cmp(&self.covered)
+        } else {
+            // less height is better
+            other.height.cmp(&self.height)
         }
     }
 }

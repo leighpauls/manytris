@@ -1,5 +1,5 @@
 [workspace]
-members = [ "manytris_bevy", "manytris_bot","manytris_core", "manytris_game_manager", "manytris_game_manager_proto"]
+members = ["manytris_bevy", "manytris_bot", "manytris_bot_demo", "manytris_bot_metal", "manytris_core", "manytris_game_manager", "manytris_game_manager_proto"]
 
 [workspace.dependencies]
 anyhow = "1.0.93"

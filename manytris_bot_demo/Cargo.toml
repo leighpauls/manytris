@@ -1,12 +1,15 @@
 [package]
-name = "manytris_bot"
+name = "manytris_bot_demo"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+manytris_bot = {path = "../manytris_bot"}
+manytris_bot_metal = {path = "../manytris_bot_metal"}
 manytris_core = {path = "../manytris_core"}
 
 enum-iterator = {workspace = true}
 enum-map = {workspace = true}
+genetic_algorithm = {workspace = true}
 ordered-float = {workspace = true}
-
+rand = {workspace = true}

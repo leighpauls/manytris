@@ -1,17 +1,14 @@
-use std::cmp::Ordering;
-use std::fmt::{Display, Formatter};
 use std::iter;
 
-use ordered_float::OrderedFloat;
-
-use crate::bot_shader::{BotShaderContext, UpcomingShapes};
 use crate::bot_start_positions::StartPositions;
-use crate::compute_types::MoveResultScore;
+use crate::compute_types::{ComputedDropConfig, MoveResultScore, UpcomingShapes};
+use crate::{BotContext, BotResults};
 use manytris_core::bitmap_field::BitmapField;
 use manytris_core::consts;
 use manytris_core::field::Pos;
 use manytris_core::game_state::{GameState, LockResult, TickMutation, TickResult};
 use manytris_core::shapes::{Shape, Shift};
+use ordered_float::OrderedFloat;
 
 const VALIDATE_GPU_MOVES: bool = false;
 
@@ -26,6 +23,13 @@ pub struct MovementDescriptor {
     pub shape: Shape,
     pub cw_rotations: usize,
     pub shifts_right: isize,
+}
+
+pub struct ComputedDropSearchResults {
+    pub search_depth: usize,
+    pub upcoming_shapes: UpcomingShapes,
+    pub drops: Vec<MovementDescriptor>,
+    pub score: MoveResultScore,
 }
 
 pub type ScoringKs = [f32; 4];
@@ -47,11 +51,78 @@ impl MovementDescriptor {
         .chain(iter::once(TickMutation::DropInput))
         .collect()
     }
+
+    pub fn from_drop_config(drop_config: &ComputedDropConfig, sp: &StartPositions) -> Self {
+        Self {
+            shape: sp.idx_to_shape.get(&drop_config.shape_idx).unwrap().clone(),
+            cw_rotations: drop_config.cw_rotations as usize,
+            shifts_right: drop_config.right_shifts as isize - (drop_config.left_shifts as isize),
+        }
+    }
+}
+
+impl ComputedDropSearchResults {
+    // Select the best results from the score
+    pub fn find_results<F: Fn(&MoveResultScore) -> OrderedFloat<f32>>(
+        search_depth: usize,
+        upcoming_shapes: UpcomingShapes,
+        bot_results: &impl BotResults,
+        scoring_fn: F,
+        sp: &StartPositions,
+    ) -> Self {
+        let (start_idx, end_idx) = Self::idx_range(search_depth);
+        let scores = bot_results.scores();
+        assert_eq!(end_idx, scores.len());
+
+        // Find the best score
+        let (best_idx, best_score) = scores[start_idx..end_idx]
+            .into_iter()
+            .enumerate()
+            .max_by_key(|(_i, s)| scoring_fn(s))
+            .unwrap();
+
+        let mut next_config_idx = start_idx + best_idx;
+        let mut moves = vec![];
+        let configs = bot_results.configs();
+        loop {
+            let cfg = &configs[next_config_idx];
+            moves.insert(0, MovementDescriptor::from_drop_config(cfg, sp));
+
+            if cfg.src_field_idx == 0 {
+                break;
+            }
+            next_config_idx = cfg.src_field_idx as usize - 1;
+        }
+
+        ComputedDropSearchResults {
+            search_depth,
+            upcoming_shapes: upcoming_shapes.clone(),
+            drops: moves,
+            score: best_score.clone(),
+        }
+    }
+
+    pub fn make_move_result(&self) -> MoveResult {
+        MoveResult {
+            moves: self.drops.clone(),
+            score: self.score.clone(),
+        }
+    }
+
+    fn idx_range(search_depth: usize) -> (usize, usize) {
+        let mut start_idx = 0;
+        let mut end_idx = 0;
+        for i in 0..search_depth + 1 {
+            start_idx = end_idx;
+            end_idx += consts::OUTPUTS_PER_INPUT_FIELD.pow(i as u32 + 1);
+        }
+        (start_idx, end_idx)
+    }
 }
 
 pub fn select_next_move(
     gs: &GameState,
-    ctx: &BotShaderContext,
+    ctx: &impl BotContext,
     ks: &ScoringKs,
     mut search_depth: usize,
 ) -> Result<MoveResult, String> {
@@ -60,14 +131,21 @@ pub fn select_next_move(
     usv.extend_from_slice(&gs.upcoming_shapes());
     let us: UpcomingShapes = usv.try_into().unwrap();
 
-    let results = ctx.compute_drop_search(search_depth, &us, &gs.make_bitmap_field(), |score| {
-        OrderedFloat(weighted_result_score(score, ks))
-    })?;
+    let source_field = gs.make_bitmap_field();
+    let bot_results = ctx.compute_drop_search(search_depth, &us, &source_field)?;
+
+    let results = ComputedDropSearchResults::find_results(
+        search_depth,
+        us,
+        &bot_results,
+        |score| OrderedFloat(weighted_result_score(score, ks)),
+        ctx.sp(),
+    );
 
     let move_result = results.make_move_result();
 
     if VALIDATE_GPU_MOVES {
-        let (_cpu_gs, cpu_score) = evaluate_moves_cpu(gs, &move_result.moves, &ctx.sp);
+        let (_cpu_gs, cpu_score) = evaluate_moves_cpu(gs, &move_result.moves, ctx.sp());
         assert_eq!(&cpu_score, &move_result.score);
     }
 
@@ -156,43 +234,6 @@ fn find_covered(cf: &BitmapField, height: i32) -> i32 {
         }
     }
     count
-}
-
-impl Display for MoveResultScore {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!(
-            "Lost: {}, Cleared: {}, covered: {}, Height: {}",
-            self.game_over, self.lines_cleared, self.covered, self.height
-        ))
-    }
-}
-
-impl PartialOrd<Self> for MoveResultScore {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for MoveResultScore {
-    fn cmp(&self, other: &Self) -> Ordering {
-        if self.game_over != other.game_over {
-            // Not game over is better
-            if self.game_over {
-                Ordering::Less
-            } else {
-                Ordering::Greater
-            }
-        } else if self.lines_cleared != other.lines_cleared {
-            // More lines cleared is better
-            self.lines_cleared.cmp(&other.lines_cleared)
-        } else if self.covered != other.covered {
-            // less coverage is better
-            other.covered.cmp(&self.covered)
-        } else {
-            // less height is better
-            other.height.cmp(&self.height)
-        }
-    }
 }
 
 #[cfg(test)]

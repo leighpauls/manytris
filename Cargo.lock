@@ -1982,9 +1982,9 @@ dependencies = [
 
 [[package]]
 name = "crossbeam-queue"
-version = "0.3.11"
+version = "0.3.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "df0346b5d5e76ac2fe4e327c5fd1118d6be7c51dfb18f9b7922923f287471e35"
+checksum = "0f58bbc28f91df819d0aa2a2c00cd19754769c2fad90579b3592b1c9ba7a3115"
 dependencies = [
  "crossbeam-utils",
 ]
@@ -3561,6 +3561,7 @@ dependencies = [
  "clap",
  "ewebsock",
  "manytris_bot",
+ "manytris_bot_metal",
  "manytris_core",
  "manytris_game_manager_proto",
  "rmp-serde",
@@ -3577,11 +3578,32 @@ version = "0.1.0"
 dependencies = [
  "enum-iterator",
  "enum-map",
+ "manytris_core",
+ "ordered-float 4.6.0",
+]
+
+[[package]]
+name = "manytris_bot_demo"
+version = "0.1.0"
+dependencies = [
+ "enum-iterator",
+ "enum-map",
  "genetic_algorithm",
+ "manytris_bot",
+ "manytris_bot_metal",
+ "manytris_core",
+ "ordered-float 4.6.0",
+ "rand",
+]
+
+[[package]]
+name = "manytris_bot_metal"
+version = "0.1.0"
+dependencies = [
+ "manytris_bot",
  "manytris_core",
  "metal",
- "ordered-float 4.5.0",
- "rand",
+ "ordered-float 4.6.0",
 ]
 
 [[package]]
@@ -4238,9 +4260,9 @@ dependencies = [
 
 [[package]]
 name = "ordered-float"
-version = "4.5.0"
+version = "4.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c65ee1f9701bf938026630b455d5315f490640234259037edb259798b3bcf85e"
+checksum = "7bb71e1b3fa6ca1c61f383464aaf2bb0e2f8e772a1f01d486832464de363b951"
 dependencies = [
  "num-traits",
 ]

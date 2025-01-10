@@ -7,6 +7,7 @@ edition = "2021"
 manytris_core = {path = "../manytris_core"}
 manytris_game_manager_proto = {path = "../manytris_game_manager_proto"}
 manytris_bot = {path = "../manytris_bot", optional = true}
+manytris_bot_metal = {path = "../manytris_bot_metal", optional = true}
 
 anyhow = {workspace = true}
 bevy = {workspace = true}
@@ -21,4 +22,4 @@ url = {workspace = true}
 uuid = {workspace = true}
 
 [features]
-bot = ["dep:manytris_bot"]
+bot = ["dep:manytris_bot", "dep:manytris_bot_metal"]

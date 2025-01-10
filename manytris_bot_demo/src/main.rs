@@ -1,8 +1,8 @@
 use genetic_algorithm::strategy::evolve::prelude::*;
+use manytris_bot_metal::BotShaderContext;
 use rand::thread_rng;
 use manytris_bot::bot_player;
 use manytris_bot::bot_player::ScoringKs;
-use manytris_bot::bot_shader::BotShaderContext;
 use manytris_core::consts;
 use manytris_core::game_state::{GameState, TickMutation};
 use manytris_core::shape_bag::ShapeBag;
