@@ -7,9 +7,8 @@ use crate::states;
 use crate::states::PlayingState;
 use crate::system_sets::UpdateSystems;
 use bevy::prelude::*;
-use manytris_bot::bot_player;
+use manytris_bot::{bot_player, BotContext};
 use manytris_bot::bot_start_positions::StartPositions;
-use manytris_bot_metal::BotShaderContext;
 use manytris_core::game_state::TickMutation::JumpToBotStartPosition;
 use manytris_core::game_state::{GameState, TickMutation};
 use std::time::Duration;
@@ -126,7 +125,15 @@ fn apply_bot_tick_events(
 }
 
 fn make_bot_move_events(game: &GameState, sp: &StartPositions) -> Vec<TickMutation> {
-    let bot_context = BotShaderContext::new().unwrap();
+    let bot_context = make_context();
     let mr = bot_player::select_next_move(game, &bot_context, &bot_player::BEST_BOT_KS, 3).unwrap();
     mr.moves[0].as_tick_mutations(sp)
+}
+
+fn make_context() -> impl BotContext {
+    #[cfg(feature = "bot_metal")]
+    {
+        use manytris_bot_metal::BotShaderContext;
+        return BotShaderContext::new().unwrap();
+    }
 }
