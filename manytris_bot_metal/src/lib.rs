@@ -1,4 +1,4 @@
-use manytris_bot::bot_start_positions::StartPositions;
+use manytris_bot::bot_start_positions::START_POSITIONS;
 use manytris_bot::compute_types::{
     ComputedDropConfig, MoveResultScore, SearchParams, ShapePositionConfig, UpcomingShapes,
 };
@@ -15,7 +15,6 @@ use std::slice;
 
 pub struct BotShaderContext {
     kc: KernalConfig,
-    pub sp: StartPositions,
 }
 
 pub struct MetalBotResults {
@@ -36,7 +35,6 @@ impl BotShaderContext {
     pub fn new() -> Result<Self, String> {
         Ok(Self {
             kc: KernalConfig::prepare()?,
-            sp: StartPositions::new(),
         })
     }
 }
@@ -102,10 +100,6 @@ impl BotResults for MetalBotResults {
 }
 
 impl BotContext for BotShaderContext {
-    fn sp(&self) -> &StartPositions {
-        &(self.sp)
-    }
-
     fn compute_drop_search(
         &self,
         search_depth: usize,
@@ -124,7 +118,7 @@ impl BotContext for BotShaderContext {
         write_to_buffer(
             &mut shape_position_config_buffer,
             0,
-            &self.sp.shape_position_config,
+            &START_POSITIONS.shape_position_config,
         );
 
         let mut fields_buffer = self.kc.make_data_buffer::<BitmapField>(total_outputs + 1);
@@ -135,7 +129,7 @@ impl BotContext for BotShaderContext {
         for cur_search_depth in 0..(search_depth as u8 + 1) {
             let sp = SearchParams {
                 cur_search_depth,
-                upcoming_shape_idxs: upcoming_shapes.map(|s| self.sp.shape_to_idx[s].clone()),
+                upcoming_shape_idxs: upcoming_shapes.map(|s| START_POSITIONS.shape_to_idx[s]),
             };
 
             write_to_buffer(&mut search_param_buffer, 0, &sp);

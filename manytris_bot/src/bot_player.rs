@@ -1,6 +1,6 @@
 use std::iter;
 
-use crate::bot_start_positions::StartPositions;
+use crate::bot_start_positions::START_POSITIONS;
 use crate::compute_types::{ComputedDropConfig, MoveResultScore, UpcomingShapes};
 use crate::{BotContext, BotResults};
 use manytris_core::bitmap_field::BitmapField;
@@ -37,14 +37,15 @@ pub type ScoringKs = [f32; 4];
 pub const BEST_BOT_KS: ScoringKs = [-2447.9722, 7782.121, -6099.498, -1970.1172];
 
 impl MovementDescriptor {
-    pub fn as_tick_mutations(&self, bsp: &StartPositions) -> Vec<TickMutation> {
+    pub fn as_tick_mutations(&self) -> Vec<TickMutation> {
         let (dir, num_shifts) = if self.shifts_right >= 0 {
             (Shift::Right, self.shifts_right as usize)
         } else {
             (Shift::Left, (-self.shifts_right) as usize)
         };
         iter::once(TickMutation::JumpToBotStartPosition(
-            bsp.bot_start_position(self.shape, self.cw_rotations)
+            START_POSITIONS
+                .bot_start_position(self.shape, self.cw_rotations)
                 .clone(),
         ))
         .chain(iter::repeat(TickMutation::ShiftInput(dir)).take(num_shifts))
@@ -52,9 +53,12 @@ impl MovementDescriptor {
         .collect()
     }
 
-    pub fn from_drop_config(drop_config: &ComputedDropConfig, sp: &StartPositions) -> Self {
+    pub fn from_drop_config(drop_config: &ComputedDropConfig) -> Self {
         Self {
-            shape: sp.idx_to_shape.get(&drop_config.shape_idx).unwrap().clone(),
+            shape: *START_POSITIONS
+                .idx_to_shape
+                .get(&drop_config.shape_idx)
+                .unwrap(),
             cw_rotations: drop_config.cw_rotations as usize,
             shifts_right: drop_config.right_shifts as isize - (drop_config.left_shifts as isize),
         }
@@ -68,7 +72,6 @@ impl ComputedDropSearchResults {
         upcoming_shapes: UpcomingShapes,
         bot_results: &impl BotResults,
         scoring_fn: F,
-        sp: &StartPositions,
     ) -> Self {
         let (start_idx, end_idx) = Self::idx_range(search_depth);
         let scores = bot_results.scores();
@@ -86,7 +89,7 @@ impl ComputedDropSearchResults {
         let configs = bot_results.configs();
         loop {
             let cfg = &configs[next_config_idx];
-            moves.insert(0, MovementDescriptor::from_drop_config(cfg, sp));
+            moves.insert(0, MovementDescriptor::from_drop_config(cfg));
 
             if cfg.src_field_idx == 0 {
                 break;
@@ -134,18 +137,15 @@ pub fn select_next_move(
     let source_field = gs.make_bitmap_field();
     let bot_results = ctx.compute_drop_search(search_depth, &us, &source_field)?;
 
-    let results = ComputedDropSearchResults::find_results(
-        search_depth,
-        us,
-        &bot_results,
-        |score| OrderedFloat(weighted_result_score(score, ks)),
-        ctx.sp(),
-    );
+    let results =
+        ComputedDropSearchResults::find_results(search_depth, us, &bot_results, |score| {
+            OrderedFloat(weighted_result_score(score, ks))
+        });
 
     let move_result = results.make_move_result();
 
     if VALIDATE_GPU_MOVES {
-        let (_cpu_gs, cpu_score) = evaluate_moves_cpu(gs, &move_result.moves, ctx.sp());
+        let (_cpu_gs, cpu_score) = evaluate_moves_cpu(gs, &move_result.moves);
         assert_eq!(&cpu_score, &move_result.score);
     }
 
@@ -163,14 +163,13 @@ fn weighted_result_score(mrs: &MoveResultScore, ks: &ScoringKs) -> f32 {
 pub fn evaluate_moves_cpu(
     src_state: &GameState,
     moves: &[MovementDescriptor],
-    sp: &StartPositions,
 ) -> (GameState, MoveResultScore) {
     let mut gs = src_state.clone();
     let mut game_over = false;
     let mut lines_cleared = 0;
 
     moves.iter().for_each(|md| {
-        let tick_results = gs.tick_mutation(md.as_tick_mutations(sp));
+        let tick_results = gs.tick_mutation(md.as_tick_mutations());
         for tr in tick_results {
             match tr {
                 TickResult::Lock(LockResult::GameOver) => {

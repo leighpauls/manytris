@@ -1,6 +1,7 @@
 use enum_iterator::all;
 use enum_map::EnumMap;
 use std::collections::HashMap;
+use std::sync::LazyLock;
 
 use crate::compute_types::{ShapePositionConfig, ShapeStartingPositions, TetrominoPositions};
 use manytris_core::consts;
@@ -16,10 +17,26 @@ pub struct StartPositions {
     pub shape_position_config: ShapePositionConfig,
 }
 
+pub static START_POSITIONS: LazyLock<StartPositions> = LazyLock::new(StartPositions::default);
+
 impl StartPositions {
-    pub fn new() -> Self {
+    pub fn bot_start_position(&self, s: Shape, cw_rotations: usize) -> &Tetromino {
+        &self.bot_positions[s][cw_rotations]
+    }
+
+    pub fn bot_start_tps(&self, s: Shape, cw_rotations: usize) -> &TetrominoPositions {
+        &self.bot_positions_as_tp[s][cw_rotations]
+    }
+
+    pub fn player_start_tps(&self, s: Shape) -> &TetrominoPositions {
+        &self.player_positions[s]
+    }
+}
+
+impl Default for StartPositions {
+    fn default() -> Self {
         let bot_positions_as_tp = EnumMap::from_fn(|s| {
-            compute_bot_start_positions_for_shape(s).map(|t| TetrominoPositions::from(t))
+            compute_bot_start_positions_for_shape(s).map(TetrominoPositions::from)
         });
         let player_positions = EnumMap::from_fn(|s| TetrominoPositions::from(Tetromino::new(s)));
 
@@ -38,25 +55,13 @@ impl StartPositions {
         let shape_to_idx =
             EnumMap::from_iter(idx_to_shape.iter().map(|(i, s)| (s.clone(), i.clone())));
         Self {
-            bot_positions: EnumMap::from_fn(|s| compute_bot_start_positions_for_shape(s)),
+            bot_positions: EnumMap::from_fn(compute_bot_start_positions_for_shape),
             bot_positions_as_tp,
             player_positions,
             shape_position_config,
             idx_to_shape,
             shape_to_idx,
         }
-    }
-
-    pub fn bot_start_position(&self, s: Shape, cw_rotations: usize) -> &Tetromino {
-        &self.bot_positions[s][cw_rotations]
-    }
-
-    pub fn bot_start_tps(&self, s: Shape, cw_rotations: usize) -> &TetrominoPositions {
-        &self.bot_positions_as_tp[s][cw_rotations]
-    }
-
-    pub fn player_start_tps(&self, s: Shape) -> &TetrominoPositions {
-        &self.player_positions[s]
     }
 }
 

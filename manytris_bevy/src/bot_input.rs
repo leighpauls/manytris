@@ -7,8 +7,8 @@ use crate::states;
 use crate::states::PlayingState;
 use crate::system_sets::UpdateSystems;
 use bevy::prelude::*;
+use manytris_bot::bot_start_positions::START_POSITIONS;
 use manytris_bot::{bot_player, BotContext};
-use manytris_bot::bot_start_positions::StartPositions;
 use manytris_core::game_state::TickMutation::JumpToBotStartPosition;
 use manytris_core::game_state::{GameState, TickMutation};
 use std::time::Duration;
@@ -37,13 +37,9 @@ impl Plugin for BotInputPlugin {
                 .run_if(in_state(PlayingState::Playing))
                 .run_if(states::is_bot),
         )
-        .insert_resource(self.clone())
-        .insert_resource(StartPositionRes(StartPositions::new()));
+        .insert_resource(self.clone());
     }
 }
-
-#[derive(Resource)]
-pub struct StartPositionRes(pub StartPositions);
 
 #[derive(Component)]
 struct BotInputState {
@@ -92,7 +88,6 @@ fn apply_bot_tick_events(
     mut tick_event_writer: EventWriter<TickEvent>,
     q_root: Query<&GameRoot>,
     local_game_root_res: Option<Res<LocalGameRoot>>,
-    sp: Res<StartPositionRes>,
 ) {
     let Some(local_game_root) = local_game_root_res else {
         return;
@@ -109,10 +104,12 @@ fn apply_bot_tick_events(
         .map(|e| match e.input_type {
             InputType::JumpToBotStartPositionEvent => {
                 vec![JumpToBotStartPosition(
-                    sp.0.bot_start_position(game.active_shape(), 0).clone(),
+                    (*START_POSITIONS)
+                        .bot_start_position(game.active_shape(), 0)
+                        .clone(),
                 )]
             }
-            InputType::PerformBotMoveEvent => make_bot_move_events(game, &sp.0),
+            InputType::PerformBotMoveEvent => make_bot_move_events(game),
             _ => vec![],
         })
         .flatten()
@@ -124,10 +121,10 @@ fn apply_bot_tick_events(
         });
 }
 
-fn make_bot_move_events(game: &GameState, sp: &StartPositions) -> Vec<TickMutation> {
+fn make_bot_move_events(game: &GameState) -> Vec<TickMutation> {
     let bot_context = make_context();
     let mr = bot_player::select_next_move(game, &bot_context, &bot_player::BEST_BOT_KS, 3).unwrap();
-    mr.moves[0].as_tick_mutations(sp)
+    mr.moves[0].as_tick_mutations()
 }
 
 fn make_context() -> impl BotContext {

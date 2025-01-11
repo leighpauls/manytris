@@ -1,11 +1,9 @@
-pub mod compute_types;
-pub mod bot_start_positions;
 pub mod bot_player;
+pub mod bot_start_positions;
+pub mod compute_types;
 
-use bot_start_positions::StartPositions;
 use compute_types::{ComputedDropConfig, MoveResultScore, UpcomingShapes};
 use manytris_core::bitmap_field::BitmapField;
-
 
 pub trait BotResults {
     fn configs(&self) -> &[ComputedDropConfig];
@@ -19,7 +17,4 @@ pub trait BotContext {
         upcoming_shapes: &UpcomingShapes,
         source_field: &BitmapField,
     ) -> Result<impl BotResults, String>;
-
-    fn sp(&self) -> &StartPositions;
 }
-
