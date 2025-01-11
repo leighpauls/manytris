@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 manytris_core = {path = "../manytris_core"}
 
+anyhow = {workspace = true}
 enum-iterator = {workspace = true}
 enum-map = {workspace = true}
 ordered-float = {workspace = true}

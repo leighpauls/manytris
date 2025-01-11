@@ -3,6 +3,7 @@ use std::iter;
 use crate::bot_start_positions::START_POSITIONS;
 use crate::compute_types::{ComputedDropConfig, MoveResultScore, UpcomingShapes};
 use crate::{BotContext, BotResults};
+use anyhow::Result;
 use manytris_core::bitmap_field::BitmapField;
 use manytris_core::consts;
 use manytris_core::field::Pos;
@@ -128,7 +129,7 @@ pub fn select_next_move(
     ctx: &impl BotContext,
     ks: &ScoringKs,
     mut search_depth: usize,
-) -> Result<MoveResult, String> {
+) -> Result<MoveResult> {
     search_depth -= 1;
     let mut usv = vec![gs.active_shape()];
     usv.extend_from_slice(&gs.upcoming_shapes());

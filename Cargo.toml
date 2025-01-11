@@ -7,6 +7,7 @@ axum = "0.7.9"
 bevy = "0.15.0"
 bevy_mod_reqwest = "0.18.0"
 clap = { version = "4.5.7", features = ["derive"] }
+derive_more = {version = "1.0.0", features = ["display", "error"]}
 enum-iterator = "2.0.0"
 enum-map = "2.7.3"
 ewebsock = "0.5.0"

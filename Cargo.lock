@@ -3622,6 +3622,7 @@ dependencies = [
 name = "manytris_bot"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "enum-iterator",
  "enum-map",
  "manytris_core",
@@ -3646,6 +3647,8 @@ dependencies = [
 name = "manytris_bot_metal"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "derive_more",
  "manytris_bot",
  "manytris_core",
  "metal",

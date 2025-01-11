@@ -1,3 +1,5 @@
+use anyhow::{Context, Result};
+use derive_more::{Display, Error};
 use manytris_bot::bot_start_positions::START_POSITIONS;
 use manytris_bot::compute_types::{
     ComputedDropConfig, MoveResultScore, SearchParams, ShapePositionConfig, UpcomingShapes,
@@ -11,6 +13,7 @@ use metal::{
     MTLCommandBufferStatus, MTLResourceOptions, MTLSize, NSUInteger,
 };
 use std::cmp::min;
+
 use std::slice;
 
 pub struct BotShaderContext {
@@ -31,8 +34,13 @@ struct KernalConfig {
     device: Device,
 }
 
+#[derive(Debug, Display, Clone, Error)]
+struct ObjCError {
+    pub message: String,
+}
+
 impl BotShaderContext {
-    pub fn new() -> Result<Self, String> {
+    pub fn new() -> Result<Self> {
         Ok(Self {
             kc: KernalConfig::prepare()?,
         })
@@ -40,20 +48,28 @@ impl BotShaderContext {
 }
 
 impl KernalConfig {
-    fn prepare() -> Result<Self, String> {
+    fn prepare() -> Result<Self> {
         let library_data = include_bytes!("bot_shader.metallib");
-        autoreleasepool(|| -> Result<KernalConfig, String> {
-            let device = Device::system_default().expect("No metal device available.");
-            let library = device.new_library_with_data(&library_data[..])?;
+        autoreleasepool(|| -> Result<KernalConfig> {
+            let device = Device::system_default().context("No metal device available.")?;
+            let library = device
+                .new_library_with_data(&library_data[..])
+                .map_err(into_objc)?;
             let command_queue = device.new_command_queue();
 
-            let make_configs_function = library.get_function("compute_drop_config", None)?;
-            let make_configs_pipeline_state =
-                device.new_compute_pipeline_state_with_function(&make_configs_function)?;
+            let make_configs_function = library
+                .get_function("compute_drop_config", None)
+                .map_err(into_objc)?;
+            let make_configs_pipeline_state = device
+                .new_compute_pipeline_state_with_function(&make_configs_function)
+                .map_err(into_objc)?;
 
-            let computed_drop_function = library.get_function("drop_tetromino_for_config", None)?;
-            let computed_drop_pipeline_state =
-                device.new_compute_pipeline_state_with_function(&computed_drop_function)?;
+            let computed_drop_function = library
+                .get_function("drop_tetromino_for_config", None)
+                .map_err(into_objc)?;
+            let computed_drop_pipeline_state = device
+                .new_compute_pipeline_state_with_function(&computed_drop_function)
+                .map_err(into_objc)?;
 
             Ok(KernalConfig {
                 command_queue,
@@ -105,7 +121,7 @@ impl BotContext for BotShaderContext {
         search_depth: usize,
         upcoming_shapes: &UpcomingShapes,
         source_field: &BitmapField,
-    ) -> Result<impl BotResults, String> {
+    ) -> Result<impl BotResults> {
         let mut total_outputs = 0;
         (0..search_depth + 1)
             .for_each(|i| total_outputs += consts::OUTPUTS_PER_INPUT_FIELD.pow(i as u32 + 1));
@@ -203,13 +219,17 @@ fn write_to_buffer<T: Clone>(buffer: &mut Buffer, index: usize, value: &T) {
     slice_from_buffer_mut(buffer)[index] = value.clone();
 }
 
+fn into_objc(message: String) -> ObjCError {
+    ObjCError { message }
+}
+
 #[cfg(test)]
 mod test {
     use std::cmp::max;
 
     use super::BotShaderContext;
-    use manytris_bot_types::compute_types::ComputedDropConfig;
-    use manytris_bot_types::{BotContext, BotResults};
+    use manytris_bot::compute_types::ComputedDropConfig;
+    use manytris_bot::{BotContext, BotResults};
     use manytris_core::bitmap_field::BitmapField;
     use manytris_core::shapes::Shape;
 
