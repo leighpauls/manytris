@@ -14,17 +14,6 @@ pub struct TetrominoPositions {
 }
 
 #[repr(C)]
-#[derive(Debug, Clone, Default, Copy, AnyBitPattern)]
-pub struct DropConfig {
-    pub tetromino_idx: u32,
-    pub next_tetromino_idx: u32,
-    pub initial_field_idx: u32,
-    pub dest_field_idx: u32,
-    pub left_shifts: u8,
-    pub right_shifts: u8,
-}
-
-#[repr(C)]
 #[derive(Eq, PartialEq, Clone, Debug)]
 pub struct MoveResultScore {
     pub game_over: bool,
@@ -56,7 +45,7 @@ pub struct SearchParams {
 }
 
 #[repr(C)]
-#[derive(Eq, PartialEq, Clone, Debug, Copy, AnyBitPattern)]
+#[derive(Eq, PartialEq, Clone, Debug, Copy, AnyBitPattern, Default)]
 pub struct ComputedDropConfig {
     pub shape_idx: u8,
     pub cw_rotations: u8,

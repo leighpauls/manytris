@@ -1,5 +1,5 @@
 use anyhow::{Context, Result, bail};
-use manytris_bot::compute_types::{DropConfig, SearchParams};
+use manytris_bot::compute_types::{ComputedDropConfig, SearchParams};
 use std::iter;
 use std::sync::Arc;
 use vulkano::buffer::{Buffer, BufferCreateInfo, BufferUsage};
@@ -141,7 +141,7 @@ fn init_vulkan_bot(search_params: SearchParams) -> Result<VulkanBotContext> {
                 | MemoryTypeFilter::HOST_RANDOM_ACCESS,
             ..Default::default()
         },
-        iter::repeat_n(DropConfig::default(), num_outputs),
+        iter::repeat_n(ComputedDropConfig::default(), num_outputs),
     )?;
 
     let search_params_binding = 0;
