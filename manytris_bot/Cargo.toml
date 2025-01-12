@@ -7,6 +7,7 @@ edition = "2021"
 manytris_core = {path = "../manytris_core"}
 
 anyhow = {workspace = true}
+bytemuck = {workspace = true}
 enum-iterator = {workspace = true}
 enum-map = {workspace = true}
 ordered-float = {workspace = true}

@@ -7,5 +7,6 @@ edition = "2021"
 manytris_bot = {path = "../manytris_bot"}
 manytris_core = {path = "../manytris_core"}
 
+anyhow = {workspace = true}
 vulkano = {workspace = true}
 vulkano-shaders = {workspace = true}

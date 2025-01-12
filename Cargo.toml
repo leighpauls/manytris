@@ -6,6 +6,7 @@ anyhow = "1.0.93"
 axum = "0.7.9"
 bevy = "0.15.0"
 bevy_mod_reqwest = "0.18.0"
+bytemuck = {version = "1.21.0", features = ["derive"]}
 clap = { version = "4.5.7", features = ["derive"] }
 derive_more = {version = "1.0.0", features = ["display", "error"]}
 enum-iterator = "2.0.0"
@@ -23,7 +24,7 @@ tokio = { version = "1.41.1", features = ["full"] }
 tungstenite = "0.21.0"
 url = "2.5.0"
 uuid = { version = "1.10.0", features = ["js", "v4"] }
-vulkano = "0.34.1"
+vulkano = "0.34.0"
 vulkano-shaders = "0.34.0"
 
 # Mac-specific dependencies

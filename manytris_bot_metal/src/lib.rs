@@ -1,5 +1,6 @@
-use anyhow::{Context, Result};
+use anyhow::{ensure, Context, Result};
 use derive_more::{Display, Error};
+use manytris_bot;
 use manytris_bot::bot_start_positions::START_POSITIONS;
 use manytris_bot::compute_types::{
     ComputedDropConfig, MoveResultScore, SearchParams, ShapePositionConfig, UpcomingShapes,
@@ -122,9 +123,8 @@ impl BotContext for BotShaderContext {
         upcoming_shapes: &UpcomingShapes,
         source_field: &BitmapField,
     ) -> Result<impl BotResults> {
-        let mut total_outputs = 0;
-        (0..search_depth + 1)
-            .for_each(|i| total_outputs += consts::OUTPUTS_PER_INPUT_FIELD.pow(i as u32 + 1));
+        let total_outputs = manytris_bot::num_outputs(search_depth);
+        
         let configs_buffer = self
             .kc
             .make_data_buffer::<ComputedDropConfig>(total_outputs);
@@ -176,8 +176,12 @@ impl BotContext for BotShaderContext {
                 cmd_buffer.commit();
                 cmd_buffer.wait_until_completed();
 
-                assert_eq!(cmd_buffer.status(), MTLCommandBufferStatus::Completed);
-            });
+                ensure!(
+                    cmd_buffer.status() == MTLCommandBufferStatus::Completed,
+                    "failed to make config command buffers"
+                );
+                Ok(())
+            })?;
 
             autoreleasepool(|| {
                 let (cmd_buffer, encoder) = self.kc.make_computed_drop_command_buffer();
@@ -194,8 +198,12 @@ impl BotContext for BotShaderContext {
                 cmd_buffer.commit();
                 cmd_buffer.wait_until_completed();
 
-                assert_eq!(cmd_buffer.status(), MTLCommandBufferStatus::Completed);
-            });
+                ensure!(
+                    cmd_buffer.status() == MTLCommandBufferStatus::Completed,
+                    "failed to compute scores"
+                );
+                Ok(())
+            })?;
         }
 
         Ok(MetalBotResults {

@@ -5,6 +5,7 @@ use std::fmt::{Display, Formatter};
 use manytris_core::consts;
 use manytris_core::shapes::Shape;
 use manytris_core::tetromino::Tetromino;
+use bytemuck::AnyBitPattern;
 
 #[repr(C)]
 #[derive(Debug, Clone)]
@@ -13,7 +14,7 @@ pub struct TetrominoPositions {
 }
 
 #[repr(C)]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default, Copy, AnyBitPattern)]
 pub struct DropConfig {
     pub tetromino_idx: u32,
     pub next_tetromino_idx: u32,
@@ -48,14 +49,14 @@ pub struct ShapePositionConfig {
 pub type UpcomingShapeIndexes = [u8; consts::MAX_SEARCH_DEPTH + 1];
 
 #[repr(C)]
-#[derive(Eq, PartialEq, Clone, Debug)]
+#[derive(Eq, PartialEq, Copy, Clone, Debug, AnyBitPattern)]
 pub struct SearchParams {
     pub cur_search_depth: u8,
     pub upcoming_shape_idxs: UpcomingShapeIndexes,
 }
 
 #[repr(C)]
-#[derive(Eq, PartialEq, Clone, Debug)]
+#[derive(Eq, PartialEq, Clone, Debug, Copy, AnyBitPattern)]
 pub struct ComputedDropConfig {
     pub shape_idx: u8,
     pub cw_rotations: u8,
