@@ -110,7 +110,7 @@ fn run_game(ks: &ScoringKs, max_game_length: i32) -> i32 {
             return i;
         }
         // Evaluate 1 move on the best result.
-        (gs, _) = bot_player::evaluate_moves_cpu(&gs, &mr.moves[0..1], &bot_context.sp);
+        (gs, _) = bot_player::evaluate_moves_cpu(&gs, &mr.moves[0..1]);
         gs.tick_mutation(vec![TickMutation::EnqueueTetromino(
             shape_bag.next().unwrap(),
         )]);

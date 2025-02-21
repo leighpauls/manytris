@@ -22,7 +22,7 @@ pub trait BotContext {
 
 pub fn num_outputs(search_depth: usize) -> usize {
     let mut total_outputs = 0;
-    for i in 0..search_depth {
+    for i in 0..(search_depth + 1) {
         total_outputs += consts::OUTPUTS_PER_INPUT_FIELD.pow(i as u32 + 1);
     }
     total_outputs

@@ -203,10 +203,6 @@ impl VulkanBotContext {
 
         let config_content = drop_configs_buffer.read()?;
 
-        for (i, cfg) in config_content.iter().enumerate() {
-            println!("{i}: {cfg:?}");
-        }
-
         Ok(())
     }
 }
@@ -234,7 +230,6 @@ mod test {
             upcoming_shape_idxs: [0, 0, 0, 0, 0, 0, 0],
         })?;
 
-        // Ok(())
-        bail!("expected");
+        Ok(())
     }
 }

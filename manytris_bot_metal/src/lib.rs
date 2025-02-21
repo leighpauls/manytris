@@ -1,6 +1,5 @@
 use anyhow::{ensure, Context, Result};
 use derive_more::{Display, Error};
-use manytris_bot;
 use manytris_bot::bot_start_positions::START_POSITIONS;
 use manytris_bot::compute_types::{
     ComputedDropConfig, MoveResultScore, SearchParams, ShapePositionConfig, UpcomingShapes,
@@ -124,7 +123,7 @@ impl BotContext for BotShaderContext {
         source_field: &BitmapField,
     ) -> Result<impl BotResults> {
         let total_outputs = manytris_bot::num_outputs(search_depth);
-        
+
         let configs_buffer = self
             .kc
             .make_data_buffer::<ComputedDropConfig>(total_outputs);
