@@ -154,7 +154,7 @@ pub fn select_next_move(
 }
 
 fn weighted_result_score(mrs: &MoveResultScore, ks: &ScoringKs) -> f32 {
-    let game_over_f32 = if mrs.game_over { 1.0 } else { -1.0 };
+    let game_over_f32 = if mrs.is_game_over() { 1.0 } else { -1.0 };
     game_over_f32 * ks[0]
         + mrs.lines_cleared as f32 * ks[1]
         + mrs.height as f32 * ks[2]
@@ -186,12 +186,7 @@ pub fn evaluate_moves_cpu(
     let cpu_field = gs.make_bitmap_field();
     let height = find_height(&cpu_field) as u8;
     let covered = find_covered(&cpu_field, height as i32) as u16;
-    let score = MoveResultScore {
-        game_over,
-        lines_cleared,
-        height,
-        covered,
-    };
+    let score = MoveResultScore::init(game_over, lines_cleared, height, covered);
 
     (gs, score)
 }
@@ -242,60 +237,12 @@ mod tests {
 
     #[test]
     fn ordering() {
-        assert!(
-            MoveResultScore {
-                game_over: false,
-                lines_cleared: 0,
-                height: 0,
-                covered: 0
-            } > MoveResultScore {
-                game_over: true,
-                lines_cleared: 0,
-                height: 0,
-                covered: 0
-            }
-        );
+        assert!(MoveResultScore::init(false, 0, 0, 0) > MoveResultScore::init(true, 0, 0, 0));
 
-        assert!(
-            MoveResultScore {
-                game_over: false,
-                lines_cleared: 1,
-                height: 0,
-                covered: 0
-            } > MoveResultScore {
-                game_over: false,
-                lines_cleared: 0,
-                height: 0,
-                covered: 0
-            }
-        );
+        assert!(MoveResultScore::init(false, 1, 0, 0) > MoveResultScore::init(false, 0, 0, 0));
 
-        assert!(
-            MoveResultScore {
-                game_over: false,
-                lines_cleared: 0,
-                height: 0,
-                covered: 0
-            } > MoveResultScore {
-                game_over: false,
-                lines_cleared: 0,
-                height: 1,
-                covered: 0
-            }
-        );
+        assert!(MoveResultScore::init(false, 0, 0, 0) > MoveResultScore::init(false, 0, 1, 0));
 
-        assert!(
-            MoveResultScore {
-                game_over: false,
-                lines_cleared: 0,
-                height: 0,
-                covered: 0
-            } > MoveResultScore {
-                game_over: false,
-                lines_cleared: 0,
-                height: 0,
-                covered: 1
-            }
-        );
+        assert!(MoveResultScore::init(false, 0, 0, 0) > MoveResultScore::init(false, 0, 0, 1));
     }
 }

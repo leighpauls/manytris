@@ -3671,6 +3671,7 @@ dependencies = [
 name = "manytris_core"
 version = "0.1.0"
 dependencies = [
+ "bytemuck",
  "enum-iterator",
  "enum-map",
  "rand",

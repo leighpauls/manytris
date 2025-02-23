@@ -1,8 +1,12 @@
 use anyhow::{Context, Result};
-use manytris_bot::compute_types::{ComputedDropConfig, SearchParams};
+use manytris_bot::bot_start_positions::START_POSITIONS;
+use manytris_bot::compute_types::{
+    ComputedDropConfig, MoveResultScore, SearchParams, ShapePositionConfig, UpcomingShapes,
+};
+use manytris_core::bitmap_field::BitmapField;
 use std::iter;
 use std::sync::Arc;
-use vulkano::buffer::{Buffer, BufferCreateInfo, BufferUsage};
+use vulkano::buffer::{Buffer, BufferCreateInfo, BufferUsage, Subbuffer};
 use vulkano::command_buffer::allocator::{
     StandardCommandBufferAllocator, StandardCommandBufferAllocatorCreateInfo,
 };
@@ -20,14 +24,27 @@ use vulkano::pipeline::layout::PipelineDescriptorSetLayoutCreateInfo;
 use vulkano::pipeline::{
     ComputePipeline, Pipeline, PipelineBindPoint, PipelineLayout, PipelineShaderStageCreateInfo,
 };
+use vulkano::shader::ShaderModule;
 use vulkano::sync::GpuFuture;
 use vulkano::{sync, VulkanLibrary};
 
 pub struct VulkanBotContext {
     device: Arc<Device>,
-    compute_pipeline: Arc<ComputePipeline>,
+    make_configs_pipeline: Arc<ComputePipeline>,
+    eval_moves_pipeline: Arc<ComputePipeline>,
     command_buffer_allocator: StandardCommandBufferAllocator,
     queue: Arc<Queue>,
+}
+
+/// Container for producing an ExactSizeIterator in the initial shape of the fields buffer.
+struct FieldBufferInitContainer {
+    source_field: BitmapField,
+    num_outputs: usize,
+}
+
+struct FieldBufferInitIterator {
+    container: FieldBufferInitContainer,
+    idx: usize,
 }
 
 impl VulkanBotContext {
@@ -70,6 +87,9 @@ impl VulkanBotContext {
                     shader_int8: true,
                     shader_int16: true,
                     uniform_and_storage_buffer8_bit_access: true,
+                    storage_buffer8_bit_access: true,
+                    uniform_and_storage_buffer16_bit_access: true,
+                    storage_buffer16_bit_access: true,
                     ..Features::empty()
                 },
                 ..Default::default()
@@ -84,48 +104,57 @@ impl VulkanBotContext {
             StandardCommandBufferAllocatorCreateInfo::default(),
         );
 
-        let shader = bot_shader::load(device.clone()).context("Failed to create shader module")?;
+        let load_pipeline_fn = |shader: Arc<ShaderModule>| -> Result<Arc<ComputePipeline>> {
+            let entry = shader
+                .entry_point("main")
+                .context("Couldn't find entrypoint")?;
+            let stage = PipelineShaderStageCreateInfo::new(entry);
+            let layout = PipelineLayout::new(
+                device.clone(),
+                PipelineDescriptorSetLayoutCreateInfo::from_stages([&stage])
+                    .into_pipeline_layout_create_info(device.clone())?,
+            )?;
 
-        let entry = shader
-            .entry_point("main")
-            .context("Couldn't find entrypoint")?;
-        let stage = PipelineShaderStageCreateInfo::new(entry);
-        let layout = PipelineLayout::new(
-            device.clone(),
-            PipelineDescriptorSetLayoutCreateInfo::from_stages([&stage])
-                .into_pipeline_layout_create_info(device.clone())?,
-        )?;
+            Ok(ComputePipeline::new(
+                device.clone(),
+                None,
+                ComputePipelineCreateInfo::stage_layout(stage, layout),
+            )
+            .context("failed to create compute pipeline")?)
+        };
 
-        let compute_pipeline = ComputePipeline::new(
-            device.clone(),
-            None,
-            ComputePipelineCreateInfo::stage_layout(stage, layout),
-        )
-        .context("failed to create compute pipeline")?;
+        let make_configs = make_configs_shader::load(device.clone())
+            .context("Failed to load make_configs shader module")?;
+
+        let make_configs_pipeline = load_pipeline_fn(make_configs)?;
+
+        let eval_moves = eval_moves_shader::load(device.clone())
+            .context("Failed to load eval_moves shader module")?;
+
+        let eval_moves_pipeline = load_pipeline_fn(eval_moves)?;
 
         Ok(VulkanBotContext {
             device,
-            compute_pipeline,
+            make_configs_pipeline,
+            eval_moves_pipeline,
             command_buffer_allocator,
             queue,
         })
     }
 
-    pub fn eval_moves(&self, search_params: SearchParams) -> Result<()> {
-        let descriptor_set_allocator =
-            StandardDescriptorSetAllocator::new(self.device.clone(), Default::default());
+    pub fn compute_drop_scores(
+        self,
+        upcoming_shapes: UpcomingShapes,
+        source_field: BitmapField,
+    ) -> Result<()> {
+        let search_params = SearchParams {
+            cur_search_depth: 0,
+            upcoming_shape_idxs: upcoming_shapes.map(|s| START_POSITIONS.shape_to_idx[s]),
+        };
+        let num_outputs = manytris_bot::num_outputs(1);
+        let num_groups = num_outputs / 64 + (if num_outputs % 64 == 0 { 0 } else { 1 });
 
-        let layouts = self.compute_pipeline.layout().set_layouts();
-
-        println!("num sets: {}", layouts.len());
-
-        let descriptor_set_index = 0;
-        let descriptor_set_layout = self
-            .compute_pipeline
-            .layout()
-            .set_layouts()
-            .get(descriptor_set_index)
-            .context("No descriptor_set_layouts found")?;
+        let work_group_counts = [num_groups as u32, 1, 1];
 
         let memory_allocator: Arc<StandardMemoryAllocator> =
             Arc::new(StandardMemoryAllocator::new_default(self.device.clone()));
@@ -144,8 +173,6 @@ impl VulkanBotContext {
             search_params,
         )?;
 
-        let num_outputs = manytris_bot::num_outputs(1);
-
         let drop_configs_buffer = Buffer::from_iter(
             memory_allocator.clone(),
             BufferCreateInfo {
@@ -160,6 +187,85 @@ impl VulkanBotContext {
             iter::repeat_n(ComputedDropConfig::default(), num_outputs),
         )?;
 
+        self.make_configs(
+            work_group_counts,
+            search_params_buffer.clone(),
+            drop_configs_buffer.clone(),
+        )?;
+
+        let shape_position_config_buffer = Buffer::from_data(
+            memory_allocator.clone(),
+            BufferCreateInfo {
+                usage: BufferUsage::STORAGE_BUFFER,
+                ..Default::default()
+            },
+            AllocationCreateInfo {
+                memory_type_filter: MemoryTypeFilter::PREFER_DEVICE
+                    | MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
+                ..Default::default()
+            },
+            START_POSITIONS.shape_position_config,
+        )?;
+
+        let fields_buffer = Buffer::from_iter(
+            memory_allocator.clone(),
+            BufferCreateInfo {
+                usage: BufferUsage::STORAGE_BUFFER,
+                ..Default::default()
+            },
+            AllocationCreateInfo {
+                memory_type_filter: MemoryTypeFilter::PREFER_DEVICE
+                    | MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
+                ..Default::default()
+            },
+            FieldBufferInitContainer {
+                source_field,
+                num_outputs,
+            },
+        )?;
+
+        let scores_buffer = Buffer::from_iter(
+            memory_allocator.clone(),
+            BufferCreateInfo {
+                usage: BufferUsage::STORAGE_BUFFER,
+                ..Default::default()
+            },
+            AllocationCreateInfo {
+                memory_type_filter: MemoryTypeFilter::PREFER_HOST
+                    | MemoryTypeFilter::HOST_RANDOM_ACCESS,
+                ..Default::default()
+            },
+            iter::repeat_n(MoveResultScore::default(), num_outputs),
+        )?;
+
+        self.eval_moves(
+            search_params_buffer,
+            drop_configs_buffer,
+            shape_position_config_buffer,
+            fields_buffer,
+            scores_buffer,
+        )?;
+
+        Ok(())
+    }
+
+    fn make_configs(
+        &self,
+        work_group_counts: [u32; 3],
+        search_params_buffer: Subbuffer<SearchParams>,
+        drop_configs_buffer: Subbuffer<[ComputedDropConfig]>,
+    ) -> Result<()> {
+        let descriptor_set_allocator =
+            StandardDescriptorSetAllocator::new(self.device.clone(), Default::default());
+
+        let descriptor_set_index = 0;
+        let descriptor_set_layout = self
+            .make_configs_pipeline
+            .layout()
+            .set_layouts()
+            .get(descriptor_set_index)
+            .context("No descriptor_set_layouts found")?;
+
         let search_params_binding = 0;
         let drop_configs_binding = 1;
 
@@ -173,10 +279,6 @@ impl VulkanBotContext {
             [],
         )?;
 
-        let num_groups = num_outputs / 64 + (if num_outputs % 64 == 0 { 0 } else { 1 });
-
-        let work_group_counts = [num_groups as u32, 1, 1];
-
         let mut command_buffer_builder = AutoCommandBufferBuilder::primary(
             &self.command_buffer_allocator,
             self.queue.queue_family_index(),
@@ -184,10 +286,10 @@ impl VulkanBotContext {
         )?;
 
         command_buffer_builder
-            .bind_pipeline_compute(self.compute_pipeline.clone())?
+            .bind_pipeline_compute(self.make_configs_pipeline.clone())?
             .bind_descriptor_sets(
                 PipelineBindPoint::Compute,
-                self.compute_pipeline.layout().clone(),
+                self.make_configs_pipeline.layout().clone(),
                 0,
                 descriptor_set,
             )?
@@ -201,18 +303,67 @@ impl VulkanBotContext {
 
         future.wait(None)?;
 
-        let config_content = drop_configs_buffer.read()?;
+        Ok(())
+    }
 
+    fn eval_moves(
+        &self,
+        search_params_buffer: Subbuffer<SearchParams>,
+        drop_configs_buffer: Subbuffer<[ComputedDropConfig]>,
+        shape_position_config_buffer: Subbuffer<ShapePositionConfig>,
+        fields_buffer: Subbuffer<[BitmapField]>,
+        scores_buffer: Subbuffer<[MoveResultScore]>,
+    ) -> Result<()> {
         Ok(())
     }
 }
 
-mod bot_shader {
-    use vulkano_shaders;
+impl IntoIterator for FieldBufferInitContainer {
+    type Item = BitmapField;
+    type IntoIter = FieldBufferInitIterator;
 
+    fn into_iter(self) -> Self::IntoIter {
+        FieldBufferInitIterator {
+            container: self,
+            idx: 0,
+        }
+    }
+}
+
+impl Iterator for FieldBufferInitIterator {
+    type Item = BitmapField;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let result = if self.idx == 0 {
+            Some(std::mem::take(&mut self.container.source_field))
+        } else if self.idx <= self.container.num_outputs {
+            Some(self.container.source_field)
+        } else {
+            None
+        };
+        self.idx += 1;
+        result
+    }
+}
+
+impl ExactSizeIterator for FieldBufferInitIterator {
+    fn len(&self) -> usize {
+        self.container.num_outputs + 1
+    }
+}
+
+mod make_configs_shader {
     vulkano_shaders::shader! {
         ty: "compute",
         path: "shaders/make_configs.glsl",
+        include: ["."],
+    }
+}
+
+mod eval_moves_shader {
+    vulkano_shaders::shader! {
+        ty: "compute",
+        path: "shaders/eval_moves.glsl",
         include: ["."],
     }
 }
@@ -221,14 +372,15 @@ mod bot_shader {
 mod test {
     use super::*;
     use anyhow::bail;
+    use manytris_core::{consts, shapes::Shape};
 
     #[test]
     fn simple_init() -> Result<()> {
         let ctx = VulkanBotContext::init()?;
-        ctx.eval_moves(SearchParams {
-            cur_search_depth: 0,
-            upcoming_shape_idxs: [0, 0, 0, 0, 0, 0, 0],
-        })?;
+        ctx.compute_drop_scores(
+            [Shape::I; consts::MAX_SEARCH_DEPTH + 1],
+            BitmapField::default(),
+        )?;
 
         Ok(())
     }

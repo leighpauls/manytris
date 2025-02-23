@@ -2,35 +2,51 @@ use std::cmp::Ordering;
 use std::fmt::Debug;
 use std::fmt::{Display, Formatter};
 
+use bytemuck::{AnyBitPattern, Pod, Zeroable};
 use manytris_core::consts;
 use manytris_core::shapes::Shape;
 use manytris_core::tetromino::Tetromino;
-use bytemuck::AnyBitPattern;
 
 #[repr(C)]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, Pod, Zeroable)]
 pub struct TetrominoPositions {
     pos: [[u8; 2]; 4],
 }
 
 #[repr(C)]
-#[derive(Eq, PartialEq, Clone, Debug)]
+#[derive(Eq, PartialEq, Clone, Copy, Debug, Default, AnyBitPattern)]
 pub struct MoveResultScore {
-    pub game_over: bool,
+    game_over: u8,
     pub lines_cleared: u8,
     pub height: u8,
     pub covered: u16,
 }
 
+impl MoveResultScore {
+    pub fn init(is_game_over: bool, lines_cleared: u8, height: u8, covered: u16) -> Self {
+        let game_over = if is_game_over { 1 } else { 0 };
+        Self {
+            game_over,
+            lines_cleared,
+            height,
+            covered,
+        }
+    }
+
+    pub fn is_game_over(&self) -> bool {
+        self.game_over != 0
+    }
+}
+
 #[repr(C)]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Copy, Pod, Zeroable)]
 pub struct ShapeStartingPositions {
     pub bot_positions: [TetrominoPositions; 4],
     pub player_position: TetrominoPositions,
 }
 
 #[repr(C)]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Copy, AnyBitPattern)]
 pub struct ShapePositionConfig {
     pub starting_positions: [ShapeStartingPositions; consts::NUM_SHAPES],
 }
@@ -84,7 +100,7 @@ impl Ord for MoveResultScore {
     fn cmp(&self, other: &Self) -> Ordering {
         if self.game_over != other.game_over {
             // Not game over is better
-            if self.game_over {
+            if self.is_game_over() {
                 Ordering::Less
             } else {
                 Ordering::Greater

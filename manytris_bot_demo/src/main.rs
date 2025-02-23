@@ -106,7 +106,7 @@ fn run_game(ks: &ScoringKs, max_game_length: i32) -> i32 {
     for i in 0..max_game_length {
         let mr = bot_player::select_next_move(&gs, &bot_context, ks, SEARCH_DEPTH).unwrap();
 
-        if mr.score.game_over {
+        if mr.score.is_game_over() {
             return i;
         }
         // Evaluate 1 move on the best result.
