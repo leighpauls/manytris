@@ -2,7 +2,7 @@ use std::iter;
 
 use crate::bot_start_positions::START_POSITIONS;
 use crate::compute_types::{ComputedDropConfig, MoveResultScore, UpcomingShapes};
-use crate::{bot_cpu, BotContext, BotResults};
+use crate::{evaluate_moves_cpu, BotContext, BotResults};
 use anyhow::Result;
 use manytris_core::consts;
 use manytris_core::game_state::{GameState, TickMutation};
@@ -126,7 +126,7 @@ pub fn select_next_move(
     gs: &GameState,
     ctx: &impl BotContext,
     ks: &ScoringKs,
-    mut search_depth: usize,
+    search_depth: usize,
 ) -> Result<MoveResult> {
     let mut usv = vec![gs.active_shape()];
     usv.extend_from_slice(&gs.upcoming_shapes());
@@ -142,7 +142,7 @@ pub fn select_next_move(
     let move_result = results.make_move_result();
 
     if VALIDATE_GPU_MOVES {
-        let (_cpu_gs, cpu_score) = bot_cpu::evaluate_moves_cpu(gs, &move_result.moves);
+        let (_, cpu_score, _) = evaluate_moves_cpu(gs, &move_result.moves);
         assert_eq!(&cpu_score, &move_result.score);
     }
 

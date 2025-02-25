@@ -1,13 +1,13 @@
 mod tests;
 
 use genetic_algorithm::strategy::evolve::prelude::*;
-use manytris_bot_metal::BotShaderContext;
-use rand::thread_rng;
-use manytris_bot::{bot_cpu, bot_player};
 use manytris_bot::bot_player::ScoringKs;
+use manytris_bot::{bot_cpu, bot_player};
+use manytris_bot_metal::BotShaderContext;
 use manytris_core::consts;
 use manytris_core::game_state::{GameState, TickMutation};
 use manytris_core::shape_bag::ShapeBag;
+use rand::thread_rng;
 
 const SEARCH_DEPTH: usize = 3;
 
@@ -112,7 +112,7 @@ fn run_game(ks: &ScoringKs, max_game_length: i32) -> i32 {
             return i;
         }
         // Evaluate 1 move on the best result.
-        (gs, _) = bot_cpu::evaluate_moves_cpu(&gs, &mr.moves[0..1]);
+        (gs, _, _) = manytris_bot::evaluate_moves_cpu(&gs, &mr.moves[0..1]);
         gs.tick_mutation(vec![TickMutation::EnqueueTetromino(
             shape_bag.next().unwrap(),
         )]);

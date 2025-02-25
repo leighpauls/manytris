@@ -10,7 +10,8 @@ use manytris_core::shapes::Shape;
 
 #[test]
 fn verify_metal_consistent_moves() -> Result<()> {
-    let ctx = BotShaderContext::new()?;
+    let metal_ctx = BotShaderContext::new()?;
+    let cpu_ctx = CpuBotContext;
 
     let shapes = [
         Shape::I,
@@ -23,12 +24,12 @@ fn verify_metal_consistent_moves() -> Result<()> {
     ];
 
     let source_state = GameState::new(shapes.into());
-    let results = ctx.compute_drop_search(2, &shapes, &source_state)?;
+    let metal_results = metal_ctx.compute_drop_search(2, &shapes, &source_state)?;
+    let cpu_results = cpu_ctx.compute_drop_search(2, &shapes, &source_state)?;
 
-    let cpu_configs = bot_cpu::make_drop_configs_cpu(&[Shape::I, Shape::J]);
-
-    assert_eq!(results.configs().len(), cpu_configs.len());
-    assert_eq!(results.configs(), cpu_configs);
+    assert_eq!(cpu_results.configs(), metal_results.configs());
+    assert_eq!(cpu_results.fields(), metal_results.fields());
+    assert_eq!(cpu_results.scores(), metal_results.scores());
 
     Ok(())
 }

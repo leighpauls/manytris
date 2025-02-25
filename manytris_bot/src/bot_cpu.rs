@@ -10,10 +10,7 @@ use manytris_core::{
 };
 
 use crate::{
-    bot_player::MovementDescriptor,
-    bot_start_positions::START_POSITIONS,
-    compute_types::{ComputedDropConfig, MoveResultScore, UpcomingShapes},
-    BotContext, BotResults,
+    bot_player::MovementDescriptor, bot_start_positions::START_POSITIONS, compute_types::{ComputedDropConfig, MoveResultScore, UpcomingShapes}, evaluate_moves_cpu, BotContext, BotResults
 };
 
 pub struct CpuBotContext;
@@ -56,7 +53,7 @@ impl BotContext for CpuBotContext {
     }
 }
 
-pub fn make_drop_configs_cpu(shapes: &[Shape]) -> Vec<ComputedDropConfig> {
+fn make_drop_configs_cpu(shapes: &[Shape]) -> Vec<ComputedDropConfig> {
     let mut res = vec![];
     let mut prev_gen_range = 0..1;
 
@@ -84,35 +81,6 @@ pub fn make_drop_configs_cpu(shapes: &[Shape]) -> Vec<ComputedDropConfig> {
     res
 }
 
-pub fn evaluate_moves_cpu(
-    src_state: &GameState,
-    moves: &[MovementDescriptor],
-) -> (GameState, MoveResultScore) {
-    let mut gs = src_state.clone();
-    let mut game_over = false;
-    let mut lines_cleared = 0;
-
-    moves.iter().for_each(|md| {
-        let tick_results = gs.tick_mutation(md.as_tick_mutations());
-        for tr in tick_results {
-            match tr {
-                TickResult::Lock(LockResult::GameOver) => {
-                    game_over = true;
-                }
-                TickResult::Lock(LockResult::Ok { lines_cleared: lc }) => {
-                    lines_cleared += lc as u8;
-                }
-                _ => {}
-            }
-        }
-    });
-    let cpu_field = gs.make_bitmap_field();
-    let height = find_height(&cpu_field) as u8;
-    let covered = find_covered(&cpu_field, height as i32) as u16;
-    let score = MoveResultScore::init(game_over, lines_cleared, height, covered);
-
-    (gs, score)
-}
 
 fn eval_configs(
     initial_state: &GameState,
@@ -136,54 +104,15 @@ fn eval_configs(
         }
 
         moves.reverse();
-        let (gs, score) = evaluate_moves_cpu(initial_state, moves.as_slice());
+        let (gs, score, field) = evaluate_moves_cpu(initial_state, moves.as_slice());
 
         debug_assert_eq!(fields.len(), config.dest_field_idx as usize);
         debug_assert_eq!(scores.len(), config.dest_field_idx as usize - 1);
 
         scores.push(score);
-        fields.push(gs.make_bitmap_field());
+        fields.push(field);
     }
 
     (fields, scores)
 }
 
-fn find_height(cf: &BitmapField) -> i32 {
-    for y in 0..consts::H {
-        let mut empty_row = true;
-        for x in 0..consts::W {
-            if cf.occupied(&Pos { x, y }) {
-                empty_row = false;
-                break;
-            }
-        }
-        if empty_row {
-            return y;
-        }
-    }
-    consts::H
-}
-
-fn find_covered(cf: &BitmapField, height: i32) -> i32 {
-    let mut count = 0;
-    for x in 0..consts::W {
-        let mut y = height - 1;
-        // Find the top of this column
-        while y > 0 {
-            if cf.occupied(&Pos { x, y }) {
-                break;
-            }
-            y -= 1;
-        }
-
-        // Count the holes
-        y -= 1;
-        while y >= 0 {
-            if !cf.occupied(&Pos { x, y }) {
-                count += 1;
-            }
-            y -= 1;
-        }
-    }
-    count
-}
