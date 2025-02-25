@@ -2,9 +2,8 @@
 
 use anyhow::Result;
 use manytris_bot::bot_cpu::CpuBotContext;
-use manytris_bot::{bot_cpu, BotContext, BotResults};
+use manytris_bot::{BotContext, BotResults};
 use manytris_bot_metal::BotShaderContext;
-use manytris_core::bitmap_field::BitmapField;
 use manytris_core::game_state::GameState;
 use manytris_core::shapes::Shape;
 

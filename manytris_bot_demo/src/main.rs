@@ -1,8 +1,8 @@
 mod tests;
 
 use genetic_algorithm::strategy::evolve::prelude::*;
+use manytris_bot::bot_player;
 use manytris_bot::bot_player::ScoringKs;
-use manytris_bot::{bot_cpu, bot_player};
 use manytris_bot_metal::BotShaderContext;
 use manytris_core::consts;
 use manytris_core::game_state::{GameState, TickMutation};

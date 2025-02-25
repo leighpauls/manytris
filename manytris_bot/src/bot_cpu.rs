@@ -1,16 +1,13 @@
 use std::cmp::max;
 
 use anyhow::Result;
-use manytris_core::{
-    bitmap_field::BitmapField,
-    consts,
-    field::Pos,
-    game_state::{GameState, LockResult, TickResult},
-    shapes::Shape,
-};
+use manytris_core::{bitmap_field::BitmapField, game_state::GameState, shapes::Shape};
 
 use crate::{
-    bot_player::MovementDescriptor, bot_start_positions::START_POSITIONS, compute_types::{ComputedDropConfig, MoveResultScore, UpcomingShapes}, evaluate_moves_cpu, BotContext, BotResults
+    bot_player::MovementDescriptor,
+    bot_start_positions::START_POSITIONS,
+    compute_types::{ComputedDropConfig, MoveResultScore, UpcomingShapes},
+    evaluate_moves_cpu, BotContext, BotResults,
 };
 
 pub struct CpuBotContext;
@@ -81,7 +78,6 @@ fn make_drop_configs_cpu(shapes: &[Shape]) -> Vec<ComputedDropConfig> {
     res
 }
 
-
 fn eval_configs(
     initial_state: &GameState,
     configs: &[ComputedDropConfig],
@@ -104,7 +100,7 @@ fn eval_configs(
         }
 
         moves.reverse();
-        let (gs, score, field) = evaluate_moves_cpu(initial_state, moves.as_slice());
+        let (_, score, field) = evaluate_moves_cpu(initial_state, moves.as_slice());
 
         debug_assert_eq!(fields.len(), config.dest_field_idx as usize);
         debug_assert_eq!(scores.len(), config.dest_field_idx as usize - 1);
@@ -115,4 +111,3 @@ fn eval_configs(
 
     (fields, scores)
 }
-
