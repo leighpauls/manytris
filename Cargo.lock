@@ -3634,6 +3634,7 @@ dependencies = [
 name = "manytris_bot_demo"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "enum-iterator",
  "enum-map",
  "genetic_algorithm",

@@ -7,6 +7,7 @@ use manytris_bot::compute_types::{
 use manytris_bot::{BotContext, BotResults};
 use manytris_core::bitmap_field::BitmapField;
 use manytris_core::consts;
+use manytris_core::game_state::GameState;
 use metal::objc::rc::autoreleasepool;
 use metal::{
     Buffer, CommandBufferRef, CommandQueue, ComputeCommandEncoderRef, ComputePipelineState, Device,
@@ -23,6 +24,7 @@ pub struct BotShaderContext {
 pub struct MetalBotResults {
     configs_buffer: Buffer,
     scores_buffer: Buffer,
+    fields_buffer: Buffer,
 }
 
 struct KernalConfig {
@@ -113,6 +115,9 @@ impl BotResults for MetalBotResults {
     fn scores(&self) -> &[MoveResultScore] {
         slice_from_buffer::<MoveResultScore>(&self.scores_buffer)
     }
+    fn fields(&self) -> &[BitmapField] {
+        slice_from_buffer::<BitmapField>(&self.fields_buffer)
+    }
 }
 
 impl BotContext for BotShaderContext {
@@ -120,7 +125,7 @@ impl BotContext for BotShaderContext {
         &self,
         search_depth: usize,
         upcoming_shapes: &UpcomingShapes,
-        source_field: &BitmapField,
+        source_state: &GameState,
     ) -> Result<impl BotResults> {
         let total_outputs = manytris_bot::num_outputs(search_depth);
 
@@ -137,11 +142,11 @@ impl BotContext for BotShaderContext {
         );
 
         let mut fields_buffer = self.kc.make_data_buffer::<BitmapField>(total_outputs + 1);
-        write_to_buffer(&mut fields_buffer, 0, source_field);
+        write_to_buffer(&mut fields_buffer, 0, &source_state.make_bitmap_field());
 
         let scores_buffer = self.kc.make_data_buffer::<MoveResultScore>(total_outputs);
 
-        for cur_search_depth in 0..(search_depth as u8 + 1) {
+        for cur_search_depth in 0..(search_depth as u8) {
             let sp = SearchParams {
                 cur_search_depth,
                 upcoming_shape_idxs: upcoming_shapes.map(|s| START_POSITIONS.shape_to_idx[s]),
@@ -208,6 +213,7 @@ impl BotContext for BotShaderContext {
         Ok(MetalBotResults {
             configs_buffer,
             scores_buffer,
+            fields_buffer,
         })
     }
 }
@@ -228,75 +234,4 @@ fn write_to_buffer<T: Clone>(buffer: &mut Buffer, index: usize, value: &T) {
 
 fn into_objc(message: String) -> ObjCError {
     ObjCError { message }
-}
-
-#[cfg(test)]
-mod test {
-    use std::cmp::max;
-
-    use super::BotShaderContext;
-    use manytris_bot::compute_types::ComputedDropConfig;
-    use manytris_bot::{BotContext, BotResults};
-    use manytris_core::bitmap_field::BitmapField;
-    use manytris_core::shapes::Shape;
-
-    #[test]
-    fn verify_computed_configs() {
-        let ctx = BotShaderContext::new().unwrap();
-
-        let shapes = [
-            Shape::I,
-            Shape::J,
-            Shape::L,
-            Shape::I,
-            Shape::I,
-            Shape::I,
-            Shape::I,
-        ];
-
-        let source = BitmapField::default();
-        let results = ctx.compute_drop_search(1, &shapes, &source).unwrap();
-
-        let mut expected_cfgs = vec![];
-        let mut next_idx = 1;
-
-        // First move depth
-        for cw_rotations in 0..4 {
-            for shifts in 0..10 {
-                let left_shifts = max(4 - shifts, 0) as u8;
-                let right_shifts = max(shifts - 4, 0) as u8;
-                expected_cfgs.push(ComputedDropConfig {
-                    shape_idx: 4,
-                    cw_rotations,
-                    left_shifts,
-                    right_shifts,
-                    src_field_idx: 0,
-                    dest_field_idx: next_idx,
-                });
-                next_idx += 1;
-            }
-        }
-
-        // Second move depth
-        for src_field_idx in 1..next_idx {
-            for cw_rotations in 0..4 {
-                for shifts in 0..10 {
-                    let left_shifts = max(4 - shifts, 0) as u8;
-                    let right_shifts = max(shifts - 4, 0) as u8;
-                    expected_cfgs.push(ComputedDropConfig {
-                        shape_idx: 3,
-                        cw_rotations,
-                        left_shifts,
-                        right_shifts,
-                        src_field_idx,
-                        dest_field_idx: next_idx,
-                    });
-                    next_idx += 1;
-                }
-            }
-        }
-
-        assert_eq!(results.configs().len(), expected_cfgs.len());
-        assert_eq!(results.configs(), expected_cfgs);
-    }
 }

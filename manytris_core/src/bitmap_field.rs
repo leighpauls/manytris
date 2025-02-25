@@ -2,15 +2,18 @@ use crate::consts;
 use crate::consts::NUM_POSITIONS;
 use crate::field::Pos;
 use std::fmt::{Debug, Formatter};
-use bytemuck::AnyBitPattern;
+use bytemuck::{Pod, Zeroable};
 
 pub const FIELD_BYTES: usize = NUM_POSITIONS / 8 + if (NUM_POSITIONS % 8) == 0 { 0 } else { 1 };
 
 #[repr(C)]
-#[derive(Clone, Copy, PartialEq, Eq, AnyBitPattern)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub struct BitmapField {
     bytes: [u8; FIELD_BYTES],
 }
+
+unsafe impl Pod for BitmapField {}
+unsafe impl Zeroable for BitmapField {}
 
 impl Default for BitmapField {
     fn default() -> Self {

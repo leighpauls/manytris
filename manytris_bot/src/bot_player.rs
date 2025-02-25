@@ -2,12 +2,10 @@ use std::iter;
 
 use crate::bot_start_positions::START_POSITIONS;
 use crate::compute_types::{ComputedDropConfig, MoveResultScore, UpcomingShapes};
-use crate::{BotContext, BotResults};
+use crate::{bot_cpu, BotContext, BotResults};
 use anyhow::Result;
-use manytris_core::bitmap_field::BitmapField;
 use manytris_core::consts;
-use manytris_core::field::Pos;
-use manytris_core::game_state::{GameState, LockResult, TickMutation, TickResult};
+use manytris_core::game_state::{GameState, TickMutation};
 use manytris_core::shapes::{Shape, Shift};
 use ordered_float::OrderedFloat;
 
@@ -116,7 +114,7 @@ impl ComputedDropSearchResults {
     fn idx_range(search_depth: usize) -> (usize, usize) {
         let mut start_idx = 0;
         let mut end_idx = 0;
-        for i in 0..search_depth + 1 {
+        for i in 0..search_depth {
             start_idx = end_idx;
             end_idx += consts::OUTPUTS_PER_INPUT_FIELD.pow(i as u32 + 1);
         }
@@ -130,13 +128,11 @@ pub fn select_next_move(
     ks: &ScoringKs,
     mut search_depth: usize,
 ) -> Result<MoveResult> {
-    search_depth -= 1;
     let mut usv = vec![gs.active_shape()];
     usv.extend_from_slice(&gs.upcoming_shapes());
     let us: UpcomingShapes = usv.try_into().unwrap();
 
-    let source_field = gs.make_bitmap_field();
-    let bot_results = ctx.compute_drop_search(search_depth, &us, &source_field)?;
+    let bot_results = ctx.compute_drop_search(search_depth, &us, gs)?;
 
     let results =
         ComputedDropSearchResults::find_results(search_depth, us, &bot_results, |score| {
@@ -146,7 +142,7 @@ pub fn select_next_move(
     let move_result = results.make_move_result();
 
     if VALIDATE_GPU_MOVES {
-        let (_cpu_gs, cpu_score) = evaluate_moves_cpu(gs, &move_result.moves);
+        let (_cpu_gs, cpu_score) = bot_cpu::evaluate_moves_cpu(gs, &move_result.moves);
         assert_eq!(&cpu_score, &move_result.score);
     }
 
@@ -159,76 +155,6 @@ fn weighted_result_score(mrs: &MoveResultScore, ks: &ScoringKs) -> f32 {
         + mrs.lines_cleared as f32 * ks[1]
         + mrs.height as f32 * ks[2]
         + mrs.covered as f32 * ks[3]
-}
-
-pub fn evaluate_moves_cpu(
-    src_state: &GameState,
-    moves: &[MovementDescriptor],
-) -> (GameState, MoveResultScore) {
-    let mut gs = src_state.clone();
-    let mut game_over = false;
-    let mut lines_cleared = 0;
-
-    moves.iter().for_each(|md| {
-        let tick_results = gs.tick_mutation(md.as_tick_mutations());
-        for tr in tick_results {
-            match tr {
-                TickResult::Lock(LockResult::GameOver) => {
-                    game_over = true;
-                }
-                TickResult::Lock(LockResult::Ok { lines_cleared: lc }) => {
-                    lines_cleared += lc as u8;
-                }
-                _ => {}
-            }
-        }
-    });
-    let cpu_field = gs.make_bitmap_field();
-    let height = find_height(&cpu_field) as u8;
-    let covered = find_covered(&cpu_field, height as i32) as u16;
-    let score = MoveResultScore::init(game_over, lines_cleared, height, covered);
-
-    (gs, score)
-}
-
-fn find_height(cf: &BitmapField) -> i32 {
-    for y in 0..consts::H {
-        let mut empty_row = true;
-        for x in 0..consts::W {
-            if cf.occupied(&Pos { x, y }) {
-                empty_row = false;
-                break;
-            }
-        }
-        if empty_row {
-            return y;
-        }
-    }
-    consts::H
-}
-
-fn find_covered(cf: &BitmapField, height: i32) -> i32 {
-    let mut count = 0;
-    for x in 0..consts::W {
-        let mut y = height - 1;
-        // Find the top of this column
-        while y > 0 {
-            if cf.occupied(&Pos { x, y }) {
-                break;
-            }
-            y -= 1;
-        }
-
-        // Count the holes
-        y -= 1;
-        while y >= 0 {
-            if !cf.occupied(&Pos { x, y }) {
-                count += 1;
-            }
-            y -= 1;
-        }
-    }
-    count
 }
 
 #[cfg(test)]

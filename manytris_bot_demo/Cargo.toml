@@ -8,6 +8,7 @@ manytris_bot = {path = "../manytris_bot"}
 manytris_bot_metal = {path = "../manytris_bot_metal"}
 manytris_core = {path = "../manytris_core"}
 
+anyhow = {workspace = true}
 enum-iterator = {workspace = true}
 enum-map = {workspace = true}
 genetic_algorithm = {workspace = true}
