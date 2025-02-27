@@ -4,12 +4,35 @@ use anyhow::Result;
 use manytris_bot::bot_cpu::CpuBotContext;
 use manytris_bot::{BotContext, BotResults};
 use manytris_bot_metal::BotShaderContext;
+use manytris_bot_vulkan::VulkanBotContext;
 use manytris_core::game_state::GameState;
 use manytris_core::shapes::Shape;
 
+use pretty_assertions::assert_eq;
+
+macro_rules! assert_lists_eq {
+    ($left:expr, $right:expr) => ({
+        assert_eq!($left.len(), $right.len(), "Lengths differ");
+        for i in 0..$left.len() {
+            assert_eq!($left[i], $right[i], "Element {i} differs");
+        }
+    });
+}
+
+
 #[test]
 fn verify_metal_consistent_moves() -> Result<()> {
-    let metal_ctx = BotShaderContext::new()?;
+    verify_consistent_moves(BotShaderContext::new()?)
+}
+
+#[test]
+fn verify_vulkan_consistent_moves() -> Result<()> {
+    verify_consistent_moves(VulkanBotContext::init()?)
+}
+
+fn verify_consistent_moves(compare_ctx: impl BotContext) -> Result<()> {
+    println!("verify consistent");
+
     let cpu_ctx = CpuBotContext;
 
     let shapes = [
@@ -23,15 +46,16 @@ fn verify_metal_consistent_moves() -> Result<()> {
     ];
 
     let source_state = GameState::new(shapes.into());
-    let metal_results = metal_ctx.compute_drop_search(2, &shapes, &source_state)?;
+    let metal_results = compare_ctx.compute_drop_search(2, &shapes, &source_state)?;
     let cpu_results = cpu_ctx.compute_drop_search(2, &shapes, &source_state)?;
 
-    assert_eq!(cpu_results.configs(), metal_results.configs());
-    assert_eq!(cpu_results.fields(), metal_results.fields());
-    assert_eq!(cpu_results.scores(), metal_results.scores());
+    assert_lists_eq!(cpu_results.configs(), metal_results.configs());
+    assert_lists_eq!(cpu_results.fields(), metal_results.fields());
+    assert_lists_eq!(cpu_results.scores(), metal_results.scores());
 
     Ok(())
 }
+
 
 #[test]
 fn verify_search_depth() -> Result<()> {

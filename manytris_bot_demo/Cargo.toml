@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 manytris_bot = {path = "../manytris_bot"}
 manytris_bot_metal = {path = "../manytris_bot_metal"}
+manytris_bot_vulkan = {path = "../manytris_bot_vulkan"}
 manytris_core = {path = "../manytris_core"}
 
 anyhow = {workspace = true}
@@ -13,4 +14,5 @@ enum-iterator = {workspace = true}
 enum-map = {workspace = true}
 genetic_algorithm = {workspace = true}
 ordered-float = {workspace = true}
+pretty_assertions = {workspace = true}
 rand = {workspace = true}

@@ -11,8 +11,11 @@ layout(set = 0, binding = 1) buffer ComputedDropConfigs {
 } drop_configs;
 
 void main() {
-    uint32_t thread_idx = gl_GlobalInvocationID.x;
-    if (thread_idx >= drop_configs.configs.length()) {
+    uint thread_idx = gl_GlobalInvocationID.x;
+    uint8_t cur_search_depth = search_params.sp.cur_search_depth;
+
+    uint drop_config_idx = config_index(thread_idx, cur_search_depth);
+    if (drop_config_idx >= drop_configs.configs.length()) {
       return;
     }
 
@@ -21,7 +24,7 @@ void main() {
     // if depth == 2, input fields are 41..(41+40*40), output fields are (41+40*40)..((41+40*40)+40*40*40)
     uint32_t src_field_start = 0;
     uint32_t dest_field_start = 1;
-    for (uint32_t i = 0; i < search_params.sp.cur_search_depth; i++) {
+    for (uint8_t i = uint8_t(0); i < cur_search_depth; i++) {
         src_field_start += int_pow(OUTPUTS_PER_INPUT_FIELD, i);
         dest_field_start += int_pow(OUTPUTS_PER_INPUT_FIELD, i+1);
     }
@@ -31,14 +34,14 @@ void main() {
 
     // Order of moves for each input is:
     // (rot 0, shift 0), (rot 0, shift 1)..(rot 3, shift 9)
-    uint8_t shape_idx = search_params.sp.upcoming_shape_idxs[search_params.sp.cur_search_depth];
+    uint8_t shape_idx = search_params.sp.upcoming_shape_idxs[cur_search_depth];
     uint32_t start_position_idx = thread_idx % OUTPUTS_PER_INPUT_FIELD;
     uint8_t num_rotations = uint8_t(start_position_idx / SHIFTS_PER_ROTATION);
     int32_t shifts = int32_t(start_position_idx % SHIFTS_PER_ROTATION) - 4;
     uint8_t right_shifts = (shifts > 0) ? uint8_t(shifts) : uint8_t(0);
     uint8_t left_shifts = (shifts > 0) ? uint8_t(0) : uint8_t(-shifts);
 
-    drop_configs.configs[thread_idx] = ComputedDropConfig(
+    drop_configs.configs[drop_config_idx] = ComputedDropConfig(
         shape_idx,
         num_rotations,
         src_field_idx,

@@ -3,7 +3,9 @@ use manytris_bot::bot_start_positions::START_POSITIONS;
 use manytris_bot::compute_types::{
     ComputedDropConfig, MoveResultScore, SearchParams, ShapePositionConfig, UpcomingShapes,
 };
+use manytris_bot::{BotContext, BotResults};
 use manytris_core::bitmap_field::BitmapField;
+use manytris_core::game_state::GameState;
 use std::iter;
 use std::sync::Arc;
 use vulkano::buffer::{Buffer, BufferCreateInfo, BufferUsage, Subbuffer};
@@ -34,6 +36,25 @@ pub struct VulkanBotContext {
     eval_moves_pipeline: Arc<ComputePipeline>,
     command_buffer_allocator: StandardCommandBufferAllocator,
     queue: Arc<Queue>,
+    descriptor_set_allocator: StandardDescriptorSetAllocator,
+}
+
+pub struct VulkanBotResults {
+    configs: Vec<ComputedDropConfig>,
+    scores: Vec<MoveResultScore>,
+    fields: Vec<BitmapField>,
+}
+
+impl BotResults for VulkanBotResults {
+    fn configs(&self) -> &[ComputedDropConfig] {
+        self.configs.as_slice()
+    }
+    fn scores(&self) -> &[MoveResultScore] {
+        self.scores.as_slice()
+    }
+    fn fields(&self) -> &[BitmapField] {
+        self.fields.as_slice()
+    }
 }
 
 /// Container for producing an ExactSizeIterator in the initial shape of the fields buffer.
@@ -115,12 +136,12 @@ impl VulkanBotContext {
                     .into_pipeline_layout_create_info(device.clone())?,
             )?;
 
-            Ok(ComputePipeline::new(
+            ComputePipeline::new(
                 device.clone(),
                 None,
                 ComputePipelineCreateInfo::stage_layout(stage, layout),
             )
-            .context("failed to create compute pipeline")?)
+            .context("failed to create compute pipeline")
         };
 
         let make_configs = make_configs_shader::load(device.clone())
@@ -133,120 +154,17 @@ impl VulkanBotContext {
 
         let eval_moves_pipeline = load_pipeline_fn(eval_moves)?;
 
+        let descriptor_set_allocator =
+            StandardDescriptorSetAllocator::new(device.clone(), Default::default());
+
         Ok(VulkanBotContext {
             device,
             make_configs_pipeline,
             eval_moves_pipeline,
             command_buffer_allocator,
             queue,
+            descriptor_set_allocator,
         })
-    }
-
-    pub fn compute_drop_scores(
-        self,
-        upcoming_shapes: UpcomingShapes,
-        source_field: BitmapField,
-    ) -> Result<()> {
-        let search_params = SearchParams {
-            cur_search_depth: 0,
-            upcoming_shape_idxs: upcoming_shapes.map(|s| START_POSITIONS.shape_to_idx[s]),
-        };
-        let num_outputs = manytris_bot::num_outputs(1);
-        let num_groups = num_outputs / 64 + (if num_outputs % 64 == 0 { 0 } else { 1 });
-
-        let work_group_counts = [num_groups as u32, 1, 1];
-
-        let memory_allocator: Arc<StandardMemoryAllocator> =
-            Arc::new(StandardMemoryAllocator::new_default(self.device.clone()));
-
-        let search_params_buffer = Buffer::from_data(
-            memory_allocator.clone(),
-            BufferCreateInfo {
-                usage: BufferUsage::STORAGE_BUFFER,
-                ..Default::default()
-            },
-            AllocationCreateInfo {
-                memory_type_filter: MemoryTypeFilter::PREFER_DEVICE
-                    | MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
-                ..Default::default()
-            },
-            search_params,
-        )?;
-
-        let drop_configs_buffer = Buffer::from_iter(
-            memory_allocator.clone(),
-            BufferCreateInfo {
-                usage: BufferUsage::STORAGE_BUFFER,
-                ..Default::default()
-            },
-            AllocationCreateInfo {
-                memory_type_filter: MemoryTypeFilter::PREFER_HOST
-                    | MemoryTypeFilter::HOST_RANDOM_ACCESS,
-                ..Default::default()
-            },
-            iter::repeat_n(ComputedDropConfig::default(), num_outputs),
-        )?;
-
-        self.make_configs(
-            work_group_counts,
-            search_params_buffer.clone(),
-            drop_configs_buffer.clone(),
-        )?;
-
-        let shape_position_config_buffer = Buffer::from_data(
-            memory_allocator.clone(),
-            BufferCreateInfo {
-                usage: BufferUsage::STORAGE_BUFFER,
-                ..Default::default()
-            },
-            AllocationCreateInfo {
-                memory_type_filter: MemoryTypeFilter::PREFER_DEVICE
-                    | MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
-                ..Default::default()
-            },
-            START_POSITIONS.shape_position_config,
-        )?;
-
-        let fields_buffer = Buffer::from_iter(
-            memory_allocator.clone(),
-            BufferCreateInfo {
-                usage: BufferUsage::STORAGE_BUFFER,
-                ..Default::default()
-            },
-            AllocationCreateInfo {
-                memory_type_filter: MemoryTypeFilter::PREFER_DEVICE
-                    | MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
-                ..Default::default()
-            },
-            FieldBufferInitContainer {
-                source_field,
-                num_outputs,
-            },
-        )?;
-
-        let scores_buffer = Buffer::from_iter(
-            memory_allocator.clone(),
-            BufferCreateInfo {
-                usage: BufferUsage::STORAGE_BUFFER,
-                ..Default::default()
-            },
-            AllocationCreateInfo {
-                memory_type_filter: MemoryTypeFilter::PREFER_HOST
-                    | MemoryTypeFilter::HOST_RANDOM_ACCESS,
-                ..Default::default()
-            },
-            iter::repeat_n(MoveResultScore::default(), num_outputs),
-        )?;
-
-        self.eval_moves(
-            search_params_buffer,
-            drop_configs_buffer,
-            shape_position_config_buffer,
-            fields_buffer,
-            scores_buffer,
-        )?;
-
-        Ok(())
     }
 
     fn make_configs(
@@ -255,9 +173,6 @@ impl VulkanBotContext {
         search_params_buffer: Subbuffer<SearchParams>,
         drop_configs_buffer: Subbuffer<[ComputedDropConfig]>,
     ) -> Result<()> {
-        let descriptor_set_allocator =
-            StandardDescriptorSetAllocator::new(self.device.clone(), Default::default());
-
         let descriptor_set_index = 0;
         let descriptor_set_layout = self
             .make_configs_pipeline
@@ -270,7 +185,7 @@ impl VulkanBotContext {
         let drop_configs_binding = 1;
 
         let descriptor_set = PersistentDescriptorSet::new(
-            &descriptor_set_allocator,
+            &self.descriptor_set_allocator,
             descriptor_set_layout.clone(),
             [
                 WriteDescriptorSet::buffer(search_params_binding, search_params_buffer.clone()),
@@ -308,13 +223,195 @@ impl VulkanBotContext {
 
     fn eval_moves(
         &self,
-        search_params_buffer: Subbuffer<SearchParams>,
-        drop_configs_buffer: Subbuffer<[ComputedDropConfig]>,
-        shape_position_config_buffer: Subbuffer<ShapePositionConfig>,
-        fields_buffer: Subbuffer<[BitmapField]>,
-        scores_buffer: Subbuffer<[MoveResultScore]>,
+        work_group_counts: [u32; 3],
+        search_params_buffer: &Subbuffer<SearchParams>,
+        drop_configs_buffer: &Subbuffer<[ComputedDropConfig]>,
+        shape_position_config_buffer: &Subbuffer<ShapePositionConfig>,
+        fields_buffer: &Subbuffer<[BitmapField]>,
+        scores_buffer: &Subbuffer<[MoveResultScore]>,
     ) -> Result<()> {
+        let descriptor_set_index = 0;
+        let descriptor_set_layout = self
+            .eval_moves_pipeline
+            .layout()
+            .set_layouts()
+            .get(descriptor_set_index)
+            .context("No descriptor_set_layouts found")?;
+
+        let search_params_binding = 0;
+        let drop_configs_binding = 1;
+        let shape_position_config_binding = 2;
+        let fields_binding = 3;
+        let scores_binding = 4;
+
+        let descriptor_set = PersistentDescriptorSet::new(
+            &self.descriptor_set_allocator,
+            descriptor_set_layout.clone(),
+            [
+                WriteDescriptorSet::buffer(search_params_binding, search_params_buffer.clone()),
+                WriteDescriptorSet::buffer(drop_configs_binding, drop_configs_buffer.clone()),
+                WriteDescriptorSet::buffer(
+                    shape_position_config_binding,
+                    shape_position_config_buffer.clone(),
+                ),
+                WriteDescriptorSet::buffer(fields_binding, fields_buffer.clone()),
+                WriteDescriptorSet::buffer(scores_binding, scores_buffer.clone()),
+            ],
+            [],
+        )?;
+
+        let mut command_buffer_builder = AutoCommandBufferBuilder::primary(
+            &self.command_buffer_allocator,
+            self.queue.queue_family_index(),
+            CommandBufferUsage::OneTimeSubmit,
+        )?;
+
+        command_buffer_builder
+            .bind_pipeline_compute(self.eval_moves_pipeline.clone())?
+            .bind_descriptor_sets(
+                PipelineBindPoint::Compute,
+                self.eval_moves_pipeline.layout().clone(),
+                0,
+                descriptor_set,
+            )?
+            .dispatch(work_group_counts)?;
+
+        let command_buffer = command_buffer_builder.build()?;
+
+        let future = sync::now(self.device.clone())
+            .then_execute(self.queue.clone(), command_buffer)?
+            .then_signal_fence_and_flush()?;
+
+        future.wait(None)?;
+
         Ok(())
+    }
+}
+
+impl BotContext for VulkanBotContext {
+    fn compute_drop_search(
+        &self,
+        search_depth: usize,
+        upcoming_shapes: &UpcomingShapes,
+        source_state: &GameState,
+    ) -> Result<impl BotResults> {
+        let num_outputs = manytris_bot::num_outputs(search_depth);
+        let num_groups = num_outputs / 64 + (if num_outputs % 64 == 0 { 0 } else { 1 });
+
+        let work_group_counts = [num_groups as u32, 1, 1];
+
+        let memory_allocator: Arc<StandardMemoryAllocator> =
+            Arc::new(StandardMemoryAllocator::new_default(self.device.clone()));
+
+        let drop_configs_buffer = Buffer::from_iter(
+            memory_allocator.clone(),
+            BufferCreateInfo {
+                usage: BufferUsage::STORAGE_BUFFER,
+                ..Default::default()
+            },
+            AllocationCreateInfo {
+                memory_type_filter: MemoryTypeFilter::PREFER_HOST
+                    | MemoryTypeFilter::HOST_RANDOM_ACCESS,
+                ..Default::default()
+            },
+            iter::repeat_n(ComputedDropConfig::default(), num_outputs),
+        )?;
+
+        let shape_position_config_buffer = Buffer::from_data(
+            memory_allocator.clone(),
+            BufferCreateInfo {
+                usage: BufferUsage::STORAGE_BUFFER,
+                ..Default::default()
+            },
+            AllocationCreateInfo {
+                memory_type_filter: MemoryTypeFilter::PREFER_DEVICE
+                    | MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
+                ..Default::default()
+            },
+            START_POSITIONS.shape_position_config,
+        )?;
+
+        let source_field = source_state.make_bitmap_field();
+        let fields_buffer = Buffer::from_iter(
+            memory_allocator.clone(),
+            BufferCreateInfo {
+                usage: BufferUsage::STORAGE_BUFFER,
+                ..Default::default()
+            },
+            AllocationCreateInfo {
+                memory_type_filter: MemoryTypeFilter::PREFER_HOST
+                    | MemoryTypeFilter::HOST_RANDOM_ACCESS,
+                ..Default::default()
+            },
+            FieldBufferInitContainer {
+                source_field,
+                num_outputs,
+            },
+        )?;
+
+        let scores_buffer = Buffer::from_iter(
+            memory_allocator.clone(),
+            BufferCreateInfo {
+                usage: BufferUsage::STORAGE_BUFFER,
+                ..Default::default()
+            },
+            AllocationCreateInfo {
+                memory_type_filter: MemoryTypeFilter::PREFER_HOST
+                    | MemoryTypeFilter::HOST_RANDOM_ACCESS,
+                ..Default::default()
+            },
+            iter::repeat_n(MoveResultScore::default(), num_outputs),
+        )?;
+
+        println!("start search");
+        for cur_search_depth in 0..(search_depth as u8) {
+            println!("start depth {cur_search_depth}");
+
+            let search_params = SearchParams {
+                cur_search_depth,
+                upcoming_shape_idxs: upcoming_shapes.map(|s| START_POSITIONS.shape_to_idx[s]),
+            };
+
+            let search_params_buffer = Buffer::from_data(
+                memory_allocator.clone(),
+                BufferCreateInfo {
+                    usage: BufferUsage::STORAGE_BUFFER,
+                    ..Default::default()
+                },
+                AllocationCreateInfo {
+                    memory_type_filter: MemoryTypeFilter::PREFER_DEVICE
+                        | MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
+                    ..Default::default()
+                },
+                search_params,
+            )?;
+
+            println!("make configs");
+            self.make_configs(
+                work_group_counts,
+                search_params_buffer.clone(),
+                drop_configs_buffer.clone(),
+            )?;
+
+            println!("eval moves");
+            self.eval_moves(
+                work_group_counts,
+                &search_params_buffer,
+                &drop_configs_buffer,
+                &shape_position_config_buffer,
+                &fields_buffer,
+                &scores_buffer,
+            )?;
+        }
+
+        let configs = drop_configs_buffer.read()?;
+        let scores = scores_buffer.read()?;
+        let fields = fields_buffer.read()?;
+        Ok(VulkanBotResults {
+            configs: (*configs).into(),
+            scores: (*scores).into(),
+            fields: (*fields).into(),
+        })
     }
 }
 
@@ -371,16 +468,14 @@ mod eval_moves_shader {
 #[cfg(test)]
 mod test {
     use super::*;
-    use anyhow::bail;
     use manytris_core::{consts, shapes::Shape};
 
     #[test]
     fn simple_init() -> Result<()> {
         let ctx = VulkanBotContext::init()?;
-        ctx.compute_drop_scores(
-            [Shape::I; consts::MAX_SEARCH_DEPTH + 1],
-            BitmapField::default(),
-        )?;
+        let upcoming_shapes = [Shape::I; consts::MAX_SEARCH_DEPTH + 1];
+        let gs = GameState::new(upcoming_shapes.into());
+        ctx.compute_drop_search(2, &upcoming_shapes, &gs)?;
 
         Ok(())
     }

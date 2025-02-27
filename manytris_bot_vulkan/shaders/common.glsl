@@ -29,3 +29,11 @@ uint32_t int_pow(uint32_t base, uint32_t exp) {
   }
   return res;
 }
+
+uint config_index(uint thread_idx, uint8_t cur_search_depth) {
+    uint drop_config_idx = thread_idx;
+    for (int i = 0; i < cur_search_depth; i++) {
+        drop_config_idx += int_pow(OUTPUTS_PER_INPUT_FIELD, i + 1);
+    }
+    return drop_config_idx;
+}
