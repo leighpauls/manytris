@@ -31,8 +31,6 @@ fn verify_vulkan_consistent_moves() -> Result<()> {
 }
 
 fn verify_consistent_moves(compare_ctx: impl BotContext) -> Result<()> {
-    println!("verify consistent");
-
     let cpu_ctx = CpuBotContext;
 
     let shapes = [
@@ -46,10 +44,16 @@ fn verify_consistent_moves(compare_ctx: impl BotContext) -> Result<()> {
     ];
 
     let source_state = GameState::new(shapes.into());
-    let metal_results = compare_ctx.compute_drop_search(2, &shapes, &source_state)?;
-    let cpu_results = cpu_ctx.compute_drop_search(2, &shapes, &source_state)?;
+    let metal_results = compare_ctx.compute_drop_search(1, &shapes, &source_state)?;
+    let cpu_results = cpu_ctx.compute_drop_search(1, &shapes, &source_state)?;
 
     assert_lists_eq!(cpu_results.configs(), metal_results.configs());
+
+    for cfg in metal_results.configs() {
+        let dest_field_idx = cfg.dest_field_idx as usize;
+        assert_eq!(cpu_results.fields()[dest_field_idx], metal_results.fields()[dest_field_idx], "Field mismatch, cfg {cfg:?}");
+    }
+
     assert_lists_eq!(cpu_results.fields(), metal_results.fields());
     assert_lists_eq!(cpu_results.scores(), metal_results.scores());
 

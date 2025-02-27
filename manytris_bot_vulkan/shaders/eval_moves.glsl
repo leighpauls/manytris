@@ -8,6 +8,10 @@ const uint NUM_BLOCKS = W*H;
 const uint FIELD_BYTES = NUM_BLOCKS / 8 + ((NUM_BLOCKS % 8 != 0) ? 1 : 0);
 const uint NUM_SHAPES = 7;
 
+const uint LEFT = 1;
+const uint RIGHT = 2;
+const uint DOWN = 3;
+
 struct TetrominoPositions {
     uint8_t pos[4][2];
 };
@@ -48,6 +52,10 @@ layout(set = 0, binding = 4) buffer Scores {
     MoveResultScore scores[];
 } scores;
 
+bool try_shift(inout TetrominoPositions tps, uint shift, uint32_t field_idx);
+bool is_occupied(uint field_idx, uint8_t x, uint8_t y);
+void apply_position(uint field_idx, uint8_t x, uint8_t y);
+
 void main() {
     uint8_t cur_search_depth = search_params.sp.cur_search_depth;
 
@@ -75,15 +83,64 @@ void main() {
         max_x = max(max_x, x);
     }
 
-    uint8_t left_shifts = min(cfg.left_shifts, min_x);
-    uint8_t right_shifts = min(cfg.right_shifts, uint8_t(9) - max_x);
-
-    for (uint i = 0; i < 4; i++) {
-        tps.pos[i][0] -= left_shifts;
-        tps.pos[i][0] += right_shifts;
-    }
-
     // compute the drop
     fields.fields[cfg.dest_field_idx] = fields.fields[cfg.src_field_idx];
-    // TODO
+
+    for (uint i = 0; i < cfg.left_shifts; i++) {
+        try_shift(tps, LEFT, cfg.dest_field_idx);
+    }
+    for (uint i = 0; i < cfg.right_shifts; i++) {
+        try_shift(tps, RIGHT, cfg.dest_field_idx);
+    }
+    while (try_shift(tps, DOWN, cfg.dest_field_idx)) {}
+
+    for (uint i = 0; i < 4; i++) {
+        apply_position(cfg.dest_field_idx, tps.pos[i][0], tps.pos[i][1]);
+    }
+}
+
+bool try_shift(inout TetrominoPositions tps, uint shift, uint32_t field_idx) {
+    TetrominoPositions next_tps = tps;
+    for (uint i = 0; i < 4; i++) {
+        if (shift == LEFT) {
+            if (next_tps.pos[i][0] == 0) {
+                return false;
+            }
+            next_tps.pos[i][0] -= uint8_t(1);
+        } else if (shift == RIGHT) {
+            if (next_tps.pos[i][0] == 9) {
+                return false;
+            }
+            next_tps.pos[i][0] += uint8_t(1);
+        } else if (shift == DOWN) {
+            if (next_tps.pos[i][1] == 0) {
+                return false;
+            }
+            next_tps.pos[i][1] -= uint8_t(1);
+        }
+
+        if (is_occupied(field_idx, next_tps.pos[i][0], next_tps.pos[i][1])) {
+            return false;
+        }
+    }
+    tps = next_tps;
+    return true;
+}
+
+bool is_occupied(uint field_idx, uint8_t x, uint8_t y) {
+    uint bit_index = y * W + x;
+    uint byte_index = bit_index / 8;
+    uint offset = bit_index % 8;
+    uint8_t mask = uint8_t(1) << offset;
+
+    return (fields.fields[field_idx].bytes[byte_index] & mask) != 0;
+}
+
+void apply_position(uint field_idx, uint8_t x, uint8_t y) {
+    uint bit_index = y * W + x;
+    uint byte_index = bit_index / 8;
+    uint offset = bit_index % 8;
+    uint8_t mask = uint8_t(1) << offset;
+
+    fields.fields[field_idx].bytes[byte_index] |= mask;
 }
