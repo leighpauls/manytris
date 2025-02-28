@@ -11,14 +11,13 @@ use manytris_core::shapes::Shape;
 use pretty_assertions::assert_eq;
 
 macro_rules! assert_lists_eq {
-    ($left:expr, $right:expr) => ({
+    ($left:expr, $right:expr) => {{
         assert_eq!($left.len(), $right.len(), "Lengths differ");
         for i in 0..$left.len() {
             assert_eq!($left[i], $right[i], "Element {i} differs");
         }
-    });
+    }};
 }
-
 
 #[test]
 fn verify_metal_consistent_moves() -> Result<()> {
@@ -33,25 +32,21 @@ fn verify_vulkan_consistent_moves() -> Result<()> {
 fn verify_consistent_moves(compare_ctx: impl BotContext) -> Result<()> {
     let cpu_ctx = CpuBotContext;
 
-    let shapes = [
-        Shape::I,
-        Shape::J,
-        Shape::L,
-        Shape::I,
-        Shape::I,
-        Shape::I,
-        Shape::I,
-    ];
+    let shapes = [Shape::I; 7];
 
     let source_state = GameState::new(shapes.into());
-    let metal_results = compare_ctx.compute_drop_search(1, &shapes, &source_state)?;
-    let cpu_results = cpu_ctx.compute_drop_search(1, &shapes, &source_state)?;
+    let metal_results = compare_ctx.compute_drop_search(2, &shapes, &source_state)?;
+    let cpu_results = cpu_ctx.compute_drop_search(2, &shapes, &source_state)?;
 
     assert_lists_eq!(cpu_results.configs(), metal_results.configs());
 
     for cfg in metal_results.configs() {
         let dest_field_idx = cfg.dest_field_idx as usize;
-        assert_eq!(cpu_results.fields()[dest_field_idx], metal_results.fields()[dest_field_idx], "Field mismatch, cfg {cfg:?}");
+        assert_eq!(
+            cpu_results.fields()[dest_field_idx],
+            metal_results.fields()[dest_field_idx],
+            "Field mismatch, cfg {cfg:?}"
+        );
     }
 
     assert_lists_eq!(cpu_results.fields(), metal_results.fields());
@@ -59,7 +54,6 @@ fn verify_consistent_moves(compare_ctx: impl BotContext) -> Result<()> {
 
     Ok(())
 }
-
 
 #[test]
 fn verify_search_depth() -> Result<()> {

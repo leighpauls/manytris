@@ -70,18 +70,7 @@ void main() {
         scores.scores[drop_config_idx] = scores.scores[cfg.src_field_idx - 1];
     }
 
-    uint8_t shape_idx = search_params.sp.upcoming_shape_idxs[cur_search_depth];
-
-    TetrominoPositions tps = spc.starting_positions[shape_idx].bot_positions[cfg.cw_rotations];
-
-    // Find the amount of shifts after accounting for the walls.
-    uint8_t min_x = tps.pos[0][0];
-    uint8_t max_x = tps.pos[0][0];
-    for (uint i = 0; i < 4; i++) {
-        uint8_t x = tps.pos[i][0];
-        min_x = min(min_x, x);
-        max_x = max(max_x, x);
-    }
+    TetrominoPositions tps = spc.starting_positions[cfg.shape_idx].bot_positions[cfg.cw_rotations];
 
     // compute the drop
     fields.fields[cfg.dest_field_idx] = fields.fields[cfg.src_field_idx];
