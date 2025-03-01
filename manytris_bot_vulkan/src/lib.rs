@@ -224,11 +224,11 @@ impl VulkanBotContext {
     fn eval_moves(
         &self,
         work_group_counts: [u32; 3],
-        search_params_buffer: &Subbuffer<SearchParams>,
-        drop_configs_buffer: &Subbuffer<[ComputedDropConfig]>,
-        shape_position_config_buffer: &Subbuffer<ShapePositionConfig>,
-        fields_buffer: &Subbuffer<[BitmapField]>,
-        scores_buffer: &Subbuffer<[MoveResultScore]>,
+        search_params_buffer: Subbuffer<SearchParams>,
+        drop_configs_buffer: Subbuffer<[ComputedDropConfig]>,
+        shape_position_config_buffer: Subbuffer<ShapePositionConfig>,
+        fields_buffer: Subbuffer<[BitmapField]>,
+        scores_buffer: Subbuffer<[MoveResultScore]>,
     ) -> Result<()> {
         let descriptor_set_index = 0;
         let descriptor_set_layout = self
@@ -372,6 +372,35 @@ impl BotContext for VulkanBotContext {
                 upcoming_shape_idxs: upcoming_shapes.map(|s| START_POSITIONS.shape_to_idx[s]),
             };
 
+            {
+                let search_params_buffer = Buffer::from_data(
+                    memory_allocator.clone(),
+                    BufferCreateInfo {
+                        usage: BufferUsage::STORAGE_BUFFER,
+                        ..Default::default()
+                    },
+                    AllocationCreateInfo {
+                        memory_type_filter: MemoryTypeFilter::PREFER_HOST
+                            | MemoryTypeFilter::HOST_RANDOM_ACCESS,
+                        ..Default::default()
+                    },
+                    search_params,
+                )?;
+
+                println!("make configs: {search_params:?}");
+                {
+                    let rg = search_params_buffer.read()?;
+                    println!("make configs sp buffer: {:?}", *rg);
+                }
+                self.make_configs(
+                    work_group_counts,
+                    search_params_buffer.clone(),
+                    drop_configs_buffer.clone(),
+                )?;
+            }
+
+            println!("eval moves sp: {:?}", search_params);
+
             let search_params_buffer = Buffer::from_data(
                 memory_allocator.clone(),
                 BufferCreateInfo {
@@ -379,29 +408,30 @@ impl BotContext for VulkanBotContext {
                     ..Default::default()
                 },
                 AllocationCreateInfo {
-                    memory_type_filter: MemoryTypeFilter::PREFER_DEVICE
-                        | MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
+                    memory_type_filter: MemoryTypeFilter::PREFER_HOST
+                        | MemoryTypeFilter::HOST_RANDOM_ACCESS,
                     ..Default::default()
                 },
                 search_params,
             )?;
 
-            println!("make configs");
-            self.make_configs(
+            {
+                let rg = search_params_buffer.read()?;
+                println!("eval moves sp buffer: {:?}", *rg);
+            }
+
+            self.eval_moves(
                 work_group_counts,
                 search_params_buffer.clone(),
                 drop_configs_buffer.clone(),
+                shape_position_config_buffer.clone(),
+                fields_buffer.clone(),
+                scores_buffer.clone(),
             )?;
-
-            println!("eval moves");
-            self.eval_moves(
-                work_group_counts,
-                &search_params_buffer,
-                &drop_configs_buffer,
-                &shape_position_config_buffer,
-                &fields_buffer,
-                &scores_buffer,
-            )?;
+            {
+                let rg = search_params_buffer.read()?;
+                println!("after eval moves sp buffer: {:?}", *rg);
+            }
         }
 
         let configs = drop_configs_buffer.read()?;

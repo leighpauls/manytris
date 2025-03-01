@@ -26,7 +26,7 @@ struct Field {
 };
 
 struct MoveResultScore {
-    bool game_over;
+    uint8_t game_over;
     uint8_t lines_cleared;
     uint8_t height;
     uint16_t covered;
@@ -65,12 +65,12 @@ void main() {
     }
 
     ComputedDropConfig cfg = drop_configs.configs[drop_config_idx];
+
     if (cfg.src_field_idx != 0) {
         // Copy the pre-existing score
         scores.scores[drop_config_idx] = scores.scores[cfg.src_field_idx - 1];
     }
-
-    TetrominoPositions tps = spc.starting_positions[cfg.shape_idx].bot_positions[cfg.cw_rotations];
+    TetrominoPositions tps = spc.starting_positions[search_params.sp.upcoming_shape_idxs[cur_search_depth]].bot_positions[cfg.cw_rotations];
 
     // compute the drop
     fields.fields[cfg.dest_field_idx] = fields.fields[cfg.src_field_idx];
