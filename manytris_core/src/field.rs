@@ -13,7 +13,7 @@ pub struct Pos {
     pub y: i32,
 }
 
-#[derive(Clone, Deserialize, Serialize, Debug)]
+#[derive(Clone, Deserialize, Serialize, Debug, Default)]
 pub struct Field {
     occupied: HashMap<Pos, OccupiedBlock>,
 }
@@ -38,9 +38,12 @@ impl Pos {
 }
 
 impl Field {
-    pub fn new() -> Field {
-        Field {
-            occupied: HashMap::new(),
+    pub fn with_initial_occupied(occupied: impl IntoIterator<Item = Pos>) -> Self {
+        Self {
+            occupied: occupied
+                .into_iter()
+                .map(|p| (p, OccupiedBlock::FromGarbage))
+                .collect(),
         }
     }
 
@@ -156,7 +159,7 @@ mod test {
 
     #[test]
     fn compact_field_creation() {
-        let mut f = Field::new();
+        let mut f = Field::default();
         let t = Tetromino::new(Shape::I);
         f.apply_tetrominio(&t);
 

@@ -54,7 +54,7 @@ layout(set = 0, binding = 4) buffer Scores {
 
 bool try_shift(inout TetrominoPositions tps, uint shift, uint32_t field_idx);
 bool is_occupied(uint field_idx, uint8_t x, uint8_t y);
-void apply_position(uint field_idx, uint8_t x, uint8_t y);
+void apply_position(uint field_idx, uint8_t x, uint8_t y, bool set);
 
 void main() {
     uint8_t cur_search_depth = search_params.sp.cur_search_depth;
@@ -84,8 +84,56 @@ void main() {
     while (try_shift(tps, DOWN, cfg.dest_field_idx)) {}
 
     for (uint i = 0; i < 4; i++) {
-        apply_position(cfg.dest_field_idx, tps.pos[i][0], tps.pos[i][1]);
+        apply_position(cfg.dest_field_idx, tps.pos[i][0], tps.pos[i][1], true);
     }
+
+    // find lines
+    uint8_t new_lines_removed = uint8_t(0);
+    uint8_t max_height = uint8_t(0);
+    for (uint8_t y = uint8_t(0); y < H; y++) {
+        bool is_filled = true;
+        bool is_empty = true;
+        for (uint8_t x = uint8_t(0); x < W; x++) {
+            bool occupied = is_occupied(cfg.dest_field_idx, x, y);
+
+            // move to the lower level.
+            apply_position(cfg.dest_field_idx, x, y - new_lines_removed, occupied);
+
+            // Clear any lines too high for blocks to drop on
+            if (y + new_lines_removed >= H) {
+                apply_position(cfg.dest_field_idx, x, y, false);
+            }
+
+            if (occupied) {
+                is_empty = false;
+            } else {
+                is_filled = false;
+            }
+        }
+
+        if (is_filled) {
+            new_lines_removed++;
+        } else if (!is_empty) {
+            max_height = y + uint8_t(1) - new_lines_removed;
+        }
+    }
+
+    uint16_t covered = uint16_t(0);
+    for (uint8_t x = uint8_t(0); x < W; x++) {
+        uint8_t top_y = uint8_t(H);
+        while (top_y > 0 && !is_occupied(cfg.dest_field_idx, x, top_y - uint8_t(1))) {
+            top_y--;
+        }
+        for (uint8_t y = uint8_t(0); y < top_y; y++) {
+            if (!is_occupied(cfg.dest_field_idx, x, y)) {
+                covered++;
+            }
+        }
+    }
+
+    scores.scores[drop_config_idx].lines_cleared += new_lines_removed;
+    scores.scores[drop_config_idx].height = max_height;
+    scores.scores[drop_config_idx].covered = covered;
 }
 
 bool try_shift(inout TetrominoPositions tps, uint shift, uint32_t field_idx) {
@@ -125,11 +173,15 @@ bool is_occupied(uint field_idx, uint8_t x, uint8_t y) {
     return (fields.fields[field_idx].bytes[byte_index] & mask) != 0;
 }
 
-void apply_position(uint field_idx, uint8_t x, uint8_t y) {
+void apply_position(uint field_idx, uint8_t x, uint8_t y, bool set) {
     uint bit_index = y * W + x;
     uint byte_index = bit_index / 8;
     uint offset = bit_index % 8;
     uint8_t mask = uint8_t(1) << offset;
 
-    fields.fields[field_idx].bytes[byte_index] |= mask;
+    if (set) {
+        fields.fields[field_idx].bytes[byte_index] |= mask;
+    } else {
+        fields.fields[field_idx].bytes[byte_index] &= ~mask;
+    }
 }

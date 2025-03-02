@@ -60,11 +60,15 @@ pub enum TickResult {
 }
 
 impl GameState {
-    pub fn new(inital_shapes: Vec<Shape>) -> GameState {
+    pub fn new(inital_shapes: Vec<Shape>) -> Self {
+        Self::with_initial_state(inital_shapes, Field::default())
+    }
+
+    pub fn with_initial_state(inital_shapes: Vec<Shape>, field: Field) -> Self {
         let mut upcoming = UpcomingTetrominios::new(inital_shapes);
 
         GameState {
-            field: Field::new(),
+            field,
             active: Tetromino::new(upcoming.take()),
             garbage_queue: VecDeque::default(),
             held: None,
