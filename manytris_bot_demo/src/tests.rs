@@ -1,11 +1,12 @@
 #![cfg(test)]
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 use manytris_bot::bot_cpu::CpuBotContext;
-use manytris_bot::compute_types::MoveResultScore;
+use manytris_bot::compute_types::{ComputedDropConfig, MoveResultScore};
 use manytris_bot::{BotContext, BotResults};
 use manytris_bot_metal::BotShaderContext;
 use manytris_bot_vulkan::VulkanBotContext;
+use manytris_core::consts;
 use manytris_core::field::{Field, Pos};
 use manytris_core::game_state::GameState;
 use manytris_core::shapes::Shape;
@@ -117,26 +118,14 @@ fn verify_clear_lines(ctx: impl BotContext) -> Result<()> {
     let result = ctx.compute_drop_search(1, &upcoming_shapes, &gs)?;
 
     {
-        let (expected_clear_idx, _) = result
-            .configs()
-            .iter()
-            .enumerate()
-            .find(|(_, cfg)| cfg.cw_rotations == 1 && cfg.right_shifts == 4)
-            .context("Couldn't find expected clear idx")?;
-
-        let score = result.scores()[expected_clear_idx];
+        let score = find_score(&result, |cfg| {
+            cfg.cw_rotations == 1 && cfg.right_shifts == 4
+        })?;
         assert_eq!(score, MoveResultScore::init(false, 1, 3, 0));
     }
 
     {
-        let (no_clear_idx, _) = result
-            .configs()
-            .iter()
-            .enumerate()
-            .find(|(_, cfg)| cfg.cw_rotations == 1 && cfg.left_shifts == 1)
-            .context("Couldn't find expected no-clear idx")?;
-
-        let score = result.scores()[no_clear_idx];
+        let score = find_score(&result, |cfg| cfg.cw_rotations == 1 && cfg.left_shifts == 1)?;
         assert_eq!(score, MoveResultScore::init(false, 0, 5, 0));
     }
 
@@ -169,25 +158,62 @@ fn verify_covered_lines(ctx: impl BotContext) -> Result<()> {
     let result = ctx.compute_drop_search(1, &upcoming_shapes, &gs)?;
 
     {
-        let (no_covered_idx, _) = result
-            .configs()
-            .iter()
-            .enumerate()
-            .find(|(_, cfg)| cfg.cw_rotations == 0 && cfg.left_shifts == 4)
-            .context("Couldn't find expected no-cover idx")?;
-        let score = result.scores()[no_covered_idx];
+        let score = find_score(&result, |cfg| cfg.cw_rotations == 0 && cfg.left_shifts == 4)?;
         assert_eq!(score, MoveResultScore::init(false, 0, 2, 0));
     }
 
     {
-        let (covered_idx, _) = result
-            .configs()
-            .iter()
-            .enumerate()
-            .find(|(_, cfg)| cfg.cw_rotations == 0 && cfg.right_shifts == 3)
-            .context("Couldn't find expected covered idx")?;
-        let score = result.scores()[covered_idx];
+        let score = find_score(&result, |cfg| {
+            cfg.cw_rotations == 0 && cfg.right_shifts == 3
+        })?;
         assert_eq!(score, MoveResultScore::init(false, 0, 2, 1));
     }
     Ok(())
+}
+
+#[test]
+fn verify_game_over_cpu() -> Result<()> {
+    verify_game_over(CpuBotContext)
+}
+
+#[test]
+fn verify_game_over_metal() -> Result<()> {
+    verify_game_over(BotShaderContext::new()?)
+}
+
+#[test]
+fn verify_game_over_vulkan() -> Result<()> {
+    verify_game_over(VulkanBotContext::init()?)
+}
+
+fn verify_game_over(ctx: impl BotContext) -> Result<()> {
+    let upcoming_shapes = [Shape::I; 7];
+
+    let gs = GameState::with_initial_state(
+        upcoming_shapes.into(),
+        Field::with_initial_occupied((0..consts::MAX_H).map(|y| Pos { x: 4, y })),
+    );
+
+    let result = ctx.compute_drop_search(1, &upcoming_shapes, &gs)?;
+
+    // all moves should be game over
+    for score in result.scores() {
+        assert_eq!(score.is_game_over(), true);
+    }
+
+    Ok(())
+}
+
+fn find_score<P>(result: &impl BotResults, predicate: P) -> Result<MoveResultScore>
+where
+    P: Fn(&ComputedDropConfig) -> bool,
+{
+    let (idx, _) = result
+        .configs()
+        .iter()
+        .enumerate()
+        .find(|(_, cfg)| predicate(cfg))
+        .context("Couldn't find config matching predicate")?;
+
+    Ok(result.scores()[idx])
 }

@@ -66,10 +66,6 @@ void main() {
 
     ComputedDropConfig cfg = drop_configs.configs[drop_config_idx];
 
-    if (cfg.src_field_idx != 0) {
-        // Copy the pre-existing score
-        scores.scores[drop_config_idx] = scores.scores[cfg.src_field_idx - 1];
-    }
     TetrominoPositions tps = spc.starting_positions[search_params.sp.upcoming_shape_idxs[cur_search_depth]].bot_positions[cfg.cw_rotations];
 
     // compute the drop
@@ -131,9 +127,28 @@ void main() {
         }
     }
 
+
+    if (cfg.src_field_idx != 0) {
+        // Copy the pre-existing score
+        scores.scores[drop_config_idx] = scores.scores[cfg.src_field_idx - 1];
+        if (scores.scores[drop_config_idx].game_over != 0) {
+            return;
+        }
+    }
+
+
     scores.scores[drop_config_idx].lines_cleared += new_lines_removed;
     scores.scores[drop_config_idx].height = max_height;
     scores.scores[drop_config_idx].covered = covered;
+
+    TetrominoPositions next = spc.starting_positions[search_params.sp.upcoming_shape_idxs[cur_search_depth+1]].player_position;
+    for (uint i = 0; i < 4; i++) {
+        if (is_occupied(cfg.dest_field_idx, next.pos[i][0], next.pos[i][1])) {
+            scores.scores[drop_config_idx].game_over = uint8_t(1);
+            scores.scores[drop_config_idx].lines_cleared = uint8_t(0);
+            break;
+        }
+    }
 }
 
 bool try_shift(inout TetrominoPositions tps, uint shift, uint32_t field_idx) {
