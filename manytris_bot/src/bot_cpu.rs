@@ -32,12 +32,14 @@ impl BotResults for CpuBotResults {
 }
 
 impl BotContext for CpuBotContext {
+    type ResultType = CpuBotResults;
+
     fn compute_drop_search(
         &self,
         search_depth: usize,
         upcoming_shapes: &UpcomingShapes,
         source_state: &GameState,
-    ) -> Result<impl BotResults> {
+    ) -> Result<CpuBotResults> {
         let configs = make_drop_configs_cpu(&upcoming_shapes[0..search_depth]);
 
         let (fields, scores) = eval_configs(source_state, configs.as_slice());

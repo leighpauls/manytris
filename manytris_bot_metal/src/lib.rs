@@ -121,12 +121,14 @@ impl BotResults for MetalBotResults {
 }
 
 impl BotContext for BotShaderContext {
+    type ResultType = MetalBotResults;
+
     fn compute_drop_search(
         &self,
         search_depth: usize,
         upcoming_shapes: &UpcomingShapes,
         source_state: &GameState,
-    ) -> Result<impl BotResults> {
+    ) -> Result<MetalBotResults> {
         let total_outputs = manytris_bot::num_outputs(search_depth);
 
         let configs_buffer = self

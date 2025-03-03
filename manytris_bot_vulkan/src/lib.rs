@@ -289,12 +289,14 @@ impl VulkanBotContext {
 }
 
 impl BotContext for VulkanBotContext {
+    type ResultType = VulkanBotResults;
+
     fn compute_drop_search(
         &self,
         search_depth: usize,
         upcoming_shapes: &UpcomingShapes,
         source_state: &GameState,
-    ) -> Result<impl BotResults> {
+    ) -> Result<VulkanBotResults> {
         let num_outputs = manytris_bot::num_outputs(search_depth);
         let num_groups = num_outputs / 64 + (if num_outputs % 64 == 0 { 0 } else { 1 });
 

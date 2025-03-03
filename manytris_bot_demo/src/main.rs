@@ -1,8 +1,11 @@
 mod tests;
 
+use std::fmt::Debug;
+
+use anyhow::{Context, Result};
 use genetic_algorithm::strategy::evolve::prelude::*;
-use manytris_bot::bot_player;
 use manytris_bot::bot_player::ScoringKs;
+use manytris_bot::{bot_player, BotContext};
 use manytris_bot_metal::BotShaderContext;
 use manytris_core::consts;
 use manytris_core::game_state::{GameState, TickMutation};
@@ -11,10 +14,27 @@ use rand::thread_rng;
 
 const SEARCH_DEPTH: usize = 3;
 
-pub fn main() {
-    println!("Start test games...");
-    for _ in 0..4 {
-        println!("Game length {}", run_game(&bot_player::BEST_BOT_KS, 600));
+pub fn main() -> Result<()> {
+    {
+        println!("Start metal test games...");
+        let metal_bot = BotShaderContext::new()?;
+        for _ in 0..4 {
+            println!(
+                "Game length {}",
+                run_game(&bot_player::BEST_BOT_KS, 600, &metal_bot)
+            );
+        }
+    }
+
+    {
+        println!("Start vulkan test games...");
+        let metal_bot = BotShaderContext::new()?;
+        for _ in 0..4 {
+            println!(
+                "Game length {}",
+                run_game(&bot_player::BEST_BOT_KS, 600, &metal_bot)
+            );
+        }
     }
 
     println!("Start evolving...");
@@ -29,7 +49,9 @@ pub fn main() {
         .with_genotype(genotype)
         .with_target_population_size(50)
         .with_target_fitness_score(550)
-        .with_fitness(GameFitness)
+        .with_fitness(GameFitness {
+            context_ctor: || BotShaderContext::new().unwrap(),
+        })
         .with_fitness_ordering(FitnessOrdering::Maximize)
         .with_multithreading(true)
         .with_crossover(CrossoverUniform::new(true))
@@ -39,10 +61,13 @@ pub fn main() {
         .call(&mut rng)
         .unwrap();
 
-    let bc = evolve.best_chromosome().unwrap();
+    let bc = evolve
+        .best_chromosome()
+        .context("Couldn't get best chromosome")?;
     println!("Best chromosome: {:?}", bc);
 
     println!("Best chromosome genes: {:?}", bc.genes as Vec<f32>);
+    Ok(())
 }
 
 #[derive(Clone, Debug)]
@@ -71,10 +96,19 @@ impl EvolveReporter for PrintBestReporter {
     }
 }
 
-#[derive(Clone, Debug)]
-pub struct GameFitness;
+pub struct GameFitness<C, F>
+where
+    C: BotContext,
+    F: Fn() -> C + Send + Sync + Clone,
+{
+    context_ctor: F,
+}
 
-impl Fitness for GameFitness {
+impl<C, F> Fitness for GameFitness<C, F>
+where
+    C: BotContext,
+    F: Fn() -> C + Send + Sync + Clone,
+{
     type Genotype = ContinuousGenotype;
 
     fn calculate_for_chromosome(
@@ -82,15 +116,38 @@ impl Fitness for GameFitness {
         chromosome: &Chromosome<Self::Genotype>,
     ) -> Option<FitnessValue> {
         let ks: ScoringKs = chromosome.genes.clone().try_into().unwrap();
-        Some(evaluate_ks(&ks) as FitnessValue)
+        let ctx = (self.context_ctor)();
+        Some(evaluate_ks(&ks, &ctx) as FitnessValue)
     }
 }
 
-fn evaluate_ks(ks: &ScoringKs) -> i32 {
+impl<C, F> Debug for GameFitness<C, F>
+where
+    C: BotContext,
+    F: Fn() -> C + Send + Sync + Clone,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("GameFitness")
+    }
+}
+
+impl<C, F> Clone for GameFitness<C, F>
+where
+    C: BotContext,
+    F: Fn() -> C + Send + Sync + Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            context_ctor: self.context_ctor.clone(),
+        }
+    }
+}
+
+fn evaluate_ks(ks: &ScoringKs, bot_context: &impl BotContext) -> i32 {
     let num_games = 10;
     let mut worst_score = 600;
     for _ in 0..num_games {
-        let score = run_game(ks, worst_score);
+        let score = run_game(ks, worst_score, bot_context);
         if score < worst_score {
             worst_score = score;
         }
@@ -98,15 +155,13 @@ fn evaluate_ks(ks: &ScoringKs) -> i32 {
     worst_score
 }
 
-fn run_game(ks: &ScoringKs, max_game_length: i32) -> i32 {
+fn run_game(ks: &ScoringKs, max_game_length: i32, bot_context: &impl BotContext) -> i32 {
     let mut shape_bag = ShapeBag::default();
     let initial_shapes = shape_bag.by_ref().take(consts::NUM_PREVIEWS * 2).collect();
     let mut gs = GameState::new(initial_shapes);
 
-    let bot_context = BotShaderContext::new().unwrap();
-
     for i in 0..max_game_length {
-        let mr = bot_player::select_next_move(&gs, &bot_context, ks, SEARCH_DEPTH).unwrap();
+        let mr = bot_player::select_next_move(&gs, bot_context, ks, SEARCH_DEPTH).unwrap();
 
         if mr.score.is_game_over() {
             return i;

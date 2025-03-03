@@ -3,10 +3,17 @@ pub mod bot_player;
 pub mod bot_start_positions;
 pub mod compute_types;
 
+use std::fmt::Debug;
+
 use anyhow::Result;
 use bot_player::MovementDescriptor;
 use compute_types::{ComputedDropConfig, MoveResultScore, UpcomingShapes};
-use manytris_core::{bitmap_field::BitmapField, consts, field::Pos, game_state::{GameState, LockResult, TickResult}};
+use manytris_core::{
+    bitmap_field::BitmapField,
+    consts,
+    field::Pos,
+    game_state::{GameState, LockResult, TickResult},
+};
 
 pub trait BotResults {
     fn configs(&self) -> &[ComputedDropConfig];
@@ -15,12 +22,14 @@ pub trait BotResults {
 }
 
 pub trait BotContext {
+    type ResultType: BotResults;
+
     fn compute_drop_search(
         &self,
         search_depth: usize,
         upcoming_shapes: &UpcomingShapes,
         source_state: &GameState,
-    ) -> Result<impl BotResults>;
+    ) -> Result<Self::ResultType>;
 }
 
 pub fn num_outputs(search_depth: usize) -> usize {
