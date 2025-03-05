@@ -1,6 +1,7 @@
 mod tests;
 
 use std::fmt::Debug;
+use std::time::Instant;
 
 use anyhow::{Context, Result};
 use genetic_algorithm::strategy::evolve::prelude::*;
@@ -20,7 +21,7 @@ pub fn main() -> Result<()> {
         let metal_bot = BotShaderContext::new()?;
         for _ in 0..4 {
             println!(
-                "Game length {}",
+                "Game results {:?}",
                 run_game(&bot_player::BEST_BOT_KS, 600, &metal_bot)
             );
         }
@@ -31,7 +32,7 @@ pub fn main() -> Result<()> {
         let metal_bot = BotShaderContext::new()?;
         for _ in 0..4 {
             println!(
-                "Game length {}",
+                "Game results {:?}",
                 run_game(&bot_player::BEST_BOT_KS, 600, &metal_bot)
             );
         }
@@ -117,7 +118,7 @@ where
     ) -> Option<FitnessValue> {
         let ks: ScoringKs = chromosome.genes.clone().try_into().unwrap();
         let ctx = (self.context_ctor)();
-        Some(evaluate_ks(&ks, &ctx) as FitnessValue)
+        Some(evaluate_ks(&ks, &ctx))
     }
 }
 
@@ -143,34 +144,54 @@ where
     }
 }
 
-fn evaluate_ks(ks: &ScoringKs, bot_context: &impl BotContext) -> i32 {
+fn evaluate_ks(ks: &ScoringKs, bot_context: &impl BotContext) -> FitnessValue {
     let num_games = 10;
     let mut worst_score = 600;
     for _ in 0..num_games {
-        let score = run_game(ks, worst_score, bot_context);
-        if score < worst_score {
-            worst_score = score;
+        let res = run_game(ks, worst_score, bot_context);
+        if res.game_length < worst_score {
+            worst_score = res.game_length;
         }
     }
-    worst_score
+    worst_score as FitnessValue
 }
 
-fn run_game(ks: &ScoringKs, max_game_length: i32, bot_context: &impl BotContext) -> i32 {
+#[derive(Debug)]
+struct RunGameResults {
+    game_length: usize,
+    moves_per_second: f64,
+}
+
+fn run_game(
+    ks: &ScoringKs,
+    max_game_length: usize,
+    bot_context: &impl BotContext,
+) -> RunGameResults {
     let mut shape_bag = ShapeBag::default();
     let initial_shapes = shape_bag.by_ref().take(consts::NUM_PREVIEWS * 2).collect();
     let mut gs = GameState::new(initial_shapes);
 
-    for i in 0..max_game_length {
+    let start_time = Instant::now();
+    let mut game_length = 0;
+
+    while game_length < max_game_length {
         let mr = bot_player::select_next_move(&gs, bot_context, ks, SEARCH_DEPTH).unwrap();
 
         if mr.score.is_game_over() {
-            return i;
+            break;
         }
+        game_length += 1;
+
         // Evaluate 1 move on the best result.
         (gs, _, _) = manytris_bot::evaluate_moves_cpu(&gs, &mr.moves[0..1]);
         gs.tick_mutation(vec![TickMutation::EnqueueTetromino(
             shape_bag.next().unwrap(),
         )]);
     }
-    max_game_length
+
+    let end_time = Instant::now();
+    RunGameResults {
+        game_length,
+        moves_per_second: game_length as f64 / (end_time - start_time).as_secs_f64(),
+    }
 }

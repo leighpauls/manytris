@@ -3,8 +3,6 @@ pub mod bot_player;
 pub mod bot_start_positions;
 pub mod compute_types;
 
-use std::fmt::Debug;
-
 use anyhow::Result;
 use bot_player::MovementDescriptor;
 use compute_types::{ComputedDropConfig, MoveResultScore, UpcomingShapes};
