@@ -159,6 +159,8 @@ fn evaluate_ks(ks: &ScoringKs, bot_context: &impl BotContext) -> FitnessValue {
 #[derive(Debug)]
 struct RunGameResults {
     game_length: usize,
+
+    #[allow(dead_code)]
     moves_per_second: f64,
 }
 

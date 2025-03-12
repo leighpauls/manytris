@@ -128,9 +128,9 @@ fn make_bot_move_events(game: &GameState) -> Vec<TickMutation> {
 }
 
 fn make_context() -> impl BotContext {
-    #[cfg(feature = "bot_metal")]
+    #[cfg(feature = "bot_vulkan")]
     {
-        use manytris_bot_metal::BotShaderContext;
-        return BotShaderContext::new().unwrap();
+        use manytris_bot_vulkan::VulkanBotContext;
+        VulkanBotContext::init().unwrap()
     }
 }

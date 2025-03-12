@@ -23,6 +23,5 @@ url = {workspace = true}
 uuid = {workspace = true}
 
 [features]
-bot_metal = ["bot", "dep:manytris_bot_metal"]
 bot_vulkan = ["bot", "dep:manytris_bot_vulkan"]
 bot = ["dep:manytris_bot"]

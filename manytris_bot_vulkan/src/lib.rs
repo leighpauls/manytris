@@ -365,10 +365,7 @@ impl BotContext for VulkanBotContext {
             iter::repeat_n(MoveResultScore::default(), num_outputs),
         )?;
 
-        println!("start search");
         for cur_search_depth in 0..(search_depth as u8) {
-            println!("start depth {cur_search_depth}");
-
             let search_params = SearchParams {
                 cur_search_depth,
                 upcoming_shape_idxs: upcoming_shapes.map(|s| START_POSITIONS.shape_to_idx[s]),
@@ -389,19 +386,12 @@ impl BotContext for VulkanBotContext {
                     search_params,
                 )?;
 
-                println!("make configs: {search_params:?}");
-                {
-                    let rg = search_params_buffer.read()?;
-                    println!("make configs sp buffer: {:?}", *rg);
-                }
                 self.make_configs(
                     work_group_counts,
                     search_params_buffer.clone(),
                     drop_configs_buffer.clone(),
                 )?;
             }
-
-            println!("eval moves sp: {:?}", search_params);
 
             let search_params_buffer = Buffer::from_data(
                 memory_allocator.clone(),
@@ -417,11 +407,6 @@ impl BotContext for VulkanBotContext {
                 search_params,
             )?;
 
-            {
-                let rg = search_params_buffer.read()?;
-                println!("eval moves sp buffer: {:?}", *rg);
-            }
-
             self.eval_moves(
                 work_group_counts,
                 search_params_buffer.clone(),
@@ -430,10 +415,6 @@ impl BotContext for VulkanBotContext {
                 fields_buffer.clone(),
                 scores_buffer.clone(),
             )?;
-            {
-                let rg = search_params_buffer.read()?;
-                println!("after eval moves sp buffer: {:?}", *rg);
-            }
         }
 
         let configs = drop_configs_buffer.read()?;

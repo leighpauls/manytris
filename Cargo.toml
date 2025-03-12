@@ -44,10 +44,6 @@ edition = "2021"
 manytris_bevy = {path = "manytris_bevy"}
 clap = {workspace = true}
 
-
-[target.'cfg(target_os = "macos")'.dependencies]
-manytris_bevy = {path = "manytris_bevy", features=["bot_metal"]}
-
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 manytris_bevy = {path = "manytris_bevy", features=["bot_vulkan"]}
 
