@@ -127,13 +127,13 @@ fn get_address_response_handler(
 
             "Requesting New Server...".into()
         }
-        Ok(Ready { host, port }) => {
+        Ok(Ready { host, host_port, .. }) => {
             commands.insert_resource(NetClientConfig(HostConfig {
                 host: host.clone(),
-                port,
+                port: host_port,
             }));
             next_play_state.set(PlayingState::Playing);
-            format!("server at: {host}:{port}")
+            format!("server at: {host}:{host_port}")
         }
         Err(e) => {
             state.on_error(time.elapsed());

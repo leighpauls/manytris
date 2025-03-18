@@ -12,9 +12,10 @@ derive_more = {version = "1.0.0", features = ["display", "error"]}
 enum-iterator = "2.0.0"
 enum-map = "2.7.3"
 ewebsock = "0.5.0"
+futures = "0.3.31"
 gcp_auth = "0.12.3"
 k8s-openapi = { version = "0.23.0", features = ["latest"] }
-kube = "0.97.0"
+kube = { version = "0.97.0", features = ["ws"] }
 ordered-float = "4.2.2"
 pretty_assertions = "1.4.1"
 rand = "0.8.5"
@@ -22,6 +23,7 @@ rmp-serde = "1.2.0"
 serde = { version = "1.0.197", features = ["derive"] }
 serde_json = "1.0.134"
 tokio = { version = "1.41.1", features = ["full"] }
+tokio-stream = {version="0.1.17", features=["net"]}
 tungstenite = "0.21.0"
 url = "2.5.0"
 uuid = { version = "1.10.0", features = ["js", "v4"] }

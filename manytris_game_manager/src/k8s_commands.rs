@@ -17,7 +17,7 @@ const IMAGE_NAME: &str = "registry.hub.docker.com/leighpauls/manytris:v0.5";
 const SERVER_GAME_PORT_NAME: &str = "game-port";
 
 pub struct CommandClient {
-    pods: Api<Pod>,
+    pub pods: Api<Pod>,
     nodes: Api<Node>,
 }
 
@@ -34,8 +34,12 @@ impl CommandClient {
             return Ok(GetAddressResponse::NoServer);
         };
 
-        let (host, port) = self.get_server_address(&pod).await?;
-        Ok(GetAddressResponse::Ready { host, port })
+        let (host, host_port, container_port) = self.get_server_address(&pod).await?;
+        Ok(GetAddressResponse::Ready {
+            host,
+            host_port,
+            container_port,
+        })
     }
 
     pub async fn create(&self) -> Result<CreateResponse> {
@@ -86,7 +90,7 @@ impl CommandClient {
         }
     }
 
-    async fn get_server_address(&self, pod: &Pod) -> Result<(String, u16)> {
+    async fn get_server_address(&self, pod: &Pod) -> Result<(String, u16, u16)> {
         let node_name = pod
             .spec
             .as_ref()
@@ -116,7 +120,7 @@ impl CommandClient {
             })
             .context("No external ip or hostname address found")?;
 
-        let port = pod
+        let (host_port, container_port) = pod
             .spec
             .as_ref()
             .context("Pod spec not available")?
@@ -134,14 +138,14 @@ impl CommandClient {
             .iter()
             .find_map(|p| {
                 if p.name.as_ref()? == "game-port" {
-                    p.host_port
+                    p.host_port.map(|hp| (hp, p.container_port))
                 } else {
                     None
                 }
             })
             .context("Could not find host port for game-port")?;
 
-        Ok((host, port as u16))
+        Ok((host, host_port as u16, container_port as u16))
     }
 
     async fn get_game_pod(&self) -> Result<Option<Pod>> {
