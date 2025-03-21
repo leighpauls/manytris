@@ -54,6 +54,8 @@ async fn get_address(forwarder: State<FwdState>) -> Result<Json<GetAddressRespon
     let cc = CommandClient::new().await?;
     let result = cc.read_state().await?;
 
+    println!("Get response: {result:?}");
+
     if let GetAddressResponse::Ready {
         host,
         container_port,
@@ -74,7 +76,9 @@ async fn get_address(forwarder: State<FwdState>) -> Result<Json<GetAddressRespon
 }
 
 async fn create() -> Result<Json<CreateResponse>, AppError> {
-    Ok(Json(CommandClient::new().await?.create().await?))
+    let resp = CommandClient::new().await?.create().await?;
+    println!("Create response: {resp:?}");
+    Ok(Json(resp))
 }
 
 async fn delete() -> Result<Json<DeleteResponse>, AppError> {

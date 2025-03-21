@@ -5,6 +5,7 @@ use crate::{
     window_blocks,
 };
 use bevy::prelude::*;
+use bevy::state::app::StatesPlugin;
 use bevy_mod_reqwest::ReqwestPlugin;
 
 pub fn run(cfg: ExecCommand) {
@@ -16,7 +17,7 @@ pub fn run(cfg: ExecCommand) {
     );
 
     if headless {
-        app.add_plugins(MinimalPlugins);
+        app.add_plugins((MinimalPlugins, StatesPlugin));
     } else {
         app.add_plugins((DefaultPlugins, assets::plugin))
             .add_systems(Startup, spawn_camera);

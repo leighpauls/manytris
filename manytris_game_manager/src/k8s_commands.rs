@@ -12,7 +12,8 @@ use std::env;
 const NAMESPACE: &str = "manytris";
 const GAME_POD_NAME: &str = "game-pod";
 const SERVER_CONTAINER_NAME: &str = "server";
-const IMAGE_NAME: &str = "registry.hub.docker.com/leighpauls/manytris:v0.5";
+
+const VERSION_STRING_RAW: &str = include_str!("../../docker/version.txt");
 
 const SERVER_GAME_PORT_NAME: &str = "game-port";
 
@@ -43,7 +44,7 @@ impl CommandClient {
     }
 
     pub async fn create(&self) -> Result<CreateResponse> {
-        if self.get_game_pod().await?.is_some() {
+        if let Some(existing_pod) = self.get_game_pod().await? {
             return Ok(CreateResponse::AlreadyExists);
         }
 
@@ -59,7 +60,7 @@ impl CommandClient {
             spec: Some(PodSpec {
                 containers: vec![Container {
                     name: SERVER_CONTAINER_NAME.into(),
-                    image: Some(IMAGE_NAME.into()),
+                    image: Some(dev_image_name()),
                     ports: Some(vec![ContainerPort {
                         name: Some(SERVER_GAME_PORT_NAME.into()),
                         container_port: 9989,
@@ -175,4 +176,18 @@ async fn get_client() -> Result<Client> {
         println!("Use default auth");
         Ok(Client::try_default().await?)
     }
+}
+
+fn prod_image_name() -> String {
+    let vs = version_string();
+    format!("registry.hub.docker.com/leighpauls/manytris:{vs}-prod")
+}
+
+fn dev_image_name() -> String {
+    let vs = version_string();
+    format!("registry.hub.docker.com/leighpauls/manytris:{vs}-dev")
+}
+
+fn version_string() -> String {
+    VERSION_STRING_RAW.trim().to_string()
 }
