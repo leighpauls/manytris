@@ -3,3 +3,4 @@
 *~
 *.air
 .DS_Store
+/docker/.*

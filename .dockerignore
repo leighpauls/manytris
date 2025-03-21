@@ -27,6 +27,8 @@
 **/secrets.dev.yaml
 **/values.dev.yaml
 /bin
+/docker
 /target
+/.idea
 LICENSE
 README.md
