@@ -1,5 +1,5 @@
 
-.PHONEY: clean
+.PHONEY: clean game_runtime_dev game_runtime_prod
 
 targets = .build_deps .game_runtime_deps
 
@@ -28,17 +28,25 @@ game_runtime_deps_image = leighpauls/manytris_game_deps:latest
 .game_runtime_deps: Dockerfile.game_runtime_deps
 	$(call docker_build,$<,$(game_runtime_deps_image),$@)
 
-game_runtime_image = leighpauls/manytris:dev
+game_runtime_image = leighpauls/manytris:$(1)
 
-game_runtime_args = \
+# Args: build_profile, target_dir
+define game_runtime_args
 	--build-arg build_deps_image=$(build_deps_image) \
 	--build-arg game_runtime_deps_image=$(game_runtime_deps_image) \
-	--build-arg BUILD_PROFILE=dev \
-	--build-arg TARGET_DIR=debug
+	--build-arg BUILD_PROFILE=$(1) \
+	--build-arg TARGET_DIR=$(2)
+endef
 
 runtime_dockerfile = Dockerfile.game_runtime
-game_runtime: $(runtime_dockerfile) .build_deps .game_runtime_deps
-	$(call docker_build,$(runtime_dockerfile),$(game_runtime_image),,$(game_runtime_args))
+runtime_deps = $(runtime_dockerfile) .build_deps .game_runtime_deps
+
+game_runtime_dev: $(runtime_deps)
+	$(call docker_build,$(runtime_dockerfile),$(call game_runtime_image,dev),,$(call game_runtime_args,dev,debug))
+
+game_runtime_prod: $(runtime_deps)
+	$(call docker_build,$(runtime_dockerfile),$(call game_runtime_image,prod),,$(call game_runtime_args,release,release))
+
 
 clean:
 	rm -f $(targets)
