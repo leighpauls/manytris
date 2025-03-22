@@ -45,7 +45,7 @@ game_runtime_dev: $(runtime_deps)
 game_runtime_prod: $(runtime_deps)
 	$(call docker_build,$(runtime_dockerfile),$(game_runtime_local_prod),$(call game_runtime_args,release,release))
 
-version_file_name = version.txt
+version_file_name = $(realpath ../version.txt)
 
 version = $(shell cat $(version_file_name))
 remote_dev_image = $(call game_runtime_image,$(version)-dev)

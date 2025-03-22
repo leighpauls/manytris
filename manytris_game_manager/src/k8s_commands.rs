@@ -13,7 +13,7 @@ const NAMESPACE: &str = "manytris";
 const GAME_POD_NAME: &str = "game-pod";
 const SERVER_CONTAINER_NAME: &str = "server";
 
-const VERSION_STRING_RAW: &str = include_str!("../../docker/version.txt");
+const VERSION_STRING_RAW: &str = include_str!("../../version.txt");
 
 const SERVER_GAME_PORT_NAME: &str = "game-port";
 
