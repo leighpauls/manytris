@@ -1,7 +1,6 @@
 FROM ubuntu:20.04
 
 # Install runtime dependencies
-RUN apt-get update
-RUN apt-get install -y libx11-6 libxi6 libxrandr2 libxcursor1 libvulkan1 libudev1 libasound2
+RUN apt-get update && apt-get install -y libx11-6 libxi6 libxrandr2 libxcursor1 libvulkan1 libudev1 libasound2
 RUN apt-get clean
 RUN rm -rf /var/lib/apt/lists/*

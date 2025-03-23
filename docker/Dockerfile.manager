@@ -1,0 +1,34 @@
+ARG build_deps_image
+ARG manager_deps_image
+
+FROM $build_deps_image AS builder
+
+# Set environment variables for Rust
+ENV RUST_BACKTRACE=1
+ARG BUILD_PROFILE
+ARG TARGET_DIR
+
+WORKDIR /app
+
+# Copy application files into the container
+COPY . .
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/usr/local/cargo/git/db \
+    --mount=type=cache,target=/app/target \
+    cargo build -p manytris_game_manager --bin manytris_game_manager --profile=$BUILD_PROFILE && \
+    mkdir /output && \
+    cp /app/target/$TARGET_DIR/manytris_game_manager /output/
+
+FROM $manager_deps_image AS final
+
+# Copy the built application from the builder stage
+COPY --from=builder /output/manytris_game_manager /usr/local/bin/manytris_game_manager
+
+# Expose the port that the application listens on.
+EXPOSE 3000
+
+# Set environment variables for Rust
+ENV RUST_BACKTRACE=full
+
+# What the container should run when it is started.
+CMD ["manytris_game_manager"]

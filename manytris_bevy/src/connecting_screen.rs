@@ -117,6 +117,7 @@ fn get_address_response_handler(
         Ok(NoServer) => {
             let create_server_request = client
                 .post(format!("{}/create_server", manager_cfg.manager_server))
+                .header("Content-Length", "0")
                 .build()
                 .unwrap();
             client
