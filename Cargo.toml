@@ -5,6 +5,7 @@ members = ["manytris_bevy", "manytris_bot", "manytris_bot_demo", "manytris_bot_m
 anyhow = "1.0.93"
 axum = "0.7.9"
 bevy = "0.15.0"
+bevy_framepace = "0.18.1"
 bevy_mod_reqwest = "0.18.0"
 bytemuck = {version = "1.21.0", features = ["derive"]}
 clap = { version = "4.5.7", features = ["derive"] }

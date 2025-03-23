@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use crate::cli_options::{BotConfig, ClientConfig, ExecCommand, ServerConfig};
 use crate::{
     assets, block_render, connecting_screen, field_blocks, game_container, garbage_counter, input,
@@ -6,6 +8,7 @@ use crate::{
 };
 use bevy::prelude::*;
 use bevy::state::app::StatesPlugin;
+use bevy_framepace::{FramepacePlugin, FramepaceSettings, Limiter};
 use bevy_mod_reqwest::ReqwestPlugin;
 
 pub fn run(cfg: ExecCommand) {
@@ -41,14 +44,24 @@ pub fn run(cfg: ExecCommand) {
         shape_producer::plugin,
     ));
 
+    app.add_plugins(FramepacePlugin)
+        .add_systems(PreStartup, configure_framepace);
+
+    {
+        use bevy::diagnostic::LogDiagnosticsPlugin;
+        app.add_plugins(LogDiagnosticsPlugin::default());
+
+        use bevy::diagnostic::FrameTimeDiagnosticsPlugin;
+        app.add_plugins(FrameTimeDiagnosticsPlugin);
+    }
+
     app.add_plugins(ReqwestPlugin::default());
 
     if let ExecCommand::Client(ClientConfig { manager_server, .. }) = &cfg {
         app.insert_resource(manager_server.clone());
     }
 
-    if let ExecCommand::Bot(BotConfig { server, .. }) = &cfg
-    {
+    if let ExecCommand::Bot(BotConfig { server, .. }) = &cfg {
         app.insert_resource(net_client::NetClientConfig(server.clone()));
     }
 
@@ -77,4 +90,8 @@ fn add_bot_input_plugin(_app: &mut App, _bot_millis: u64) {}
 
 fn spawn_camera(mut commands: Commands) {
     commands.spawn(Camera2d);
+}
+
+fn configure_framepace(mut settings: ResMut<FramepaceSettings>) {
+    settings.limiter = Limiter::Manual(Duration::from_secs_f32(1f32 / 60f32));
 }

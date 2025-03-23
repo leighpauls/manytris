@@ -12,6 +12,7 @@ manytris_bot_vulkan = {path = "../manytris_bot_vulkan", optional = true}
 
 anyhow = {workspace = true}
 bevy = {workspace = true}
+bevy_framepace = {workspace = true}
 bevy_mod_reqwest = {workspace = true}
 clap = {workspace = true}
 ewebsock = {workspace = true}
