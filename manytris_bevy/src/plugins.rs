@@ -3,8 +3,8 @@ use std::time::Duration;
 use crate::cli_options::{BotConfig, ClientConfig, ExecCommand, ServerConfig};
 use crate::{
     assets, block_render, connecting_screen, field_blocks, game_container, garbage_counter, input,
-    main_menu, net_client, net_listener, root, scoreboard, shape_producer, system_sets,
-    window_blocks,
+    main_menu, net_client, net_listener, root, scoreboard, shape_producer, stats_server,
+    system_sets, window_blocks,
 };
 use bevy::prelude::*;
 use bevy::state::app::StatesPlugin;
@@ -66,7 +66,8 @@ pub fn run(cfg: ExecCommand) {
     }
 
     if let ExecCommand::Server(ServerConfig { server, .. }) = &cfg {
-        app.insert_resource(net_listener::NetListenerConfig(server.clone()));
+        app.insert_resource(net_listener::NetListenerConfig(server.clone()))
+            .add_plugins(stats_server::plugin);
     }
 
     if let ExecCommand::Bot(BotConfig { bot_millis, .. }) = &cfg {

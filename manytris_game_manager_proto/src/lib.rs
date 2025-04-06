@@ -17,3 +17,10 @@ pub enum DeleteResponse {
     NotFound,
     Deleting,
 }
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct StatsServerResponse {
+    pub num_connected_players: u16,
+    pub num_active_games: u16,
+}
+

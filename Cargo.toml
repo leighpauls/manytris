@@ -3,10 +3,12 @@ members = ["manytris_bevy", "manytris_bot", "manytris_bot_demo", "manytris_bot_m
 
 [workspace.dependencies]
 anyhow = "1.0.93"
-axum = "0.7.9"
+axum = "0.8.1"
 bevy = "0.15.0"
+bevy_defer = "0.13.3"
 bevy_framepace = "0.18.1"
 bevy_mod_reqwest = "0.18.0"
+bevy_webserver = "0.1.1"
 bytemuck = {version = "1.21.0", features = ["derive"]}
 clap = { version = "4.5.7", features = ["derive"] }
 derive_more = {version = "1.0.0", features = ["display", "error"]}
@@ -34,7 +36,6 @@ vulkano-shaders = "0.34.0"
 # Mac-specific dependencies
 genetic_algorithm = "0.8.2"
 metal = "0.29.0"
-
 
 [package]
 name = "manytris"

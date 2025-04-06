@@ -212,3 +212,9 @@ fn listen_to_socket(web_socket: &mut WebSocket<TcpStream>) -> ListenResult {
     }
     NewMessage(result)
 }
+
+impl ServerListenerComponent {
+    pub fn get_num_players(&self) -> usize {
+        self.sockets.len()
+    }
+}

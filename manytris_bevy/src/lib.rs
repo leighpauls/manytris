@@ -18,6 +18,7 @@ pub mod states;
 pub mod plugins;
 pub mod cli_options;
 pub mod connecting_screen;
+pub mod stats_server;
 
 #[cfg(feature = "bot")]
 pub mod bot_input;

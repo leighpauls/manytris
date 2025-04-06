@@ -10,10 +10,13 @@ manytris_bot = {path = "../manytris_bot", optional = true}
 manytris_bot_metal = {path = "../manytris_bot_metal", optional = true}
 manytris_bot_vulkan = {path = "../manytris_bot_vulkan", optional = true}
 
+axum = {workspace = true}
 anyhow = {workspace = true}
 bevy = {workspace = true}
+bevy_defer = {workspace = true}
 bevy_framepace = {workspace = true}
 bevy_mod_reqwest = {workspace = true}
+bevy_webserver = {workspace = true}
 clap = {workspace = true}
 ewebsock = {workspace = true}
 rmp-serde = {workspace = true}

@@ -421,6 +421,10 @@ fn set_local_game_root(commands: &mut Commands, game_id: GameId) {
 }
 
 impl GameContainer {
+    pub fn get_num_active_games(&self) -> usize {
+        self.tiled_games.len()
+    }
+
     fn get_transform(&self, width_pixels: f32, height_pixels: f32) -> Transform {
         let x_scale = width_pixels / (WIDTH_IN_BLOCKS * BLOCK_SIZE);
         let y_scale = height_pixels / (HEIGHT_IN_BLOCKS * BLOCK_SIZE);
