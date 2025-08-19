@@ -22,7 +22,8 @@ pub fn run(cfg: ExecCommand) {
     if headless {
         app.add_plugins((MinimalPlugins, StatesPlugin));
     } else {
-        app.add_plugins((DefaultPlugins, assets::plugin))
+        app.add_plugins((DefaultPlugins, FramepacePlugin, assets::plugin))
+            .add_systems(PreStartup, configure_framepace)
             .add_systems(Startup, spawn_camera);
     }
 
@@ -43,9 +44,6 @@ pub fn run(cfg: ExecCommand) {
         net_listener::plugin,
         shape_producer::plugin,
     ));
-
-    app.add_plugins(FramepacePlugin)
-        .add_systems(PreStartup, configure_framepace);
 
     {
         use bevy::diagnostic::LogDiagnosticsPlugin;
