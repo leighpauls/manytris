@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use axum::http::Uri;
 use gcp_auth;
 use k8s_openapi::api::core::v1::{Container, ContainerPort, Node, Pod, PodSpec};
@@ -44,7 +44,7 @@ impl CommandClient {
     }
 
     pub async fn create(&self) -> Result<CreateResponse> {
-        if let Some(existing_pod) = self.get_game_pod().await? {
+        if let Some(_existing_pod) = self.get_game_pod().await? {
             return Ok(CreateResponse::AlreadyExists);
         }
 
@@ -60,7 +60,7 @@ impl CommandClient {
             spec: Some(PodSpec {
                 containers: vec![Container {
                     name: SERVER_CONTAINER_NAME.into(),
-                    image: Some(dev_image_name()),
+                    image: Some(game_image_name()?),
                     ports: Some(vec![ContainerPort {
                         name: Some(SERVER_GAME_PORT_NAME.into()),
                         container_port: 9989,
@@ -175,6 +175,16 @@ async fn get_client() -> Result<Client> {
     } else {
         println!("Use default auth");
         Ok(Client::try_default().await?)
+    }
+}
+
+fn game_image_name() -> Result<String> {
+    let image_type = env::var("SERVER_TYPE").context("SERVER_TYPE must be defined")?;
+    match image_type.as_str() {
+        "dev_local" => Ok("leighpauls/manytris:dev".to_string()),
+        "dev_remote" => Ok(dev_image_name()),
+        "prod" => Ok(prod_image_name()),
+        _ => Err(anyhow!("Illegal SERVER_TYPE value '{}'", image_type))
     }
 }
 

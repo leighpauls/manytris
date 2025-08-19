@@ -119,6 +119,7 @@ where
 
 impl IntoResponse for AppError {
     fn into_response(self) -> axum::response::Response {
+        println!("Error response: {}", self.0.to_string());
         (StatusCode::INTERNAL_SERVER_ERROR, self.0.to_string()).into_response()
     }
 }
