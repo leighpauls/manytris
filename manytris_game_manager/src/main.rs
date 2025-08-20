@@ -76,9 +76,9 @@ async fn get_address(forwarder: State<FwdState>) -> Result<Json<GetAddressRespon
 }
 
 async fn create() -> Result<Json<CreateResponse>, AppError> {
-    let resp = CommandClient::new().await?.create().await?;
+    let resp = CommandClient::new().await?.create().await;
     println!("Create response: {resp:?}");
-    Ok(Json(resp))
+    Ok(Json(resp?))
 }
 
 async fn delete() -> Result<Json<DeleteResponse>, AppError> {
