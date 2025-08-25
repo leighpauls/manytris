@@ -1,9 +1,10 @@
-use anyhow::Result;
+use anyhow::{bail, Context, Result};
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::routing::{get, post};
 use axum::{Json, Router};
+use futures::future;
 use k8s_openapi::api::core::v1::Pod;
 use kube::Api;
 use manytris_game_manager::port_forward::{self, Forwarder};
@@ -16,7 +17,7 @@ use std::sync::Arc;
 
 struct AppError(anyhow::Error);
 
-type FwdState = Arc<Mutex<Option<Forwarder>>>;
+type FwdState = Arc<Mutex<Option<(Forwarder, Forwarder)>>>;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -43,8 +44,11 @@ async fn main() -> anyhow::Result<()> {
     println!("Closing forwarder...");
 
     let mut fwd_lock = forwarder_arc.lock().await;
-    if let Some(forwarder) = fwd_lock.take() {
-        forwarder.exit_join().await?;
+    if let Some((game_fwd, stats_fwd)) = fwd_lock.take() {
+        future::join_all(vec![game_fwd.exit_join(), stats_fwd.exit_join()])
+            .await
+            .into_iter()
+            .collect::<Result<Vec<_>>>()?;
     }
 
     Ok(())
@@ -56,23 +60,30 @@ async fn get_address(forwarder: State<FwdState>) -> Result<Json<GetAddressRespon
 
     println!("Get response: {result:?}");
 
-    if let GetAddressResponse::Ready {
-        host,
-        container_port,
-        ..
-    } = &result
-    {
-        if host.as_str() == "docker-desktop" {
-            let local_host_port =
-                ensure_forwarding(forwarder.0.clone(), &cc.pods, *container_port).await?;
-            return Ok(Json(GetAddressResponse::Ready {
+    Ok(Json(match result {
+        GetAddressResponse::Ready {
+            host,
+            container_port,
+            container_stats_port,
+            ..
+        } if host.as_str() == "docker-desktop" => {
+            let (host_game_port, host_stats_port) = ensure_forwarding(
+                forwarder.0.clone(),
+                &cc.pods,
+                container_port,
+                container_stats_port,
+            )
+            .await?;
+            GetAddressResponse::Ready {
                 host: "localhost".to_string(),
-                host_port: local_host_port,
-                container_port: *container_port,
-            }));
+                host_port: host_game_port,
+                container_port,
+                host_stats_port,
+                container_stats_port,
+            }
         }
-    }
-    Ok(Json(result))
+        r => r,
+    }))
 }
 
 async fn create() -> Result<Json<CreateResponse>, AppError> {
@@ -89,20 +100,33 @@ async fn ensure_forwarding(
     forwarder_state: FwdState,
     pods: &Api<Pod>,
     pod_port: u16,
-) -> Result<u16> {
+    pod_stats_port: u16,
+) -> Result<(u16, u16)> {
     let mut fwd_lock = forwarder_state.lock().await;
 
-    if let Some(ref forwarder) = *fwd_lock {
+    if let Some(ref forwarders) = *fwd_lock {
         println!("forwarder already running");
-        Ok(forwarder.listener_port())
+        Ok((forwarders.0.listener_port(), forwarders.1.listener_port()))
     } else {
         println!("start new forwarder");
 
-        let new_forwarder =
-            port_forward::bind_port(pods.clone(), "game-pod".to_string(), pod_port).await?;
+        let port_vec = vec![pod_port, pod_stats_port];
+        let mut forwarders =
+            port_forward::bind_ports(pods.clone(), "game-pod".to_string(), &port_vec)
+                .await?
+                .into_iter();
 
-        let res = new_forwarder.listener_port();
-        *fwd_lock = Some(new_forwarder);
+        let game_forwarder = forwarders.next().context("Expected game forwarder")?;
+        let stats_forwarder = forwarders.next().context("Expected stats forwarder")?;
+        if forwarders.next().is_some() {
+            bail!("Expected only 2 forwarders");
+        }
+
+        let res = (
+            game_forwarder.listener_port(),
+            stats_forwarder.listener_port(),
+        );
+        *fwd_lock = Some((game_forwarder, stats_forwarder));
 
         Ok(res)
     }

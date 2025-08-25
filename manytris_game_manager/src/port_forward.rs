@@ -1,7 +1,7 @@
 use std::{error::Error, fmt::Display, net::SocketAddr};
 
 use anyhow::{Context, Result};
-use futures::{StreamExt, TryStreamExt};
+use futures::{future, StreamExt, TryStreamExt};
 use k8s_openapi::api::core::v1::Pod;
 use kube::Api;
 use tokio::{
@@ -19,7 +19,9 @@ pub struct Forwarder {
 }
 
 impl Forwarder {
-    pub fn listener_port(&self) -> u16 { self.listener_port }
+    pub fn listener_port(&self) -> u16 {
+        self.listener_port
+    }
 
     pub async fn exit_join(self) -> Result<()> {
         self.exit_sender.send(()).map_err(|_| ExitSignalError)?;
@@ -27,7 +29,6 @@ impl Forwarder {
         Ok(())
     }
 }
-
 
 #[derive(Debug)]
 struct ExitSignalError;
@@ -40,6 +41,33 @@ impl Display for ExitSignalError {
     }
 }
 
+pub async fn bind_ports(
+    pods: Api<Pod>,
+    pod_name: String,
+    pod_ports: &[u16],
+) -> Result<Vec<Forwarder>> {
+    let (ok, err): (Vec<_>, Vec<_>) = future::join_all(
+        pod_ports
+            .iter()
+            .map(|pod_port| bind_port(pods.clone(), pod_name.clone(), *pod_port)),
+    )
+    .await
+    .into_iter()
+    .partition(|r| r.is_ok());
+
+    let Some(Err(first_err)) = err.into_iter().next() else {
+        return Ok(ok.into_iter().collect::<Result<Vec<_>>>().unwrap());
+    };
+
+    // Failure, cancel any existing forwarders
+    future::join_all(ok.into_iter().filter_map(|r| Some(r.ok()?.exit_join())))
+        .await
+        .into_iter()
+        .collect::<Result<Vec<_>>>()
+        .context("Err while stopping forwarders due to partial error.")?;
+
+    return Err(first_err);
+}
 
 pub async fn bind_port(pods: Api<Pod>, pod_name: String, pod_port: u16) -> Result<Forwarder> {
     let listener = TcpListener::bind(SocketAddr::from(([127, 0, 0, 1], 0))).await?;
@@ -85,7 +113,7 @@ async fn forward_connection(
     port: u16,
     mut client_conn: impl AsyncRead + AsyncWrite + Unpin,
 ) -> anyhow::Result<()> {
-    println!("Creating forwarder");
+    println!("Creating forwarder {pod_name} {port}");
     let mut forwarder = pods.portforward(pod_name, &[port]).await?;
     let mut upstream_conn = forwarder
         .take_stream(port)

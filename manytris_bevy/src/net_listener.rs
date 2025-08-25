@@ -14,12 +14,14 @@ use std::collections::BTreeMap;
 use std::error::Error;
 use std::io;
 use std::net::{TcpListener, TcpStream};
+use std::time::{Duration, Instant};
 use tungstenite::{Message, WebSocket};
 
 #[derive(Component)]
 pub struct ServerListenerComponent {
     listener: TcpListener,
     sockets: BTreeMap<ConnectionId, WebSocket<TcpStream>>,
+    last_time_with_connection: Instant,
 }
 
 #[derive(Resource)]
@@ -55,6 +57,7 @@ fn init_listener(mut commands: Commands, config: Res<NetListenerConfig>) {
     commands.spawn(ServerListenerComponent {
         listener,
         sockets: BTreeMap::new(),
+        last_time_with_connection: Instant::now(),
     });
 }
 
@@ -102,9 +105,14 @@ fn listener_system(
             }
         }
     }
+
     remove_connections.iter().for_each(|cid| {
         listener.sockets.remove(cid);
     });
+
+    if !listener.sockets.is_empty() {
+        listener.last_time_with_connection = Instant::now();
+    }
 }
 
 fn sender_system(
@@ -216,5 +224,9 @@ fn listen_to_socket(web_socket: &mut WebSocket<TcpStream>) -> ListenResult {
 impl ServerListenerComponent {
     pub fn get_num_players(&self) -> usize {
         self.sockets.len()
+    }
+
+    pub fn get_connectionless_time(&self) -> Duration {
+        self.last_time_with_connection.elapsed()
     }
 }

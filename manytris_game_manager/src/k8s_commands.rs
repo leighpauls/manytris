@@ -1,11 +1,13 @@
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use axum::http::Uri;
 use gcp_auth;
 use k8s_openapi::api::core::v1::{Container, ContainerPort, Node, Pod, PodSpec};
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta;
 use kube::api::{DeleteParams, PostParams};
 use kube::{Api, Client, Config};
-use manytris_game_manager_proto::{CreateResponse, DeleteResponse, GetAddressResponse};
+use manytris_game_manager_proto::{
+    CreateResponse, DeleteResponse, GetAddressResponse, HeartbeatResponse, STATS_SERVER_PORT,
+};
 use std::collections::BTreeMap;
 use std::env;
 
@@ -16,6 +18,7 @@ const SERVER_CONTAINER_NAME: &str = "server";
 const VERSION_STRING_RAW: &str = include_str!("../../version.txt");
 
 const SERVER_GAME_PORT_NAME: &str = "game-port";
+const SERVER_STATS_PORT_NAME: &str = "stats-port";
 
 pub struct CommandClient {
     pub pods: Api<Pod>,
@@ -35,12 +38,7 @@ impl CommandClient {
             return Ok(GetAddressResponse::NoServer);
         };
 
-        let (host, host_port, container_port) = self.get_server_address(&pod).await?;
-        Ok(GetAddressResponse::Ready {
-            host,
-            host_port,
-            container_port,
-        })
+        return Ok(self.get_server_address(&pod).await?);
     }
 
     pub async fn create(&self) -> Result<CreateResponse> {
@@ -61,13 +59,22 @@ impl CommandClient {
                 containers: vec![Container {
                     name: SERVER_CONTAINER_NAME.into(),
                     image: Some(game_image_name()?),
-                    ports: Some(vec![ContainerPort {
-                        name: Some(SERVER_GAME_PORT_NAME.into()),
-                        container_port: 9989,
-                        host_port: Some(7001),
-                        protocol: Some("TCP".into()),
-                        host_ip: Some("0.0.0.0".into()),
-                    }]),
+                    ports: Some(vec![
+                        ContainerPort {
+                            name: Some(SERVER_GAME_PORT_NAME.into()),
+                            container_port: 9989,
+                            host_port: Some(7001),
+                            protocol: Some("TCP".into()),
+                            host_ip: Some("0.0.0.0".into()),
+                        },
+                        ContainerPort {
+                            name: Some(SERVER_STATS_PORT_NAME.into()),
+                            container_port: STATS_SERVER_PORT.into(),
+                            host_port: Some(7002),
+                            protocol: Some("TCP".into()),
+                            host_ip: Some("0.0.0.0".into()),
+                        },
+                    ]),
                     ..Default::default()
                 }],
                 ..Default::default()
@@ -91,7 +98,19 @@ impl CommandClient {
         }
     }
 
-    async fn get_server_address(&self, pod: &Pod) -> Result<(String, u16, u16)> {
+    pub async fn heartbeat(&self) -> Result<HeartbeatResponse> {
+        let host = match self.read_state().await? {
+            GetAddressResponse::NoServer => {
+                return Ok(HeartbeatResponse::NotFound);
+            }
+            GetAddressResponse::Ready { host, .. } => host,
+        };
+
+        // TODO: fetch stats server port
+        bail!("Implement me")
+    }
+
+    async fn get_server_address(&self, pod: &Pod) -> Result<GetAddressResponse> {
         let node_name = pod
             .spec
             .as_ref()
@@ -121,7 +140,7 @@ impl CommandClient {
             })
             .context("No external ip or hostname address found")?;
 
-        let (host_port, container_port) = pod
+        let ports = pod
             .spec
             .as_ref()
             .context("Pod spec not available")?
@@ -135,18 +154,31 @@ impl CommandClient {
                 }
             })
             .context("Could not find server container")?
-            .unwrap_or(&vec![])
-            .iter()
-            .find_map(|p| {
-                if p.name.as_ref()? == "game-port" {
-                    p.host_port.map(|hp| (hp, p.container_port))
-                } else {
-                    None
-                }
-            })
-            .context("Could not find host port for game-port")?;
+            .context("No ports defined on server container")?;
 
-        Ok((host, host_port as u16, container_port as u16))
+        fn find_port(ports: &[ContainerPort], port_name: &str) -> Result<(u16, u16)> {
+            ports
+                .iter()
+                .find_map(|p| {
+                    if p.name.as_ref()? == port_name {
+                        p.host_port.map(|hp| (hp as u16, p.container_port as u16))
+                    } else {
+                        None
+                    }
+                })
+                .with_context(|| format!("Could not find host port for {}", port_name))
+        }
+
+        let (host_game_port, container_game_port) = find_port(ports, SERVER_GAME_PORT_NAME)?;
+        let (host_stats_port, container_stats_port) = find_port(ports, SERVER_STATS_PORT_NAME)?;
+        
+        Ok(GetAddressResponse::Ready {
+            host,
+            host_port: host_game_port,
+            container_port: container_game_port,
+            host_stats_port,
+            container_stats_port,
+        })
     }
 
     async fn get_game_pod(&self) -> Result<Option<Pod>> {
@@ -184,7 +216,7 @@ fn game_image_name() -> Result<String> {
         "dev_local" => Ok("leighpauls/manytris:dev".to_string()),
         "dev_remote" => Ok(dev_image_name()),
         "prod" => Ok(prod_image_name()),
-        _ => Err(anyhow!("Illegal SERVER_TYPE value '{}'", image_type))
+        _ => Err(anyhow!("Illegal SERVER_TYPE value '{}'", image_type)),
     }
 }
 
