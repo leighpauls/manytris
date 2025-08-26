@@ -1,3 +1,6 @@
+use std::net::{IpAddr, Ipv4Addr};
+use std::str::FromStr;
+
 use anyhow::Result;
 use axum::http::StatusCode;
 use axum::Json;
@@ -30,8 +33,8 @@ impl IntoResponse for AppError {
 pub fn plugin(app: &mut App) {
     app.add_plugins(BevyWebServerPlugin)
         .insert_resource(WebServerConfig {
+            ip: IpAddr::V4(Ipv4Addr::from_str("0.0.0.0").unwrap()),
             port: STATS_SERVER_PORT,
-            ..default()
         })
         .route(STATS_SERVER_ROUTE, get(cur_players));
 }

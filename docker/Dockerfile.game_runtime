@@ -29,7 +29,7 @@ FROM $game_runtime_deps_image AS final
 COPY --from=builder /output/manytris /usr/local/bin/manytris
 
 # Expose the port that the application listens on.
-EXPOSE 9989
+EXPOSE 9989 9990
 
 # Set environment variables for Rust
 ENV RUST_BACKTRACE=full

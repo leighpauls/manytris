@@ -26,7 +26,7 @@ pub enum HeartbeatResponse {
     Deleted,
 }
 
-pub const STATS_SERVER_PORT: u16 = 4000;
+pub const STATS_SERVER_PORT: u16 = 9990;
 pub const STATS_SERVER_ROUTE: &str = "/stats";
 
 #[derive(Debug, Serialize, Deserialize)]
