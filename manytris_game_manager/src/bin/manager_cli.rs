@@ -14,6 +14,7 @@ pub enum ManagementCommand {
     Get,
     Create,
     Delete,
+    Heartbeat,
 }
 
 #[tokio::main]
@@ -34,6 +35,10 @@ async fn main() -> Result<()> {
         ManagementCommand::Delete => {
             let dr = cc.delete().await?;
             println!("Deleted: {dr:?}");
+        }
+        ManagementCommand::Heartbeat => {
+            let dr = cc.heartbeat().await?;
+            println!("Heartbeat: {dr:?}");
         }
     }
     Ok(())

@@ -1,4 +1,4 @@
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{anyhow, Context, Result};
 use axum::http::Uri;
 use gcp_auth;
 use k8s_openapi::api::core::v1::{Container, ContainerPort, Node, Pod, PodSpec};
@@ -6,7 +6,8 @@ use k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta;
 use kube::api::{DeleteParams, PostParams};
 use kube::{Api, Client, Config};
 use manytris_game_manager_proto::{
-    CreateResponse, DeleteResponse, GetAddressResponse, HeartbeatResponse, STATS_SERVER_PORT,
+    CreateResponse, DeleteResponse, GetAddressResponse, HeartbeatResponse, StatsServerResponse,
+    STATS_SERVER_PORT, STATS_SERVER_ROUTE,
 };
 use std::collections::BTreeMap;
 use std::env;
@@ -38,7 +39,7 @@ impl CommandClient {
             return Ok(GetAddressResponse::NoServer);
         };
 
-        return Ok(self.get_server_address(&pod).await?);
+        Ok(self.get_server_address(&pod).await?)
     }
 
     pub async fn create(&self) -> Result<CreateResponse> {
@@ -98,16 +99,36 @@ impl CommandClient {
         }
     }
 
-    pub async fn heartbeat(&self) -> Result<HeartbeatResponse> {
-        let host = match self.read_state().await? {
-            GetAddressResponse::NoServer => {
-                return Ok(HeartbeatResponse::NotFound);
-            }
-            GetAddressResponse::Ready { host, .. } => host,
+    pub async fn heartbeat(&self, addr: &GetAddressResponse) -> Result<HeartbeatResponse> {
+        let GetAddressResponse::Ready {
+            host,
+            host_stats_port,
+            ..
+        } = addr
+        else {
+            return Ok(HeartbeatResponse::NotFound);
         };
 
-        // TODO: fetch stats server port
-        bail!("Implement me")
+        let resp = reqwest::get(format!(
+            "http://{host}:{host_stats_port}{STATS_SERVER_ROUTE}"
+        ))
+        .await?;
+
+        if !resp.status().is_success() {
+            return Err(anyhow!("Failed to get stats {resp:?}"));
+        }
+
+        let stats: StatsServerResponse = serde_json::from_str(resp.text().await?.as_str())?;
+        if stats.num_connected_players > 0 {
+            Ok(HeartbeatResponse::Live)
+        } else if stats.connectionless_time_secs < 60 {
+            Ok(HeartbeatResponse::GracePeriod)
+        } else {
+            match self.delete().await? {
+                DeleteResponse::NotFound => Ok(HeartbeatResponse::NotFound),
+                DeleteResponse::Deleting => Ok(HeartbeatResponse::Deleted),
+            }
+        }
     }
 
     async fn get_server_address(&self, pod: &Pod) -> Result<GetAddressResponse> {
@@ -171,7 +192,7 @@ impl CommandClient {
 
         let (host_game_port, container_game_port) = find_port(ports, SERVER_GAME_PORT_NAME)?;
         let (host_stats_port, container_stats_port) = find_port(ports, SERVER_STATS_PORT_NAME)?;
-        
+
         Ok(GetAddressResponse::Ready {
             host,
             host_port: host_game_port,

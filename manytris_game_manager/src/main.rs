@@ -9,7 +9,9 @@ use k8s_openapi::api::core::v1::Pod;
 use kube::Api;
 use manytris_game_manager::port_forward::{self, Forwarder};
 use manytris_game_manager::CommandClient;
-use manytris_game_manager_proto::{CreateResponse, DeleteResponse, GetAddressResponse};
+use manytris_game_manager_proto::{
+    CreateResponse, DeleteResponse, GetAddressResponse, HeartbeatResponse,
+};
 use tokio::sync::Mutex;
 
 use std::env;
@@ -34,7 +36,11 @@ async fn main() -> anyhow::Result<()> {
             get(get_address).with_state(forwarder_arc.clone()),
         )
         .route("/create_server", post(create))
-        .route("/delete_server", post(delete));
+        .route("/delete_server", post(delete))
+        .route(
+            "/heartbeat",
+            post(heartbeat).with_state(forwarder_arc.clone()),
+        );
 
     let listener = tokio::net::TcpListener::bind(("0.0.0.0", port)).await?;
     axum::serve(listener, app)
@@ -60,7 +66,31 @@ async fn get_address(forwarder: State<FwdState>) -> Result<Json<GetAddressRespon
 
     println!("Get response: {result:?}");
 
-    Ok(Json(match result {
+    Ok(Json(maybe_docker_forward(result, forwarder, &cc).await?))
+}
+
+async fn create() -> Result<Json<CreateResponse>, AppError> {
+    let resp = CommandClient::new().await?.create().await;
+    println!("Create response: {resp:?}");
+    Ok(Json(resp?))
+}
+
+async fn delete() -> Result<Json<DeleteResponse>, AppError> {
+    Ok(Json(CommandClient::new().await?.delete().await?))
+}
+
+async fn heartbeat(forwarder: State<FwdState>) -> Result<Json<HeartbeatResponse>, AppError> {
+    let cc = CommandClient::new().await?;
+    let addr = maybe_docker_forward(cc.read_state().await?, forwarder, &cc).await?;
+    Ok(Json(cc.heartbeat(&addr).await?))
+}
+
+async fn maybe_docker_forward(
+    orig: GetAddressResponse,
+    forwarder: State<FwdState>,
+    cc: &CommandClient,
+) -> Result<GetAddressResponse> {
+    Ok(match orig {
         GetAddressResponse::Ready {
             host,
             container_port,
@@ -83,17 +113,7 @@ async fn get_address(forwarder: State<FwdState>) -> Result<Json<GetAddressRespon
             }
         }
         r => r,
-    }))
-}
-
-async fn create() -> Result<Json<CreateResponse>, AppError> {
-    let resp = CommandClient::new().await?.create().await;
-    println!("Create response: {resp:?}");
-    Ok(Json(resp?))
-}
-
-async fn delete() -> Result<Json<DeleteResponse>, AppError> {
-    Ok(Json(CommandClient::new().await?.delete().await?))
+    })
 }
 
 async fn ensure_forwarding(

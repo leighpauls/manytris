@@ -6,14 +6,15 @@ edition = "2021"
 [dependencies]
 manytris_game_manager_proto = {path = "../manytris_game_manager_proto"}
 
-kube = {workspace = true}
-k8s-openapi = {workspace = true}
-tokio = {workspace = true}
-clap = {workspace = true}
 anyhow = {workspace = true}
 axum = {workspace = true}
-serde = {workspace = true}
-gcp_auth = {workspace = true}
-tokio-stream = {workspace = true}
+clap = {workspace = true}
 futures = {workspace = true}
-
+gcp_auth = {workspace = true}
+k8s-openapi = {workspace = true}
+kube = {workspace = true}
+reqwest = {workspace = true}
+serde = {workspace = true}
+serde_json = {workspace = true}
+tokio = {workspace = true}
+tokio-stream = {workspace = true}
