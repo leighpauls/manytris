@@ -4073,6 +4073,7 @@ dependencies = [
  "serde_json",
  "tokio",
  "tokio-stream",
+ "tower-http",
 ]
 
 [[package]]

@@ -1,3 +1,5 @@
+#![cfg(feature = "stats_server")]
+
 use std::net::{IpAddr, Ipv4Addr};
 use std::str::FromStr;
 

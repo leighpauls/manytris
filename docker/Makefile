@@ -8,7 +8,8 @@
 	manager_dev \
 	manager_prod \
 	publish_dev \
-	publish_prod
+	publish_prod \
+	local_dev
 
 
 
@@ -98,6 +99,8 @@ define tag_and_push
 	docker tag $(1) $(2)
 	docker push --quiet $(2)
 endef
+
+local_dev: game_runtime_dev manager_dev
 
 publish_dev: game_runtime_dev manager_dev $(version_file_name)
 	$(call tag_and_push,$(game_runtime_local_dev),$(game_runtime_remote_dev_image))

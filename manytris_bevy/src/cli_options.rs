@@ -4,7 +4,8 @@ use clap::{ArgAction, Args, Parser, Subcommand};
 use serde::Serialize;
 
 // TODO: replace with "https://manytris-manager-265251374100.us-west1.run.app"
-const DEFAULT_MANAGER_SERVER: &'static str = "http://localhost:3000";
+const LOCAL_MANAGER_SERVER: &'static str = "http://localhost:3000";
+const REMOTE_MANAGER_SERVER: &'static str = "https://manytris-manager-265251374100.us-west1.run.app";
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -28,7 +29,7 @@ pub struct ClientConfig {
 
 #[derive(Args, Clone, Debug, Serialize, Resource)]
 pub struct ManagerServerConfig {
-    #[arg(long, short = 'm', default_value = DEFAULT_MANAGER_SERVER)]
+    #[arg(long, short = 'm', default_value = LOCAL_MANAGER_SERVER)]
     pub manager_server: String,
 }
 
@@ -61,7 +62,8 @@ pub fn web_client_args() -> GameArgs {
     GameArgs {
         exec_command: ExecCommand::Client(ClientConfig {
             manager_server: ManagerServerConfig {
-                manager_server: DEFAULT_MANAGER_SERVER.into(),
+                manager_server: REMOTE_MANAGER_SERVER.into(),
+                // manager_server: LOCAL_MANAGER_SERVER.into(),
             },
         }),
     }

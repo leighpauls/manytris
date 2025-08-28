@@ -1,6 +1,6 @@
 use anyhow::{bail, Context, Result};
 use axum::extract::State;
-use axum::http::StatusCode;
+use axum::http::{HeaderValue, Method, StatusCode};
 use axum::response::IntoResponse;
 use axum::routing::{get, post};
 use axum::{Json, Router};
@@ -13,6 +13,7 @@ use manytris_game_manager_proto::{
     CreateResponse, DeleteResponse, GetAddressResponse, HeartbeatResponse,
 };
 use tokio::sync::Mutex;
+use tower_http::cors::CorsLayer;
 
 use std::env;
 use std::sync::Arc;
@@ -29,6 +30,10 @@ async fn main() -> anyhow::Result<()> {
 
     let forwarder_arc: FwdState = Arc::new(Mutex::new(None));
 
+    let cors = CorsLayer::new()
+        .allow_origin("http://127.0.0.1:1334".parse::<HeaderValue>()?)
+        .allow_methods([Method::GET, Method::POST, Method::OPTIONS]);
+
     // build our application with a single route
     let app = Router::new()
         .route(
@@ -40,7 +45,8 @@ async fn main() -> anyhow::Result<()> {
         .route(
             "/heartbeat",
             post(heartbeat).with_state(forwarder_arc.clone()),
-        );
+        )
+        .layer(cors);
 
     let listener = tokio::net::TcpListener::bind(("0.0.0.0", port)).await?;
     axum::serve(listener, app)

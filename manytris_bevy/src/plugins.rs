@@ -3,8 +3,8 @@ use std::time::Duration;
 use crate::cli_options::{BotConfig, ClientConfig, ExecCommand, ServerConfig};
 use crate::{
     assets, block_render, connecting_screen, field_blocks, game_container, garbage_counter, input,
-    main_menu, net_client, net_listener, root, scoreboard, shape_producer, stats_server,
-    system_sets, window_blocks,
+    main_menu, net_client, net_listener, root, scoreboard, shape_producer, system_sets,
+    window_blocks,
 };
 use bevy::prelude::*;
 use bevy::state::app::StatesPlugin;
@@ -64,8 +64,8 @@ pub fn run(cfg: ExecCommand) {
     }
 
     if let ExecCommand::Server(ServerConfig { server, .. }) = &cfg {
-        app.insert_resource(net_listener::NetListenerConfig(server.clone()))
-            .add_plugins(stats_server::plugin);
+        app.insert_resource(net_listener::NetListenerConfig(server.clone()));
+        add_stats_server_plugin(&mut app);
     }
 
     if let ExecCommand::Bot(BotConfig { bot_millis, .. }) = &cfg {
@@ -86,6 +86,16 @@ fn add_bot_input_plugin(app: &mut App, bot_millis: u64) {
 
 #[cfg(not(feature = "bot"))]
 fn add_bot_input_plugin(_app: &mut App, _bot_millis: u64) {}
+
+#[cfg(feature = "stats_server")]
+fn add_stats_server_plugin(app: &mut App) {
+    use crate::stats_server;
+
+    app.add_plugins(stats_server::plugin);
+}
+
+#[cfg(not(feature = "stats_server"))]
+fn add_stats_server_plugin(_app: &mut App) {}
 
 fn spawn_camera(mut commands: Commands) {
     commands.spawn(Camera2d);
