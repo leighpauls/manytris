@@ -19,8 +19,12 @@ pub fn plugin(app: &mut App) {
 #[derive(Component)]
 #[require(Mesh2d, MeshMaterial2d::<ColorMaterial>)]
 pub struct BlockComponent {
-    pub pos: Pos,
     pub color: BlockColor,
+}
+
+#[derive(Component)]
+pub struct WindowBlockPos {
+    pub pos: Pos,
 }
 
 pub enum BlockColor {
@@ -44,7 +48,7 @@ fn render_blocks(
     }
 }
 
-pub fn block_bundle(pos: Pos, ra: &RenderAssets) -> impl Bundle {
+pub fn field_block_bundle(pos: Pos, ra: &RenderAssets) -> impl Bundle {
     (
         ra.block_mesh.clone(),
         Transform::from_xyz(
@@ -54,8 +58,11 @@ pub fn block_bundle(pos: Pos, ra: &RenderAssets) -> impl Bundle {
         ),
         MeshMaterial2d(ra.empty_material.clone()),
         BlockComponent {
-            pos,
             color: BlockColor::Empty,
         },
     )
+}
+
+pub fn window_block_bundle(pos: Pos, ra: &RenderAssets) -> impl Bundle {
+    (field_block_bundle(pos.clone(), ra), WindowBlockPos { pos })
 }

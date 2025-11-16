@@ -1,5 +1,5 @@
 use crate::assets::RenderAssets;
-use crate::block_render::{self, BlockColor, BlockComponent};
+use crate::block_render::{self, BlockColor, BlockComponent, WindowBlockPos};
 use crate::root::GameRoot;
 use crate::states::PlayingState;
 use crate::system_sets::UpdateSystems;
@@ -57,7 +57,8 @@ fn add_windows_to_roots(
     }
 }
 
-type BlockQuery<'world, 'state, 'a> = Query<'world, 'state, &'a mut BlockComponent>;
+type BlockQuery<'world, 'state, 'a> =
+    Query<'world, 'state, (&'a mut BlockComponent, &'a WindowBlockPos)>;
 
 fn update_preview_window_blocks(
     q_root: Query<(&GameRoot, &Children)>,
@@ -92,7 +93,7 @@ fn update_hold_window_blocks(
 fn spawn_window_block_children(parent: &mut ChildBuilder, ra: &RenderAssets) {
     for y in 0..3 {
         for x in 0..4 {
-            parent.spawn(block_render::block_bundle(Pos { x, y }, &ra));
+            parent.spawn(block_render::window_block_bundle(Pos { x, y }, &ra));
         }
     }
 }
@@ -103,9 +104,9 @@ fn update_child_block_colors(
     q_blocks: &mut BlockQuery,
 ) {
     for child in children {
-        if let Ok(mut block) = q_blocks.get_mut(*child) {
+        if let Ok((mut block, pos)) = q_blocks.get_mut(*child) {
             block.color = match preview {
-                Some(t) if t.contains(&block.pos) => {
+                Some(t) if t.contains(&pos.pos) => {
                     BlockColor::Occupied(OccupiedBlock::FromShape(t.shape))
                 }
                 _ => BlockColor::Invisible,

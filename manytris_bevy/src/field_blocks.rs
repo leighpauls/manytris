@@ -24,9 +24,13 @@ pub fn plugin(app: &mut App) {
     );
 }
 
+type BlockGrid = [[Entity; consts::W_US]; consts::H_US];
+
 #[derive(Component)]
 #[require(Transform, Visibility)]
-struct FieldComponent;
+struct FieldComponent {
+    blocks: BlockGrid,
+}
 
 fn add_field_to_roots(
     mut commands: Commands,
@@ -34,55 +38,64 @@ fn add_field_to_roots(
     ra: Res<RenderAssets>,
 ) {
     for ent in &root_ent_q {
+        let blocks: BlockGrid = std::array::from_fn(|y| {
+            std::array::from_fn(|x| {
+                commands
+                    .spawn(block_render::field_block_bundle(
+                        Pos {
+                            x: x as i32,
+                            y: y as i32,
+                        },
+                        &ra,
+                    ))
+                    .id()
+            })
+        });
+        let children: Vec<Entity> = blocks
+            .iter()
+            .flat_map(|row| row.clone().into_iter())
+            .collect();
         commands
-            .spawn(FieldComponent)
+            .spawn(FieldComponent { blocks })
             .set_parent(ent)
-            .with_children(|parent| {
-                for y in 0..consts::H {
-                    for x in 0..consts::W {
-                        parent.spawn(block_render::block_bundle(Pos { x, y }, &ra));
-                    }
-                }
-            });
+            .add_children(&children);
     }
 }
 
 fn update_field_blocks(
     q_root: Query<(&GameRoot, &Children)>,
-    q_field_children: Query<&Children, With<FieldComponent>>,
+    q_field: Query<&FieldComponent>,
     mut q_blocks: Query<&mut BlockComponent>,
 ) {
-    // Collect the game_root and associated block entities
-    let iter = q_root
-        .iter()
-        .map(|(game_root, root_children)| {
-            q_field_children
-                .iter_many(root_children)
-                .flatten()
-                .map(move |block_entity| (game_root, block_entity))
-        })
-        .flatten();
+    for (game_root, root_children) in q_root.iter() {
+        for field_component in q_field.iter_many(root_children) {
+            for (y, row) in field_component.blocks.iter().enumerate() {
+                for (x, block_entity) in row.iter().enumerate() {
+                    let mut block = q_blocks
+                        .get_mut(*block_entity)
+                        .expect("Missing block from field component");
 
-    for (game_root, block_entity) in iter {
-        let mut block = {
-            let _span = info_span!("find_block").entered();
-            q_blocks.get_mut(block_entity.clone()).unwrap()
-        };
+                    use manytris_core::consts;
+                    use BlockDisplayState::*;
 
-        let _span = info_span!("update_block_color").entered();
-        use manytris_core::consts;
-        use BlockDisplayState::*;
-        block.color = match game_root.active_game.game.get_display_state(&block.pos) {
-            Occupied(ob) => BlockColor::Occupied(ob),
-            Active(s) => BlockColor::Occupied(OccupiedBlock::FromShape(s)),
-            Shadow(s) => BlockColor::Shadow(s),
-            Empty => {
-                if block.pos.y < consts::H - consts::PREVIEW_H {
-                    BlockColor::Empty
-                } else {
-                    BlockColor::Invisible
+                    let pos = Pos {
+                        x: x as i32,
+                        y: y as i32,
+                    };
+                    block.color = match game_root.active_game.game.get_display_state(&pos) {
+                        Occupied(ob) => BlockColor::Occupied(ob),
+                        Active(s) => BlockColor::Occupied(OccupiedBlock::FromShape(s)),
+                        Shadow(s) => BlockColor::Shadow(s),
+                        Empty => {
+                            if pos.y < consts::H - consts::PREVIEW_H {
+                                BlockColor::Empty
+                            } else {
+                                BlockColor::Invisible
+                            }
+                        }
+                    };
                 }
             }
-        };
+        }
     }
 }
