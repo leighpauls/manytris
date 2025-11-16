@@ -64,8 +64,12 @@ fn update_field_blocks(
         .flatten();
 
     for (game_root, block_entity) in iter {
-        let mut block = q_blocks.get_mut(block_entity.clone()).unwrap();
+        let mut block = {
+            let _span = info_span!("find_block").entered();
+            q_blocks.get_mut(block_entity.clone()).unwrap()
+        };
 
+        let _span = info_span!("update_block_color").entered();
         use manytris_core::consts;
         use BlockDisplayState::*;
         block.color = match game_root.active_game.game.get_display_state(&block.pos) {
