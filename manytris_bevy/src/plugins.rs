@@ -6,6 +6,7 @@ use crate::{
     main_menu, net_client, net_listener, root, scoreboard, shape_producer, system_sets,
     window_blocks,
 };
+use bevy::core::TaskPoolThreadAssignmentPolicy;
 use bevy::prelude::*;
 use bevy::state::app::StatesPlugin;
 use bevy_framepace::{FramepacePlugin, FramepaceSettings, Limiter};
@@ -19,12 +20,27 @@ pub fn run(cfg: ExecCommand) {
         ExecCommand::Server(ServerConfig { headless: true, .. })
     );
 
+    let task_pool_plugin = TaskPoolPlugin {
+        task_pool_options: TaskPoolOptions {
+            compute: TaskPoolThreadAssignmentPolicy {
+                min_threads: 1,
+                max_threads: 1,
+                percent: 1.0,
+            },
+            ..default()
+        },
+    };
+
     if headless {
         app.add_plugins((MinimalPlugins, StatesPlugin));
     } else {
-        app.add_plugins((DefaultPlugins, FramepacePlugin, assets::plugin))
-            .add_systems(PreStartup, configure_framepace)
-            .add_systems(Startup, spawn_camera);
+        app.add_plugins((
+            DefaultPlugins.set(task_pool_plugin),
+            FramepacePlugin,
+            assets::plugin,
+        ))
+        .add_systems(PreStartup, configure_framepace)
+        .add_systems(Startup, spawn_camera);
     }
 
     app.add_plugins((
