@@ -4,7 +4,7 @@ members = ["manytris_bevy", "manytris_bot", "manytris_bot_demo", "manytris_bot_m
 [workspace.dependencies]
 anyhow = "1.0.93"
 axum = "0.8.1"
-bevy = "0.15.0"
+bevy = { version = "0.15.0", features = ["trace_tracy"] }
 bevy_defer = "0.13.3"
 bevy_framepace = "0.18.1"
 bevy_mod_reqwest = "0.18.0"
