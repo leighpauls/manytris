@@ -23,6 +23,7 @@ ewebsock = {workspace = true}
 rmp-serde = {workspace = true}
 serde = {workspace = true}
 serde_json = {workspace = true}
+spin_sleep = {workspace = true}
 tungstenite = {workspace = true}
 url = {workspace = true}
 uuid = {workspace = true}

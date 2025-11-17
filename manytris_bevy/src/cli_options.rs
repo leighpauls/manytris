@@ -5,7 +5,8 @@ use serde::Serialize;
 
 // TODO: replace with "https://manytris-manager-265251374100.us-west1.run.app"
 const LOCAL_MANAGER_SERVER: &'static str = "http://localhost:3000";
-const REMOTE_MANAGER_SERVER: &'static str = "https://manytris-manager-265251374100.us-west1.run.app";
+const REMOTE_MANAGER_SERVER: &'static str =
+    "https://manytris-manager-265251374100.us-west1.run.app";
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -56,6 +57,9 @@ pub struct BotConfig {
 
     #[arg(long, default_value = "1000")]
     pub bot_millis: u64,
+
+    #[clap(long, action=ArgAction::SetTrue)]
+    pub headless: bool,
 }
 
 pub fn web_client_args() -> GameArgs {
@@ -83,12 +87,19 @@ impl ExecCommand {
             Client(_) => ExecType::StandAlone,
         };
 
-        let headless = matches!(self, Server(ServerConfig { headless: true, .. }));
 
         StatesPlugin {
             initial_play_state,
             initial_exec_type,
-            headless,
+            headless: self.is_headless(),
+        }
+    }
+
+    pub fn is_headless(&self) -> bool {
+        match self {
+            ExecCommand::Server(sc) => sc.headless,
+            ExecCommand::Bot(bc) => bc.headless,
+            _ => false
         }
     }
 }

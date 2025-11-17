@@ -19,6 +19,7 @@ pub mod plugins;
 pub mod cli_options;
 pub mod connecting_screen;
 pub mod stats_server;
+pub mod tick_limiter;
 
 #[cfg(feature = "bot")]
 pub mod bot_input;

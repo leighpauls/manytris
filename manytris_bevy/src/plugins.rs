@@ -2,11 +2,10 @@ use std::time::Duration;
 
 use crate::cli_options::{BotConfig, ClientConfig, ExecCommand, ServerConfig};
 use crate::{
-    assets, block_render, connecting_screen, field_blocks, game_container, garbage_counter, input,
-    main_menu, net_client, net_listener, root, scoreboard, shape_producer, system_sets,
-    window_blocks,
+    assets, block_render, connecting_screen, field_blocks, game_container, garbage_counter, input, main_menu, net_client, net_listener, root, scoreboard, shape_producer, system_sets, tick_limiter, window_blocks
 };
 use bevy::core::TaskPoolThreadAssignmentPolicy;
+use bevy::log::LogPlugin;
 use bevy::prelude::*;
 use bevy::state::app::StatesPlugin;
 use bevy_framepace::{FramepacePlugin, FramepaceSettings, Limiter};
@@ -14,11 +13,6 @@ use bevy_mod_reqwest::ReqwestPlugin;
 
 pub fn run(cfg: ExecCommand) {
     let mut app = App::new();
-
-    let headless = matches!(
-        cfg,
-        ExecCommand::Server(ServerConfig { headless: true, .. })
-    );
 
     let task_pool_plugin = TaskPoolPlugin {
         task_pool_options: TaskPoolOptions {
@@ -31,8 +25,13 @@ pub fn run(cfg: ExecCommand) {
         },
     };
 
-    if headless {
-        app.add_plugins((MinimalPlugins, StatesPlugin));
+    if cfg.is_headless() {
+        app.add_plugins((
+            MinimalPlugins.set(task_pool_plugin),
+            StatesPlugin,
+            LogPlugin::default(),
+            tick_limiter::TickLimiterPlugin{target_fps: 15},
+        ));
     } else {
         app.add_plugins((
             DefaultPlugins.set(task_pool_plugin),
