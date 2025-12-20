@@ -30,7 +30,7 @@ pub struct ClientConfig {
 
 #[derive(Args, Clone, Debug, Serialize, Resource)]
 pub struct ManagerServerConfig {
-    #[arg(long, short = 'm', default_value = LOCAL_MANAGER_SERVER)]
+    #[arg(long, short = 'm', default_value = REMOTE_MANAGER_SERVER)]
     pub manager_server: String,
 }
 

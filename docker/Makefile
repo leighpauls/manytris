@@ -83,7 +83,7 @@ manager_dev: $(manager_dep_rules)
 	$(call docker_build,$(manager_dockerfile),$(manager_local_dev),$(call manager_args,dev,debug))
 
 manager_prod: $(manager_dep_rules)
-	$(call docker_build,$(manager_dockerfile),$(manager_local_prod),$(call manager_args,prod,prod))
+	$(call docker_build,$(manager_dockerfile),$(manager_local_prod),$(call manager_args,release,release))
 
 version_file_name = $(realpath ../version.txt)
 
