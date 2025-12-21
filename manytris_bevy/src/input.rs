@@ -1,5 +1,5 @@
 use crate::states;
-use crate::states::PlayingState;
+use crate::states::{is_unpaused, PauseState, PlayingState};
 use crate::system_sets::UpdateSystems;
 use bevy::prelude::*;
 use bevy::utils::Duration;
@@ -11,10 +11,18 @@ const REPEAT: Duration = Duration::from_millis(30);
 pub fn plugin(app: &mut App) {
     app.init_resource::<RepeatTimes>().add_systems(
         Update,
-        update_for_input
-            .in_set(UpdateSystems::Input)
-            .run_if(in_state(PlayingState::Playing))
-            .run_if(states::is_human),
+        (
+            handle_pause_input
+                .in_set(UpdateSystems::Input)
+                .run_if(in_state(PlayingState::Playing))
+                .run_if(states::is_stand_alone),
+            update_for_input
+                .in_set(UpdateSystems::Input)
+                .run_if(in_state(PlayingState::Playing))
+                .run_if(states::is_human)
+                .run_if(is_unpaused),
+        )
+            .chain(),
     );
 }
 
@@ -102,6 +110,15 @@ impl RepeatingInput {
                 }
             }
         }
+    }
+}
+
+fn handle_pause_input(keys: Res<ButtonInput<KeyCode>>, mut pause_state: ResMut<PauseState>) {
+    if keys.just_pressed(KeyCode::Escape) {
+        *pause_state = match *pause_state {
+            PauseState::Unpaused => PauseState::Paused,
+            PauseState::Paused => PauseState::Unpaused,
+        };
     }
 }
 

@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use crate::cli_options::{BotConfig, ClientConfig, ExecCommand, ServerConfig};
 use crate::{
-    assets, block_render, connecting_screen, field_blocks, game_container, garbage_counter, input, main_menu, net_client, net_listener, root, scoreboard, shape_producer, system_sets, tick_limiter, window_blocks
+    assets, block_render, connecting_screen, field_blocks, game_container, garbage_counter, input, main_menu, net_client, net_listener, pause_menu, root, scoreboard, shape_producer, system_sets, tick_limiter, window_blocks
 };
 use bevy::core::TaskPoolThreadAssignmentPolicy;
 use bevy::log::LogPlugin;
@@ -45,11 +45,15 @@ pub fn run(cfg: ExecCommand) {
     app.add_plugins((
         cfg.configure_states_plugin(),
         main_menu::plugin,
+        pause_menu::plugin,
         connecting_screen::plugin,
         root::common_plugin,
         window_blocks::plugin,
         field_blocks::plugin,
         system_sets::plugin,
+    ));
+
+    app.add_plugins((
         block_render::plugin,
         scoreboard::plugin,
         game_container::plugin,

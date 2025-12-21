@@ -2,7 +2,7 @@ use crate::game_container::LocalGameRoot;
 use crate::input::{InputEvent, InputType};
 use crate::shape_producer::ShapeProducer;
 use crate::states;
-use crate::states::PlayingState;
+use crate::states::{is_paused, is_unpaused, PauseState, PlayingState};
 use crate::system_sets::UpdateSystems;
 use bevy::prelude::*;
 use manytris_core::consts;
@@ -15,24 +15,45 @@ use uuid::Uuid;
 
 const LINES_PER_LEVEL: i32 = 10;
 
+/// Resource to store timer state when paused
+#[derive(Resource, Default)]
+struct PauseTimerState {
+    pause_time: Option<Duration>,
+    remaining_drop_time: Option<Duration>,
+    remaining_lock_time: Option<Duration>,
+}
+
 /// This plugin must be used for all executable variants.
 pub fn common_plugin(app: &mut App) {
-    app.add_systems(
-        Update,
-        update_root_tick
-            .in_set(UpdateSystems::RootTick)
-            .run_if(in_state(PlayingState::Playing)),
-    )
-    .add_event::<InputEvent>()
-    .add_event::<TickEvent>()
-    .add_event::<LockEvent>()
-    .add_systems(
-        Update,
-        produce_tick_events
-            .in_set(UpdateSystems::LocalEventProducers)
-            .run_if(in_state(PlayingState::Playing))
-            .run_if(states::is_client),
-    );
+    app.init_resource::<PauseTimerState>()
+        .add_event::<InputEvent>()
+        .add_event::<TickEvent>()
+        .add_event::<LockEvent>()
+        .add_systems(
+            Update,
+            (
+                save_timer_state_on_pause
+                    .run_if(resource_changed::<PauseState>)
+                    .run_if(is_paused)
+                    .run_if(in_state(PlayingState::Playing))
+                    .run_if(states::is_stand_alone),
+                restore_timer_state_on_unpause
+                    .run_if(resource_changed::<PauseState>)
+                    .run_if(is_unpaused)
+                    .run_if(in_state(PlayingState::Playing))
+                    .run_if(states::is_stand_alone),
+                produce_tick_events
+                    .in_set(UpdateSystems::LocalEventProducers)
+                    .run_if(in_state(PlayingState::Playing))
+                    .run_if(states::is_client)
+                    .run_if(is_unpaused),
+                update_root_tick
+                    .in_set(UpdateSystems::RootTick)
+                    .run_if(in_state(PlayingState::Playing))
+                    .run_if(is_unpaused),
+            )
+                .chain(),
+        );
 }
 
 #[derive(Component)]
@@ -292,4 +313,65 @@ fn time_to_drop(mut level: i32) -> Duration {
     let seconds = (0.8 - ((l - 1.) * 0.007)).powf(l - 1.);
     let micros = (seconds * 1_000_000.) as u64;
     Duration::from_micros(micros)
+}
+
+fn save_timer_state_on_pause(
+    time: Res<Time<Fixed>>,
+    q_root: Query<&GameRoot>,
+    local_game_root_res: Option<Res<LocalGameRoot>>,
+    mut pause_timer_state: ResMut<PauseTimerState>,
+) {
+    let Some(local_game_root) = local_game_root_res else {
+        return;
+    };
+
+    let Some(game_root) = q_root
+        .iter()
+        .find(|gr| gr.game_id == local_game_root.game_id)
+    else {
+        return;
+    };
+
+    let cur_time = time.elapsed();
+    let game = &game_root.active_game;
+
+    // Store pause time and calculate remaining times
+    pause_timer_state.pause_time = Some(cur_time);
+    pause_timer_state.remaining_drop_time = Some(game.next_drop_time.saturating_sub(cur_time));
+    pause_timer_state.remaining_lock_time = game
+        .lock_timer_target
+        .map(|target| target.saturating_sub(cur_time));
+}
+
+fn restore_timer_state_on_unpause(
+    time: Res<Time<Fixed>>,
+    mut q_root: Query<&mut GameRoot>,
+    local_game_root_res: Option<Res<LocalGameRoot>>,
+    pause_timer_state: Res<PauseTimerState>,
+) {
+    let Some(local_game_root) = local_game_root_res else {
+        return;
+    };
+
+    let Some(mut game_root) = q_root
+        .iter_mut()
+        .find(|gr| gr.game_id == local_game_root.game_id)
+    else {
+        return;
+    };
+
+    let cur_time = time.elapsed();
+    let game = &mut game_root.active_game;
+
+    // Restore timers by adding remaining time to current time
+    if let Some(remaining) = pause_timer_state.remaining_drop_time {
+        game.next_drop_time = cur_time + remaining;
+    }
+
+    if let Some(remaining) = pause_timer_state.remaining_lock_time {
+        game.lock_timer_target = Some(cur_time + remaining);
+    } else if pause_timer_state.pause_time.is_some() {
+        // If there was no lock timer when we paused, keep it None
+        game.lock_timer_target = None;
+    }
 }

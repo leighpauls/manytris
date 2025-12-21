@@ -14,6 +14,7 @@ pub mod shape_producer;
 pub mod system_sets;
 pub mod window_blocks;
 pub mod main_menu;
+pub mod pause_menu;
 pub mod states;
 pub mod plugins;
 pub mod cli_options;

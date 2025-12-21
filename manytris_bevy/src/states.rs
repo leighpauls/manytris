@@ -10,6 +10,7 @@ impl Plugin for StatesPlugin {
     fn build(&self, app: &mut App) {
         app.insert_state(self.initial_play_state);
         app.insert_resource(self.initial_exec_type);
+        app.init_resource::<PauseState>();
         if self.headless {
             app.insert_resource(Headless);
         }
@@ -21,6 +22,7 @@ pub enum PlayingState {
     MainMenu,
     Connecting,
     Playing,
+    Restarting,
 }
 
 #[derive(Resource, Debug, Copy, Clone, PartialEq, Eq)]
@@ -28,6 +30,13 @@ pub enum ExecType {
     StandAlone,
     Server,
     MultiplayerClient(MultiplayerType),
+}
+
+#[derive(Resource, Default, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PauseState {
+    #[default]
+    Unpaused,
+    Paused,
 }
 
 #[derive(Resource, Debug, Copy, Clone)]
@@ -76,4 +85,12 @@ pub fn headed(headless: Option<Res<Headless>>) -> bool {
 
 pub fn headless(headless: Option<Res<Headless>>) -> bool {
     headless.is_some()
+}
+
+pub fn is_paused(pause_state: Option<Res<PauseState>>) -> bool {
+    pause_state.map(|ps| *ps == PauseState::Paused).unwrap_or(false)
+}
+
+pub fn is_unpaused(pause_state: Option<Res<PauseState>>) -> bool {
+    !is_paused(pause_state)
 }
