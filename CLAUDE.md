@@ -34,6 +34,16 @@ cargo fmt
 cargo clippy
 ```
 
+## Testing Multiplayer Changes
+
+Use `run_local.sh` to verify changes to multiplayer features. It starts a headless server, local game manager, a bot client, and a human client all together:
+
+```bash
+./run_local.sh
+```
+
+This launches (in order): a headless game server on port 9989, the local manager on port 3000, a headless bot, and a graphical client connected to the manager. Ctrl-C cleans up all processes.
+
 ## Docker Deployment
 
 ```bash
