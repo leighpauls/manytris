@@ -1,4 +1,6 @@
-use crate::states::{is_paused, is_stand_alone, is_unpaused, PauseState, PlayingState};
+use crate::states::{
+    is_menu_closed, is_menu_open, is_stand_alone, ExecType, MenuState, PauseState, PlayingState,
+};
 use bevy::color::palettes::basic::*;
 use bevy::prelude::*;
 
@@ -7,17 +9,17 @@ pub fn plugin(app: &mut App) {
         Update,
         (
             setup_pause_ui
-                .run_if(resource_changed::<PauseState>)
-                .run_if(is_paused)
-                .run_if(is_stand_alone),
+                .run_if(resource_changed::<MenuState>)
+                .run_if(is_menu_open)
+                .run_if(states::is_human),
             update_pause_buttons
                 .run_if(in_state(PlayingState::Playing))
-                .run_if(is_paused)
-                .run_if(is_stand_alone),
+                .run_if(is_menu_open)
+                .run_if(states::is_human),
             cleanup_pause_ui
-                .run_if(resource_changed::<PauseState>)
-                .run_if(is_unpaused)
-                .run_if(is_stand_alone),
+                .run_if(resource_changed::<MenuState>)
+                .run_if(is_menu_closed)
+                .run_if(states::is_human),
         ),
     )
     .add_systems(
@@ -25,6 +27,8 @@ pub fn plugin(app: &mut App) {
         apply_restart_transition.run_if(is_stand_alone),
     );
 }
+
+use crate::states;
 
 #[derive(Component, Debug)]
 enum PauseButton {
@@ -36,7 +40,7 @@ enum PauseButton {
 #[derive(Component, Debug)]
 struct PauseMenuMarker;
 
-fn setup_pause_ui(mut commands: Commands) {
+fn setup_pause_ui(mut commands: Commands, exec_type: Res<ExecType>) {
     // Create semi-transparent overlay
     let overlay_container = commands
         .spawn((
@@ -97,19 +101,28 @@ fn setup_pause_ui(mut commands: Commands) {
             button_text_color,
         ))
         .id();
+    commands.entity(resume_button).add_children(&[resume_text]);
 
-    // Restart button
-    let restart_button = commands
-        .spawn(button_template.clone())
-        .insert(PauseButton::Restart)
-        .id();
-    let restart_text = commands
-        .spawn((
-            Text("Restart".into()),
-            button_text_font.clone(),
-            button_text_color,
-        ))
-        .id();
+    let mut buttons = vec![resume_button];
+
+    // Restart button (standalone only)
+    if *exec_type == ExecType::StandAlone {
+        let restart_button = commands
+            .spawn(button_template.clone())
+            .insert(PauseButton::Restart)
+            .id();
+        let restart_text = commands
+            .spawn((
+                Text("Restart".into()),
+                button_text_font.clone(),
+                button_text_color,
+            ))
+            .id();
+        commands
+            .entity(restart_button)
+            .add_children(&[restart_text]);
+        buttons.push(restart_button);
+    }
 
     // Quit button
     let quit_button = commands
@@ -123,15 +136,12 @@ fn setup_pause_ui(mut commands: Commands) {
             button_text_color,
         ))
         .id();
+    commands.entity(quit_button).add_children(&[quit_text]);
+    buttons.push(quit_button);
 
     commands
         .entity(button_container)
-        .add_children(&[resume_button, restart_button, quit_button]);
-    commands.entity(resume_button).add_children(&[resume_text]);
-    commands
-        .entity(restart_button)
-        .add_children(&[restart_text]);
-    commands.entity(quit_button).add_children(&[quit_text]);
+        .add_children(&buttons);
     commands
         .entity(overlay_container)
         .add_children(&[button_container]);
@@ -140,6 +150,7 @@ fn setup_pause_ui(mut commands: Commands) {
 fn update_pause_buttons(
     interaction_q: Query<(&Interaction, &PauseButton), Changed<Interaction>>,
     mut pause_state: ResMut<PauseState>,
+    mut menu_state: ResMut<MenuState>,
     mut next_play_state: ResMut<NextState<PlayingState>>,
 ) {
     for (interaction, button) in &interaction_q {
@@ -149,13 +160,16 @@ fn update_pause_buttons(
 
         match button {
             PauseButton::Resume => {
+                *menu_state = MenuState::Closed;
                 *pause_state = PauseState::Unpaused;
             }
             PauseButton::Restart => {
+                *menu_state = MenuState::Closed;
                 *pause_state = PauseState::Unpaused;
                 next_play_state.set(PlayingState::Restarting);
             }
             PauseButton::QuitToMainMenu => {
+                *menu_state = MenuState::Closed;
                 *pause_state = PauseState::Unpaused;
                 next_play_state.set(PlayingState::MainMenu);
             }

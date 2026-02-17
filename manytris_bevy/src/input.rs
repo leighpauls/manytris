@@ -1,5 +1,5 @@
 use crate::states;
-use crate::states::{is_unpaused, PauseState, PlayingState};
+use crate::states::{should_accept_game_input, ExecType, MenuState, PauseState, PlayingState};
 use crate::system_sets::UpdateSystems;
 use bevy::prelude::*;
 use bevy::utils::Duration;
@@ -12,15 +12,15 @@ pub fn plugin(app: &mut App) {
     app.init_resource::<RepeatTimes>().add_systems(
         Update,
         (
-            handle_pause_input
+            handle_menu_input
                 .in_set(UpdateSystems::Input)
                 .run_if(in_state(PlayingState::Playing))
-                .run_if(states::is_stand_alone),
+                .run_if(states::is_human),
             update_for_input
                 .in_set(UpdateSystems::Input)
                 .run_if(in_state(PlayingState::Playing))
                 .run_if(states::is_human)
-                .run_if(is_unpaused),
+                .run_if(should_accept_game_input),
         )
             .chain(),
     );
@@ -113,12 +113,25 @@ impl RepeatingInput {
     }
 }
 
-fn handle_pause_input(keys: Res<ButtonInput<KeyCode>>, mut pause_state: ResMut<PauseState>) {
+fn handle_menu_input(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut pause_state: ResMut<PauseState>,
+    mut menu_state: ResMut<MenuState>,
+    exec_type: Res<ExecType>,
+) {
     if keys.just_pressed(KeyCode::Escape) {
-        *pause_state = match *pause_state {
-            PauseState::Unpaused => PauseState::Paused,
-            PauseState::Paused => PauseState::Unpaused,
+        let new_menu = match *menu_state {
+            MenuState::Closed => MenuState::Open,
+            MenuState::Open => MenuState::Closed,
         };
+        *menu_state = new_menu;
+
+        if *exec_type == ExecType::StandAlone {
+            *pause_state = match new_menu {
+                MenuState::Open => PauseState::Paused,
+                MenuState::Closed => PauseState::Unpaused,
+            };
+        }
     }
 }
 

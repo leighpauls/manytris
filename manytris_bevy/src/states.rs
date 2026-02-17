@@ -11,6 +11,7 @@ impl Plugin for StatesPlugin {
         app.insert_state(self.initial_play_state);
         app.insert_resource(self.initial_exec_type);
         app.init_resource::<PauseState>();
+        app.init_resource::<MenuState>();
         if self.headless {
             app.insert_resource(Headless);
         }
@@ -93,4 +94,33 @@ pub fn is_paused(pause_state: Option<Res<PauseState>>) -> bool {
 
 pub fn is_unpaused(pause_state: Option<Res<PauseState>>) -> bool {
     !is_paused(pause_state)
+}
+
+#[derive(Resource, Default, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MenuState {
+    #[default]
+    Closed,
+    Open,
+}
+
+pub fn is_menu_open(menu_state: Option<Res<MenuState>>) -> bool {
+    menu_state
+        .map(|ms| *ms == MenuState::Open)
+        .unwrap_or(false)
+}
+
+pub fn is_menu_closed(menu_state: Option<Res<MenuState>>) -> bool {
+    !is_menu_open(menu_state)
+}
+
+pub fn should_accept_game_input(
+    pause_state: Option<Res<PauseState>>,
+    menu_state: Option<Res<MenuState>>,
+) -> bool {
+    !pause_state
+        .map(|ps| *ps == PauseState::Paused)
+        .unwrap_or(false)
+        && !menu_state
+            .map(|ms| *ms == MenuState::Open)
+            .unwrap_or(false)
 }
