@@ -2,8 +2,8 @@ use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use manytris_core::game_state::GameState;
 use crate::root::GameId;
+use manytris_core::game_state::GameState;
 
 #[derive(Deserialize, Serialize, Copy, Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct ConnectionId(Uuid);

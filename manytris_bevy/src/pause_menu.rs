@@ -139,9 +139,7 @@ fn setup_pause_ui(mut commands: Commands, exec_type: Res<ExecType>) {
     commands.entity(quit_button).add_children(&[quit_text]);
     buttons.push(quit_button);
 
-    commands
-        .entity(button_container)
-        .add_children(&buttons);
+    commands.entity(button_container).add_children(&buttons);
     commands
         .entity(overlay_container)
         .add_children(&[button_container]);

@@ -1,7 +1,7 @@
-use serde::{Deserialize, Serialize};
 use crate::field::Pos;
 use crate::shapes;
 use crate::shapes::{Orientation, Rot, Shape, Shift, TetrominoLocation};
+use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Deserialize, Serialize, Debug)]
 pub struct Tetromino {

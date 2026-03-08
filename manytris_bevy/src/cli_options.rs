@@ -87,7 +87,6 @@ impl ExecCommand {
             Client(_) => ExecType::StandAlone,
         };
 
-
         StatesPlugin {
             initial_play_state,
             initial_exec_type,
@@ -99,7 +98,7 @@ impl ExecCommand {
         match self {
             ExecCommand::Server(sc) => sc.headless,
             ExecCommand::Bot(bc) => bc.headless,
-            _ => false
+            _ => false,
         }
     }
 }

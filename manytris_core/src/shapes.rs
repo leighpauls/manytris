@@ -1,7 +1,7 @@
 use crate::consts::{H, PREVIEW_H, W};
 use enum_iterator::Sequence;
-use serde::{Deserialize, Serialize};
 use enum_map::Enum;
+use serde::{Deserialize, Serialize};
 
 pub const KICK_ATTEMPTS: usize = 5;
 

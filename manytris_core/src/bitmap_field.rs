@@ -1,8 +1,8 @@
 use crate::consts;
 use crate::consts::NUM_POSITIONS;
 use crate::field::Pos;
-use std::fmt::{Debug, Formatter};
 use bytemuck::{Pod, Zeroable};
+use std::fmt::{Debug, Formatter};
 
 pub const FIELD_BYTES: usize = NUM_POSITIONS / 8 + if (NUM_POSITIONS % 8) == 0 { 0 } else { 1 };
 

@@ -3,7 +3,7 @@ use bevy::prelude::*;
 pub struct StatesPlugin {
     pub initial_play_state: PlayingState,
     pub initial_exec_type: ExecType,
-    pub headless: bool
+    pub headless: bool,
 }
 
 impl Plugin for StatesPlugin {
@@ -89,7 +89,9 @@ pub fn headless(headless: Option<Res<Headless>>) -> bool {
 }
 
 pub fn is_paused(pause_state: Option<Res<PauseState>>) -> bool {
-    pause_state.map(|ps| *ps == PauseState::Paused).unwrap_or(false)
+    pause_state
+        .map(|ps| *ps == PauseState::Paused)
+        .unwrap_or(false)
 }
 
 pub fn is_unpaused(pause_state: Option<Res<PauseState>>) -> bool {
@@ -104,9 +106,7 @@ pub enum MenuState {
 }
 
 pub fn is_menu_open(menu_state: Option<Res<MenuState>>) -> bool {
-    menu_state
-        .map(|ms| *ms == MenuState::Open)
-        .unwrap_or(false)
+    menu_state.map(|ms| *ms == MenuState::Open).unwrap_or(false)
 }
 
 pub fn is_menu_closed(menu_state: Option<Res<MenuState>>) -> bool {
@@ -120,7 +120,5 @@ pub fn should_accept_game_input(
     !pause_state
         .map(|ps| *ps == PauseState::Paused)
         .unwrap_or(false)
-        && !menu_state
-            .map(|ms| *ms == MenuState::Open)
-            .unwrap_or(false)
+        && !menu_state.map(|ms| *ms == MenuState::Open).unwrap_or(false)
 }

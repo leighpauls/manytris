@@ -1,7 +1,7 @@
+use bevy::prelude::*;
 use manytris_core::consts;
 use manytris_core::field::OccupiedBlock;
 use manytris_core::shapes::Shape;
-use bevy::prelude::*;
 use std::collections::HashMap;
 
 pub const BLOCK_SIZE: f32 = 30.0;

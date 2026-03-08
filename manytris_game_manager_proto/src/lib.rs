@@ -3,7 +3,13 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Debug)]
 pub enum GetAddressResponse {
     NoServer,
-    Ready { host: String, host_port: u16, container_port: u16, host_stats_port: u16, container_stats_port: u16 },
+    Ready {
+        host: String,
+        host_port: u16,
+        container_port: u16,
+        host_stats_port: u16,
+        container_stats_port: u16,
+    },
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -35,4 +41,3 @@ pub struct StatsServerResponse {
     pub num_active_games: u16,
     pub connectionless_time_secs: u32,
 }
-

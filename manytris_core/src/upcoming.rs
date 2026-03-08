@@ -1,6 +1,6 @@
-use serde::{Deserialize, Serialize};
 use crate::consts;
 use crate::shapes::Shape;
+use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Deserialize, Serialize, Debug)]
 pub struct UpcomingTetrominios {

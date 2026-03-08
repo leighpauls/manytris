@@ -128,7 +128,9 @@ fn get_address_response_handler(
 
             "Requesting New Server...".into()
         }
-        Ok(Ready { host, host_port, .. }) => {
+        Ok(Ready {
+            host, host_port, ..
+        }) => {
             commands.insert_resource(NetClientConfig(HostConfig {
                 host: host.clone(),
                 port: host_port,
