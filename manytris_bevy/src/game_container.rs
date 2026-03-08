@@ -21,6 +21,10 @@ const WIDTH_IN_BLOCKS: f32 = 22.;
 const HORIZONTAL_TILES: isize = 4;
 const VERTICAL_TILES: isize = 3;
 
+const OPPONENT_HORIZONTAL_TILES: usize = 2;
+const OPPONENT_VERTICAL_TILES: usize = 5;
+const OPPONENT_SCALE: f32 = 1.0 / OPPONENT_VERTICAL_TILES as f32;
+
 #[derive(Component)]
 #[require(Transform, Visibility)]
 pub struct GameContainer {
@@ -388,12 +392,15 @@ fn tiled_game_transform(game_index: usize) -> Transform {
 }
 
 fn client_opponent_game_transform(opponent_index: usize) -> Transform {
-    let scale = 0.3;
+    let scale = OPPONENT_SCALE;
     let active = active_game_transform();
+    // Fill left-to-right, bottom-to-top in a 2x5 grid
+    let col = opponent_index % OPPONENT_HORIZONTAL_TILES;
+    let row = opponent_index / OPPONENT_HORIZONTAL_TILES;
     active.with_scale(Vec3::splat(scale)).with_translation(
         active.translation
-            + Vec3::X * WIDTH_IN_BLOCKS * BLOCK_SIZE
-            + Vec3::Y * HEIGHT_IN_BLOCKS * BLOCK_SIZE * scale * (opponent_index as f32),
+            + Vec3::X * WIDTH_IN_BLOCKS * BLOCK_SIZE * (1.0 + col as f32 * scale)
+            + Vec3::Y * HEIGHT_IN_BLOCKS * BLOCK_SIZE * scale * (row as f32),
     )
 }
 
@@ -430,7 +437,13 @@ impl GameContainer {
         let y_scale = height_pixels / (HEIGHT_IN_BLOCKS * BLOCK_SIZE);
 
         let scale = match self.container_type {
-            ContainerType::StandAlone | ContainerType::MultiplayerClient => x_scale.min(y_scale),
+            ContainerType::StandAlone => x_scale.min(y_scale),
+            ContainerType::MultiplayerClient => {
+                let total_width =
+                    WIDTH_IN_BLOCKS * (1.0 + OPPONENT_HORIZONTAL_TILES as f32 * OPPONENT_SCALE);
+                let x_scale = width_pixels / (total_width * BLOCK_SIZE);
+                x_scale.min(y_scale)
+            }
             ContainerType::ServerTiles => {
                 (x_scale / HORIZONTAL_TILES as f32).min(y_scale / VERTICAL_TILES as f32)
             }
