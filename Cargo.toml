@@ -40,11 +40,6 @@ vulkano-shaders = "0.34.0"
 genetic_algorithm = "0.8.2"
 metal = "0.29.0"
 
-# Workaround for objc2 v0.5.2 crash on macOS 26 Tahoe:
-# https://github.com/bevyengine/bevy/issues/19625
-[profile.dev.package.objc2]
-debug-assertions = false
-
 [package]
 name = "manytris"
 version = "0.1.0"
