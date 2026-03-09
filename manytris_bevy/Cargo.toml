@@ -32,6 +32,8 @@ uuid = {workspace = true}
 bevy = {workspace = true, features = ["trace_tracy"] }
 
 [features]
+default = ["debug_tools"]
+debug_tools = []
 bot_vulkan = ["bot", "dep:manytris_bot_vulkan"]
 bot = ["dep:manytris_bot"]
 stats_server = ["dep:axum", "dep:bevy_webserver"]
