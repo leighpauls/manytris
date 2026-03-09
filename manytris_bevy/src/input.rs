@@ -1,5 +1,7 @@
 use crate::states;
-use crate::states::{should_accept_game_input, ExecType, MenuState, PauseState, PlayingState};
+use crate::states::{
+    should_accept_game_input, ConnectionState, ExecType, MenuState, PauseState, PlayingState,
+};
 use crate::system_sets::UpdateSystems;
 use bevy::prelude::*;
 use bevy::utils::Duration;
@@ -118,8 +120,14 @@ fn handle_menu_input(
     mut pause_state: ResMut<PauseState>,
     mut menu_state: ResMut<MenuState>,
     exec_type: Res<ExecType>,
+    connection_state: Res<ConnectionState>,
 ) {
     if keys.just_pressed(KeyCode::Escape) {
+        // Block closing the menu while disconnected in multiplayer
+        if *menu_state == MenuState::Open && *connection_state == ConnectionState::Disconnected {
+            return;
+        }
+
         let new_menu = match *menu_state {
             MenuState::Closed => MenuState::Open,
             MenuState::Open => MenuState::Closed,

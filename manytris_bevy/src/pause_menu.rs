@@ -1,5 +1,6 @@
 use crate::states::{
-    is_menu_closed, is_menu_open, is_stand_alone, ExecType, MenuState, PauseState, PlayingState,
+    is_menu_closed, is_menu_open, is_stand_alone, ConnectionState, ExecType, MenuState, PauseState,
+    PlayingState,
 };
 use bevy::color::palettes::basic::*;
 use bevy::prelude::*;
@@ -10,6 +11,10 @@ pub fn plugin(app: &mut App) {
         (
             setup_pause_ui
                 .run_if(resource_changed::<MenuState>)
+                .run_if(is_menu_open)
+                .run_if(states::is_human),
+            refresh_pause_ui_on_connection_change
+                .run_if(resource_changed::<ConnectionState>)
                 .run_if(is_menu_open)
                 .run_if(states::is_human),
             update_pause_buttons
@@ -40,7 +45,19 @@ enum PauseButton {
 #[derive(Component, Debug)]
 struct PauseMenuMarker;
 
-fn setup_pause_ui(mut commands: Commands, exec_type: Res<ExecType>) {
+fn setup_pause_ui(
+    mut commands: Commands,
+    exec_type: Res<ExecType>,
+    connection_state: Res<ConnectionState>,
+) {
+    spawn_pause_ui(&mut commands, &exec_type, &connection_state);
+}
+
+fn spawn_pause_ui(
+    commands: &mut Commands,
+    exec_type: &ExecType,
+    connection_state: &ConnectionState,
+) {
     // Create semi-transparent overlay
     let overlay_container = commands
         .spawn((
@@ -89,42 +106,58 @@ fn setup_pause_ui(mut commands: Commands, exec_type: Res<ExecType>) {
     };
     let button_text_color = TextColor(BLACK.into());
 
-    // Resume button
-    let resume_button = commands
-        .spawn(button_template.clone())
-        .insert(PauseButton::Resume)
-        .id();
-    let resume_text = commands
-        .spawn((
-            Text("Resume".into()),
-            button_text_font.clone(),
-            button_text_color,
-        ))
-        .id();
-    commands.entity(resume_button).add_children(&[resume_text]);
+    let mut children = vec![];
 
-    let mut buttons = vec![resume_button];
-
-    // Restart button (standalone only)
-    if *exec_type == ExecType::StandAlone {
-        let restart_button = commands
-            .spawn(button_template.clone())
-            .insert(PauseButton::Restart)
-            .id();
-        let restart_text = commands
+    if *connection_state == ConnectionState::Disconnected {
+        // Title text for disconnection
+        let title = commands
             .spawn((
-                Text("Restart".into()),
+                Text("Connection Lost".into()),
+                TextFont {
+                    font_size: 40.0,
+                    ..default()
+                },
+                TextColor(WHITE.into()),
+            ))
+            .id();
+        children.push(title);
+    } else {
+        // Resume button
+        let resume_button = commands
+            .spawn(button_template.clone())
+            .insert(PauseButton::Resume)
+            .id();
+        let resume_text = commands
+            .spawn((
+                Text("Resume".into()),
                 button_text_font.clone(),
                 button_text_color,
             ))
             .id();
-        commands
-            .entity(restart_button)
-            .add_children(&[restart_text]);
-        buttons.push(restart_button);
+        commands.entity(resume_button).add_children(&[resume_text]);
+        children.push(resume_button);
+
+        // Restart button (standalone only)
+        if *exec_type == ExecType::StandAlone {
+            let restart_button = commands
+                .spawn(button_template.clone())
+                .insert(PauseButton::Restart)
+                .id();
+            let restart_text = commands
+                .spawn((
+                    Text("Restart".into()),
+                    button_text_font.clone(),
+                    button_text_color,
+                ))
+                .id();
+            commands
+                .entity(restart_button)
+                .add_children(&[restart_text]);
+            children.push(restart_button);
+        }
     }
 
-    // Quit button
+    // Quit button (always shown)
     let quit_button = commands
         .spawn(button_template)
         .insert(PauseButton::QuitToMainMenu)
@@ -137,12 +170,28 @@ fn setup_pause_ui(mut commands: Commands, exec_type: Res<ExecType>) {
         ))
         .id();
     commands.entity(quit_button).add_children(&[quit_text]);
-    buttons.push(quit_button);
+    children.push(quit_button);
 
-    commands.entity(button_container).add_children(&buttons);
+    commands.entity(button_container).add_children(&children);
     commands
         .entity(overlay_container)
         .add_children(&[button_container]);
+}
+
+fn refresh_pause_ui_on_connection_change(
+    mut commands: Commands,
+    exec_type: Res<ExecType>,
+    connection_state: Res<ConnectionState>,
+    pause_menu_q: Query<Entity, With<PauseMenuMarker>>,
+) {
+    // Only refresh if there's existing UI to replace
+    if pause_menu_q.is_empty() {
+        return;
+    }
+    for entity in &pause_menu_q {
+        commands.entity(entity).despawn_recursive();
+    }
+    spawn_pause_ui(&mut commands, &exec_type, &connection_state);
 }
 
 fn update_pause_buttons(

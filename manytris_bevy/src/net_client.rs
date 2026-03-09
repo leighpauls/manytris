@@ -4,7 +4,7 @@ use crate::net_game_control_manager::{ClientControlEvent, ServerControlEvent};
 use crate::net_protocol::NetMessage;
 use crate::root::TickEvent;
 use crate::states;
-use crate::states::PlayingState;
+use crate::states::{ConnectionState, MenuState, PlayingState};
 use crate::system_sets::UpdateSystems;
 use bevy::prelude::*;
 use ewebsock::{Options, WsEvent, WsMessage, WsReceiver, WsSender};
@@ -114,12 +114,19 @@ fn update_client_connect(
     mut control_events: EventWriter<ClientControlEvent>,
     config: Res<NetClientConfig>,
     local_game_root: Option<Res<LocalGameRoot>>,
+    mut connection_state: ResMut<ConnectionState>,
+    mut menu_state: ResMut<MenuState>,
     #[cfg(feature = "debug_tools")] mut debug_delay: Option<ResMut<DebugReconnectDelay>>,
 ) {
     let mut new_net = None;
     match &net.as_ref() {
         ClientNetComponent::NotConnected => {
             virtual_time.pause();
+
+            if *connection_state != ConnectionState::Disconnected {
+                *connection_state = ConnectionState::Disconnected;
+                *menu_state = MenuState::Open;
+            }
 
             #[cfg(feature = "debug_tools")]
             if let Some(ref mut delay) = debug_delay {
@@ -143,6 +150,11 @@ fn update_client_connect(
         }
         ClientNetComponent::Connecting(sr_pair) => {
             virtual_time.pause();
+
+            if *connection_state != ConnectionState::Disconnected {
+                *connection_state = ConnectionState::Disconnected;
+                *menu_state = MenuState::Open;
+            }
 
             match sr_pair.lock().unwrap().1.try_recv() {
                 Some(WsEvent::Opened) => {
@@ -170,6 +182,11 @@ fn update_client_connect(
         }
         ClientNetComponent::Connected(_) => {
             virtual_time.unpause();
+
+            if *connection_state != ConnectionState::Connected {
+                *connection_state = ConnectionState::Connected;
+                *menu_state = MenuState::Closed;
+            }
         }
     }
 

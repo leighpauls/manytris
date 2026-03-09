@@ -12,6 +12,7 @@ impl Plugin for StatesPlugin {
         app.insert_resource(self.initial_exec_type);
         app.init_resource::<PauseState>();
         app.init_resource::<MenuState>();
+        app.init_resource::<ConnectionState>();
         if self.headless {
             app.insert_resource(Headless);
         }
@@ -103,6 +104,22 @@ pub enum MenuState {
     #[default]
     Closed,
     Open,
+}
+
+#[derive(Resource, Default, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ConnectionState {
+    #[default]
+    Connected,
+    Disconnected,
+}
+
+pub fn is_connected(conn: Option<Res<ConnectionState>>) -> bool {
+    conn.map(|c| *c == ConnectionState::Connected)
+        .unwrap_or(true)
+}
+
+pub fn is_disconnected(conn: Option<Res<ConnectionState>>) -> bool {
+    !is_connected(conn)
 }
 
 pub fn is_menu_open(menu_state: Option<Res<MenuState>>) -> bool {
