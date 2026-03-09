@@ -492,12 +492,10 @@ impl GameContainer {
         root_xform_q: &mut Query<&mut Transform>,
         xform_function: fn(usize) -> Transform,
     ) {
-        // find the entity
-        let idx = self
-            .tiled_games
-            .iter()
-            .position(|(gid, _)| gid == &game_id)
-            .unwrap();
+        // find the entity if it exists
+        let Some(idx) = self.tiled_games.iter().position(|(gid, _)| gid == &game_id) else {
+            return;
+        };
 
         // Remove and despawn
         let (_, entity) = self.tiled_games.remove(idx);
