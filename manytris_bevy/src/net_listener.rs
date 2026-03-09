@@ -1,7 +1,8 @@
 use crate::cli_options::HostConfig;
 use crate::game_container::GameContainer;
 use crate::net_game_control_manager::{
-    ConnectionId, ConnectionTarget, ReceiveControlEventFromClient, SendControlEventToClient,
+    ConnectionDropped, ConnectionId, ConnectionTarget, ReceiveControlEventFromClient,
+    SendControlEventToClient,
 };
 use crate::net_listener::ListenResult::{DropSocket, NewMessage};
 use crate::net_protocol::NetMessage;
@@ -46,7 +47,8 @@ pub fn plugin(app: &mut App) {
             .run_if(states::is_server),
     )
     .add_event::<SendControlEventToClient>()
-    .add_event::<ReceiveControlEventFromClient>();
+    .add_event::<ReceiveControlEventFromClient>()
+    .add_event::<ConnectionDropped>();
 }
 
 fn init_listener(mut commands: Commands, config: Res<NetListenerConfig>) {
@@ -72,6 +74,7 @@ fn listener_system(
     mut listener_q: Query<&mut ServerListenerComponent>,
     mut tick_writer: EventWriter<TickEvent>,
     mut control_writer: EventWriter<ReceiveControlEventFromClient>,
+    mut disconnect_writer: EventWriter<ConnectionDropped>,
 ) {
     let listener = listener_q.single_mut().into_inner();
 
@@ -106,9 +109,10 @@ fn listener_system(
         }
     }
 
-    remove_connections.iter().for_each(|cid| {
+    for cid in &remove_connections {
         listener.sockets.remove(cid);
-    });
+        disconnect_writer.send(ConnectionDropped(*cid));
+    }
 
     if !listener.sockets.is_empty() {
         listener.last_time_with_connection = Instant::now();

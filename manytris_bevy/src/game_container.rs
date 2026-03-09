@@ -1,8 +1,8 @@
 use crate::assets::BLOCK_SIZE;
 use crate::input::{InputEvent, InputType};
 use crate::net_game_control_manager::{
-    ClientControlEvent, ConnectionId, ConnectionTarget, ReceiveControlEventFromClient,
-    SendControlEventToClient, ServerControlEvent,
+    ClientControlEvent, ConnectionDropped, ConnectionId, ConnectionTarget,
+    ReceiveControlEventFromClient, SendControlEventToClient, ServerControlEvent,
 };
 use crate::root::{GameId, GameRoot, LockEvent};
 use crate::shape_producer::ShapeProducer;
@@ -12,7 +12,7 @@ use bevy::prelude::*;
 use bevy::window::{WindowResized, WindowResolution};
 use manytris_core::game_state::{GameState, LockResult};
 use std::collections::BTreeMap;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 const HEIGHT_IN_BLOCKS: f32 = 26.;
 const PADDING_BLOCKS: f32 = 2.;
@@ -30,6 +30,7 @@ const OPPONENT_SCALE: f32 = 1.0 / OPPONENT_VERTICAL_TILES as f32;
 pub struct GameContainer {
     tiled_games: Vec<(GameId, Entity)>,
     connection_map: BTreeMap<GameId, ConnectionId>,
+    disconnected_games: BTreeMap<GameId, Instant>,
     container_type: ContainerType,
 }
 
@@ -61,7 +62,13 @@ pub fn plugin(app: &mut App) {
         (
             respond_to_resize.run_if(states::headed),
             accept_server_control_events.run_if(states::is_multiplayer_client),
-            (accept_client_control_events, accept_server_lock_events).run_if(states::is_server),
+            (
+                accept_client_control_events,
+                accept_server_lock_events,
+                handle_disconnections,
+                expire_disconnected_games,
+            )
+                .run_if(states::is_server),
             accept_standalone_loss.run_if(states::is_stand_alone),
         )
             .run_if(in_state(PlayingState::Playing)),
@@ -412,6 +419,7 @@ fn spawn_container(
     let game_container = GameContainer {
         tiled_games: default(),
         connection_map: default(),
+        disconnected_games: default(),
         container_type,
     };
     let transform = if let Some(r) = resolution {
@@ -510,6 +518,69 @@ impl GameContainer {
         let (_, entity) = self.tiled_games.iter().find(|(gid, _)| gid == &game_id)?;
         let connection_id = self.connection_map.get_mut(&game_id)?;
         *connection_id = new_connection_id;
+        self.disconnected_games.remove(&game_id);
         Some(*entity)
+    }
+
+    fn games_for_connection(&self, connection_id: &ConnectionId) -> Vec<GameId> {
+        self.connection_map
+            .iter()
+            .filter(|(_, cid)| *cid == connection_id)
+            .map(|(gid, _)| *gid)
+            .collect()
+    }
+}
+
+const DISCONNECT_TIMEOUT: Duration = Duration::from_secs(15);
+
+fn handle_disconnections(
+    mut q_container: Query<&mut GameContainer>,
+    mut disconnect_events: EventReader<ConnectionDropped>,
+) {
+    let mut container = q_container.single_mut();
+    for ConnectionDropped(connection_id) in disconnect_events.read() {
+        let game_ids = container.games_for_connection(connection_id);
+        let now = Instant::now();
+        for game_id in game_ids {
+            println!(
+                "Client disconnected, game {game_id:?} has {DISCONNECT_TIMEOUT:?} to reconnect"
+            );
+            container.disconnected_games.insert(game_id, now);
+        }
+    }
+}
+
+fn expire_disconnected_games(
+    mut commands: Commands,
+    mut q_container: Query<&mut GameContainer>,
+    mut control_event_writer: EventWriter<SendControlEventToClient>,
+    mut root_xform_q: Query<&mut Transform>,
+) {
+    let mut container = q_container.single_mut();
+    let now = Instant::now();
+
+    let expired: Vec<GameId> = container
+        .disconnected_games
+        .iter()
+        .filter(|(_, disconnect_time)| now.duration_since(**disconnect_time) >= DISCONNECT_TIMEOUT)
+        .map(|(game_id, _)| *game_id)
+        .collect();
+
+    for game_id in expired {
+        println!("Removing expired disconnected game {game_id:?}");
+        container.disconnected_games.remove(&game_id);
+        container.connection_map.remove(&game_id);
+
+        control_event_writer.send(SendControlEventToClient {
+            event: ServerControlEvent::ClientGameOver(game_id),
+            to_connection: ConnectionTarget::AllExcept(None),
+        });
+
+        container.remove_game(
+            &mut commands,
+            game_id,
+            &mut root_xform_q,
+            tiled_game_transform,
+        );
     }
 }

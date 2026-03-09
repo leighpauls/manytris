@@ -49,3 +49,6 @@ impl ConnectionId {
         Self(Uuid::new_v4())
     }
 }
+
+#[derive(Event)]
+pub struct ConnectionDropped(pub ConnectionId);
