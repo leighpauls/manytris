@@ -2,6 +2,7 @@
 set -euo pipefail
 
 NUM_BOTS=1
+CARGO_PROFILE=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -9,8 +10,12 @@ while [[ $# -gt 0 ]]; do
             NUM_BOTS="$2"
             shift 2
             ;;
+        --release)
+            CARGO_PROFILE="--release"
+            shift
+            ;;
         *)
-            echo "Usage: $0 [--num-bots N]"
+            echo "Usage: $0 [--num-bots N] [--release]"
             exit 1
             ;;
     esac
@@ -36,22 +41,22 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 echo "Starting game server..."
-cargo run -- server --headless --port 9989 &
+cargo run $CARGO_PROFILE -- server --headless --port 9989 &
 PIDS+=($!)
 
 sleep 1
 
 echo "Starting local manager..."
-cargo run -p manytris_game_manager --bin local_manager &
+cargo run $CARGO_PROFILE -p manytris_game_manager --bin local_manager &
 PIDS+=($!)
 
 for i in $(seq 1 "$NUM_BOTS"); do
     echo "Starting bot $i..."
-    cargo run -- bot --host localhost --port 9989 --headless &
+    cargo run $CARGO_PROFILE -- bot --host localhost --port 9989 --headless &
     PIDS+=($!)
 done
 
 sleep 1
 
 echo "Starting client..."
-cargo run -- client --manager-server http://localhost:3000
+cargo run $CARGO_PROFILE -- client --manager-server http://localhost:3000
