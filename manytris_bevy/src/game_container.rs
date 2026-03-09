@@ -135,6 +135,7 @@ fn accept_server_control_events(
     exec_type: Res<ExecType>,
     mut root_xforms_q: Query<&mut Transform>,
     mut game_root_q: Query<&mut GameRoot>,
+    mut app_exit: EventWriter<AppExit>,
 ) {
     let mut local_game_id = local_game_root_res.map(|lgr| lgr.game_id);
     let (container_entity, mut game_container) = q_container.single_mut();
@@ -195,7 +196,7 @@ fn accept_server_control_events(
             }
             ServerControlEvent::ClientGameOver(game_id) => {
                 if local_game_id == Some(*game_id) {
-                    exit_game_safely(exec_type.as_ref(), &mut play_state);
+                    exit_game_safely(exec_type.as_ref(), &mut play_state, &mut app_exit);
                 } else {
                     game_container.remove_game(
                         &mut commands,
@@ -206,17 +207,21 @@ fn accept_server_control_events(
                 }
             }
             ServerControlEvent::RejectConnectionRequest => {
-                exit_game_safely(exec_type.as_ref(), &mut play_state);
+                exit_game_safely(exec_type.as_ref(), &mut play_state, &mut app_exit);
             }
         }
     }
 }
 
-fn exit_game_safely(exec_type: &ExecType, play_state: &mut ResMut<NextState<PlayingState>>) {
+fn exit_game_safely(
+    exec_type: &ExecType,
+    play_state: &mut ResMut<NextState<PlayingState>>,
+    app_exit: &mut EventWriter<AppExit>,
+) {
     println!("Game over!");
     match *exec_type {
         ExecType::MultiplayerClient(MultiplayerType::Bot) => {
-            panic!("TODO: exit safely");
+            app_exit.send(AppExit::Success);
         }
         ExecType::MultiplayerClient(MultiplayerType::Human) => {
             play_state.set(PlayingState::MainMenu);
