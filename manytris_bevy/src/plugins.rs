@@ -66,7 +66,7 @@ pub fn run(cfg: ExecCommand) {
         shape_producer::plugin,
     ));
 
-    {
+    if false {
         use bevy::diagnostic::LogDiagnosticsPlugin;
         app.add_plugins(LogDiagnosticsPlugin::default());
 

@@ -218,16 +218,17 @@ fn exit_game_safely(
     play_state: &mut ResMut<NextState<PlayingState>>,
     app_exit: &mut EventWriter<AppExit>,
 ) {
-    println!("Game over!");
     match *exec_type {
         ExecType::MultiplayerClient(MultiplayerType::Bot) => {
+            println!("Game over: Exiting!");
             app_exit.send(AppExit::Success);
         }
         ExecType::MultiplayerClient(MultiplayerType::Human) => {
+            println!("Opponent game over!");
             play_state.set(PlayingState::MainMenu);
         }
         _ => {
-            panic!("Unexpected");
+            panic!("Unexpected game over!");
         }
     }
 }
