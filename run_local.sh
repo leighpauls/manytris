@@ -28,6 +28,12 @@ fi
 
 export RUST_BACKTRACE=1
 
+prefix_output() {
+    local label="$1"
+    local color="$2"
+    sed -u "s/^/\x1b[${color}m[${label}]\x1b[0m /"
+}
+
 PIDS=()
 
 cleanup() {
@@ -41,22 +47,22 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 echo "Starting game server..."
-cargo run $CARGO_PROFILE -- server --headless --port 9989 &
+cargo run $CARGO_PROFILE -- server --headless --port 9989 2>&1 | prefix_output "server" "32" &
 PIDS+=($!)
 
 sleep 1
 
 echo "Starting local manager..."
-cargo run $CARGO_PROFILE -p manytris_game_manager --bin local_manager &
+cargo run $CARGO_PROFILE -p manytris_game_manager --bin local_manager 2>&1 | prefix_output "manager" "34" &
 PIDS+=($!)
 
 for i in $(seq 1 "$NUM_BOTS"); do
     echo "Starting bot $i..."
-    cargo run $CARGO_PROFILE -- bot --host localhost --port 9989 --headless &
+    cargo run $CARGO_PROFILE -- bot --host localhost --port 9989 --headless 2>&1 | prefix_output "bot-$i" "33" &
     PIDS+=($!)
 done
 
 sleep 1
 
 echo "Starting client..."
-cargo run $CARGO_PROFILE -- client --manager-server http://localhost:3000
+cargo run $CARGO_PROFILE -- client --manager-server http://localhost:3000 2>&1 | prefix_output "client" "35"
